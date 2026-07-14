@@ -1,0 +1,52 @@
+x-networks: &default-networks
+  networks:
+    - glance
+    - cloudflare_tunnel
+
+
+services:
+  git-sync:
+    # <<: *default-networks
+    container_name: git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2
+    restart: unless-stopped
+    command: [
+      "git-sync",
+      "--repo=https://github.com/mspiegel31/glance-config.git",
+      "--ref=main",
+      "--root=/opt/glance-configs",
+      "--link=config",
+      "--period=2s",
+      "--username=mspiegel31",
+      "--add-user",
+      ]
+    environment:
+      - GITSYNC_PASSWORD=${GITSYNC_PASSWORD}
+    volumes:
+      - /opt/glance-configs:/opt/glance-configs
+    user: "1000:1000"
+
+  glance:
+    <<: *default-networks
+
+    container_name: glance
+    image: glanceapp/glance
+    restart: unless-stopped
+    volumes:
+      - /opt/glance/config:/app/config
+      - /opt/glance/assets:/app/assets
+      # Optionally, also mount docker socket if you want to use the docker containers widget
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - 8080:8080
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+    depends_on:
+      - git-sync
+
+networks:
+  glance:
+  cloudflare_tunnel:
+    external: true
