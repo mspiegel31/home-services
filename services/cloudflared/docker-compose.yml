@@ -3,8 +3,6 @@ services:
     container_name: cloudflared
     image: cloudflare/cloudflared:latest
     restart: always
-    env_file:
-      - stack.env
     environment:
       - TUNNEL_TOKEN=$TUNNEL_TOKEN
     command: tunnel --no-autoupdate run
