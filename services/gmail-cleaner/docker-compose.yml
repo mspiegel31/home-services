@@ -1,0 +1,44 @@
+# Define default network for all services
+x-networks: &default-networks
+  networks:
+    - gmail-cleaner
+    - cloudflare_tunnel
+
+services:
+  credential-init:
+    image: busybox
+    volumes:
+      - credentials:/mnt
+    environment:
+      - CREDENTIALS_JSON=${CREDENTIALS_JSON}
+    command: sh -c 'printf "%s" "$$CREDENTIALS_JSON" > /mnt/credentials.json'
+    restart: no
+
+  gmail-cleaner:
+    <<: *default-networks
+    image: ghcr.io/gururagavendra/gmail-cleaner:latest
+    pull_policy: always
+    ports:
+      - "8766:8766"
+      - "8767:8767"
+    volumes:
+      - credentials:/app/credentials-volume:ro
+      - gmail-data:/app/data
+    environment:
+      - WEB_AUTH=true
+      - OAUTH_HOST=gmail-cleaner-auth.electricgarage.net
+      - OAUTH_EXTERNAL_PORT=443
+      - CREDENTIALS_FILE=/app/credentials-volume/credentials.json
+    restart: unless-stopped
+    depends_on:
+      credential-init:
+        condition: service_completed_successfully
+
+volumes:
+  credentials:
+  gmail-data:
+
+networks:
+  gmail-cleaner:
+  cloudflare_tunnel:
+    external: true
