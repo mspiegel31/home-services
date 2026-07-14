@@ -1,0 +1,116 @@
+
+# Define default network for all services
+x-networks: &default-networks
+  networks:
+    - openwebui
+    - cloudflare_tunnel
+
+
+services:
+  searxng:
+    <<: *default-networks
+    container_name: searxng
+    image: searxng/searxng:latest
+    ports:
+      - "8081:8080"
+    volumes:
+      - /mnt/configs/searxng/searxng:/etc/searxng:rw
+    environment:
+      SEARXNG_HOSTNAME: "localhost:8080/"
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+  tika:
+    <<: *default-networks
+    image: apache/tika:latest-full
+    container_name: tika
+    restart: unless-stopped
+    ports:
+      - "9998:9998"
+  openwebui:
+    <<: *default-networks
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: openwebui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL}
+      - OPENAI_API_HOST=${OPENAI_API_HOST}
+      - WEBUI_AUTH_ENABLED=${WEBUI_AUTH_ENABLED}
+      - WEBUI_ADMIN_PASSWORD=${WEBUI_ADMIN_PASSWORD}
+      - ENABLE_RAG_WEB_SEARCH=${ENABLE_RAG_WEB_SEARCH}
+      - RAG_WEB_SEARCH_ENGINE=${RAG_WEB_SEARCH_ENGINE}
+      - RAG_WEB_SEARCH_RESULT_COUNT=${RAG_WEB_SEARCH_RESULT_COUNT}
+      - RAG_WEB_SEARCH_CONCURRENT_REQUESTS=${RAG_WEB_SEARCH_CONCURRENT_REQUESTS}
+      - SEARXNG_QUERY_URL=${SEARXNG_QUERY_URL}
+      - SEARXNG_SECRET=${SEARXNG_SECRET}
+      - CORS_ALLOW_ORIGIN=${CORS_ALLOW_ORIGIN}
+    volumes:
+      - data:/app/backend/data  # For persistence of conversations and settings
+  mcpo:
+    <<: *default-networks
+    container_name: mcpo
+    image: ghcr.io/open-webui/mcpo:main
+    # ports:
+    #   - "8001:8000"
+    environment:
+      - MCPO_PORT=8000
+      - MCPO_API_KEY=${MCPO_API_KEY:-your-secret-api-key}
+    command: ["--config", "/app/config/mcp-config.json", "--port", "8000"]
+    configs:
+      - source: mcp_config
+        target: /app/config/mcp-config.json
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "http://localhost:8000/openapi.json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+configs:
+  mcp_config:
+    content: |
+      {
+        "mcpServers": {
+          "context7": {
+            "command": "npx",
+            "args": ["-y", "@upstash/context7-mcp"],
+            "description": "Context7 MCP - Up-to-date code documentation for any library"
+          },
+          "youtube-transcript": {
+            "command": "uvx",
+            "args": [
+              "--from",
+              "git+https://github.com/jkawamoto/mcp-youtube-transcript",
+              "mcp-youtube-transcript"
+            ]
+          },
+          "karakeep": {
+            "command": "npx",
+            "args": [
+              "@karakeep/mcp"
+            ],
+            "env": {
+              "KARAKEEP_API_ADDR": "${KARAKEEP_API_ADDR}",
+              "KARAKEEP_API_KEY": "${KARAKEEP_API_KEY}"
+            }
+          }
+        }
+      }
+
+volumes:
+  data:
+
+networks:
+  openwebui:
+  cloudflare_tunnel:
+    external: true
