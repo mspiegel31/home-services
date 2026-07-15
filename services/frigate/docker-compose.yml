@@ -1,4 +1,54 @@
 services:
+  git-sync:
+    container_name: frigate-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2
+    restart: unless-stopped
+    command: [
+      "git-sync",
+      "--repo=https://github.com/mspiegel31/home-services.git",
+      "--ref=main",
+      "--root=/git",
+      "--link=current",
+      "--period=2s",
+      "--username=mspiegel31",
+      "--add-user",
+      "--http-bind=:1234",
+      ]
+    environment:
+      - GITSYNC_PASSWORD=${GITSYNC_PASSWORD}
+    volumes:
+      - /opt/home-services:/git
+    user: "1000:1000"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/frigate/config/config.yml && curl -f http://localhost:1234/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  config-renderer:
+    container_name: frigate-config-renderer
+    image: alpine:latest
+    restart: unless-stopped
+    command: ["sh", "/git/current/services/frigate/render-config.sh"]
+    volumes:
+      - /opt/home-services:/git:ro
+      - /home/cloud/frigate/config:/config
+    environment:
+      - FRIGATE_MQTT_USER=${FRIGATE_MQTT_USER}
+      - FRIGATE_MQTT_PASSWORD=${FRIGATE_MQTT_PASSWORD}
+      - FRIGATE_GENAI_API_KEY=${FRIGATE_GENAI_API_KEY}
+    depends_on:
+      git-sync:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /config/config.yml"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+
+
   scrypted:
     container_name: scrypted
     restart: unless-stopped
@@ -15,8 +65,7 @@ services:
       # - /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket
 
       # Default volume for the Scrypted database. Typically should not be changed.
-      # The volume will be placed relative to this docker-compose.yml.
-      - scrypted-db:/server/volume
+      - /mnt/tank/container-configs/scrypted:/server/volume
     devices: [
       # uncomment the common systems devices to pass
       # them through to docker.
@@ -66,9 +115,7 @@ services:
       - "8555:8555/udp" # WebRTC over udp
     environment:
       FRIGATE_RTSP_PASSWORD: "${FRIGATE_RTSP_PASSWORD}"
-      OPENAI_BASE_URL: "https://openrouter.ai/api/v1"
-
-volumes:
-  config:
-  nvr:
-  scrypted-db:
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL}"
+    depends_on:
+      config-renderer:
+        condition: service_healthy

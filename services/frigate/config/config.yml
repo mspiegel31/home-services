@@ -1,0 +1,366 @@
+version: 0.17-0
+mqtt:
+  host: 192.168.1.125
+  user: ${FRIGATE_MQTT_USER}
+  password: ${FRIGATE_MQTT_PASSWORD}
+
+# logger:
+#   logs:
+#     frigate.record: debug
+
+ffmpeg:
+  input_args: preset-rtsp-restream
+  # hwaccel_args: preset-vaapi
+
+classification:
+  bird:
+    enabled: true
+
+  custom:
+    Garage Door Open:
+      enabled: true
+      name: Garage Door Open
+      threshold: 0.8
+      state_config:
+        cameras:
+          garageInterior:
+            crop:
+              - 0.2523362583092194
+              - 0.3730658137539321
+              - 0.5140265449473134
+              - 0.7219861959380574
+        motion: true
+lpr:
+  enabled: true
+  device: CPU
+
+genai:
+  provider: openai
+  api_key: 
+    ${FRIGATE_GENAI_API_KEY}
+  model: google/gemini-2.0-flash-lite-001
+semantic_search:
+  enabled: true
+  reindex: false
+  model_size: small
+
+detectors:
+  ov:
+    type: openvino
+    device: CPU
+
+model:
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  path: /openvino-model/ssdlite_mobilenet_v2.xml
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+
+record:
+  enabled: true
+  alerts:
+    retain:
+      days: 30
+      # mode: motion
+  detections:
+    retain:
+      days: 5
+      # mode: motion
+  continuous:
+    days: 3
+  motion:
+    days: 3
+go2rtc:
+  streams:
+    avi:
+      # - rtsp://192.168.1.113:45027/d7568b558ff85c13 # low res, h.264
+      - rtsp://192.168.1.113:45027/df557439fba2bb23 # high res, h.265
+      # NOTE: the main, hi-res stream from this monitor is h265.  It might make more sense to just use the low-res, h264 stream if transcoding with CPU is too resource-intensive
+      # - ffmpeg:baby#video=h264#hardware
+    david:
+      - rtsp://192.168.1.113:38505/6e34a856f9e01a4c # high res
+    backyard:
+      - rtsp://192.168.1.113:39485/827cd4df143c5205
+    garageExterior:
+      - rtsp://192.168.1.113:33381/eae290c4951c64df
+    garageInterior:
+      - rtsp://192.168.1.113:38759/e2e028a3aaaf3102
+    doorbell:
+      - rtsp://192.168.1.113:45647/49ecec052266a0ab
+
+# amcrest rtsp: https://support.amcrest.com/hc/en-us/articles/360052688931-Accessing-Amcrest-Products-Using-RTSP
+# amcrest smart home: https://support.amcrest.com/hc/en-us/articles/11104159070093-Accessing-Amcrest-Smart-Home-Products-Using-RTSP
+cameras:
+  avi:
+    enabled: true
+    # detect:
+    #   enabled: false
+    audio:
+      enabled: false
+      min_volume: 225
+      # see https://github.com/blakeblackshear/frigate/blob/dev/audio-labelmap.txt for reference
+      listen:
+        - speech
+        - yell
+        - scream
+        - child_singing
+        - humming
+        - groan
+        - wheeze
+        - sneeze
+        - sniff
+        - throat_clearing
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-aac
+      inputs:
+        - path: rtsp://192.168.1.113:45027/d7568b558ff85c13
+          roles:
+            - detect
+
+        - path: rtsp://127.0.0.1:8554/avi
+          roles:
+            - record
+            - audio
+    motion:
+      threshold: 60
+      contour_area: 30
+      improve_contrast: 'true'
+      mask: 0.627,0.244,0.624,0.531,0.901,0.538,0.902,0.276
+    zones:
+      bed:
+        coordinates: 0.438,0.718,0.474,0.971,0.909,0.943,0.819,0.665
+        loitering_time: 0
+        objects: person
+        inertia: 3
+    review:
+      alerts:
+        required_zones: bed
+      detections:
+        required_zones: bed
+    objects:
+      genai:
+        enabled: false
+  david:
+    enabled: true
+    record:
+      enabled: true
+      continuous:
+        days: .5
+      motion:
+        days: .5
+
+    # detect:
+    #   enabled: false
+    audio:
+      enabled: false
+      min_volume: 225
+      # see https://github.com/blakeblackshear/frigate/blob/dev/audio-labelmap.txt for reference
+      listen:
+        - speech
+        - yell
+        - scream
+        - child_singing
+        - humming
+        - groan
+        - wheeze
+        - sneeze
+        - sniff
+        - throat_clearing
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-aac
+      inputs:
+        - path: rtsp://192.168.1.113:38505/157f1f82573d07fb
+          roles:
+            - detect
+
+        - path: rtsp://127.0.0.1:8554/david
+          roles:
+            - record
+            - audio
+    motion:
+      threshold: 60
+      contour_area: 30
+      improve_contrast: 'true'
+      mask: 0.627,0.244,0.624,0.531,0.901,0.538,0.902,0.276
+    zones:
+      bed:
+        coordinates: 0.438,0.718,0.474,0.971,0.909,0.943,0.819,0.665
+        loitering_time: 0
+        objects: person
+        inertia: 3
+    review:
+      alerts:
+        required_zones: bed
+      detections:
+        required_zones: bed
+    objects:
+      genai:
+        enabled: false
+  backyard:
+    enabled: true
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-aac
+      inputs:
+        - path: rtsp://192.168.1.113:39485/cf54704ff70fb398
+          roles:
+            - detect
+        - path: rtsp://127.0.0.1:8554/backyard
+          roles:
+            - record
+            - audio
+
+    zones:
+      patio:
+        coordinates: 0.109,0.392,0.069,0.996,0.897,0.999,0.981,0.747,0.644,0.282
+        loitering_time: 0
+        objects: person
+    objects:
+      filters:
+        person:
+          mask:
+            - 0.362,0.214,0.692,0.248,0.826,0.435,0.698,0.798,0.439,0.718,0.323,0.406
+            - 0.504,0.015,0.997,0.348,1,0.122,0.955,0.003,0.695,0.003,0.567,0.005
+      genai:
+        enabled: false
+    motion:
+      threshold: 40
+      contour_area: 20
+      improve_contrast: 'true'
+      mask:
+        - 0.571,0,0.536,0.266,0.643,0.308,0.641,0.006
+        - 0.759,0.032,0.76,0.077,0.957,0.074,0.958,0.029
+    review:
+      detections: {}
+  garageInterior:
+    enabled: true
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-aac
+      inputs:
+        - path: rtsp://192.168.1.113:38759/2851b76e166e74a2
+          roles:
+            - detect
+        - path: rtsp://127.0.0.1:8554/garageInterior
+          roles:
+            - record
+            - audio
+    # onvif:
+    #   host: 192.168.20.54
+    #   port: 80
+    #   user: admin
+    motion:
+      threshold: 40
+      contour_area: 20
+      improve_contrast: 'true'
+      mask: 0.756,0.043,0.96,0.043,0.962,0.077,0.759,0.078
+    objects:
+      genai:
+        enabled: false
+  garageExterior:
+    enabled: true
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-aac
+      inputs:
+        - path: rtsp://192.168.1.113:33381/7fb6c834b031c79d
+          roles:
+            - detect
+        - path: rtsp://127.0.0.1:8554/garageExterior
+          roles:
+            - record
+            - audio
+    zones:
+      Driveway:
+        coordinates: 
+          0.021,0.987,0.22,0.438,0.393,0.32,0.427,0.237,0.557,0.233,0.561,0.333,0.701,0.427,0.883,0.996
+        loitering_time: 0
+      Sidewalk-1:
+        coordinates: 0,0.344,0.008,0.378,0.398,0.307,0.416,0.262
+        loitering_time: 0
+      Sidewalk-2:
+        coordinates: 0.562,0.276,0.567,0.308,0.992,0.385,0.989,0.327
+        loitering_time: 0
+    objects:
+      genai:
+        enabled: true
+  doorbell:
+    enabled: true
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-aac
+      inputs:
+        - path: rtsp://192.168.1.113:45647/db59c28b80df3348
+          roles:
+            - detect
+        - path: rtsp://127.0.0.1:8554/doorbell
+          roles:
+            - record
+            - audio
+    zones:
+      Patio:
+        coordinates: 0.479,0.89,0.513,0.997,0.973,0.997,1,0.891,0.768,0.783
+        loitering_time: 0
+      Garage_Walkway:
+        coordinates: 0.829,0.806,0.971,0.87,0.999,0.816,0.997,0.695
+        loitering_time: 0
+      Walkup:
+        coordinates: 0.475,0.882,0.58,0.848,0.461,0.642,0.415,0.649
+        loitering_time: 0
+      Sidewalk:
+        coordinates: 0.346,0.607,0.627,0.578,0.634,0.602,0.354,0.635
+        loitering_time: 0
+    review:
+      alerts:
+        required_zones: Patio
+      detections:
+        required_zones:
+          - Patio
+          - Walkup
+    motion:
+      threshold: 25
+      contour_area: 30
+      improve_contrast: 'true'
+      mask:
+        - 0.691,0.003,0.692,0.042,0.989,0.048,0.991,0
+        - 0.887,0.561,0.945,0.367,0.753,0.37,0.681,0.54,0.684,0.598
+    objects:
+      genai:
+        enabled: false
+camera_groups:
+  Garage:
+    order: 2
+    icon: LuCar
+    cameras:
+      - garageExterior
+      - garageInterior
+  Outdoors:
+    order: 1
+    icon: LuCarrot
+    cameras:
+      - backyard
+      - doorbell
+      - garageExterior
+  Kids:
+    order: 3
+    icon: LuBaby
+    cameras:
+      - david
+      - avi
+detect:
+  enabled: true
+objects:
+  genai:
+    enabled: true
+    object_prompts:
+      person: Examine the main person in these images. What are they doing and 
+        what might their actions suggest about their intent (e.g., approaching a
+        door, leaving an area, standing still)? Do not describe the surroundings
+        or static details.
+      car: Observe the primary vehicle in these images. Focus on its movement, 
+        direction, or purpose (e.g., parking, approaching, circling). If it's a 
+        delivery vehicle, mention the company.
+
