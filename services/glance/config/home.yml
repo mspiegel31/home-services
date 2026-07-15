@@ -15,7 +15,6 @@
             links:
               - *openwebui
               - *karakeep
-              - *babybuddy
               - *dzcCalendar
 
 

@@ -33,11 +33,6 @@ shared-search: &shared-search
       shortcut: "!w"
       url: https://en.wikipedia.org/wiki/Special:Search?search={QUERY}
 
-babybuddy: &babybuddy
-  title: Baby Buddy
-  icon: auto-invert sh:baby-buddy
-  url: https://babybuddy.electricgarage.net
-
 openwebui: &openwebui
   title: Open WebUI
   icon: auto-invert sh:open-webui
