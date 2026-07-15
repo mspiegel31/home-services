@@ -1,0 +1,42 @@
+# configuration docs
+
+server:
+  assets-path: /git/current/services/glance/assets
+  proxied: true
+
+auth:
+  secret-key: ${AUTH_SECRET_KEY}
+  users:
+    admin:
+      password: ${ADMIN_PASSWORD}
+
+theme:
+  # Nord theme with charcoal gray background
+  background-color: 220 16 18
+  primary-color: 210 50 60
+  positive-color: 150 40 60
+  negative-color: 0 65 65
+  # Note: assets are cached by the browser, changes to the CSS file
+  # will not be reflected until the browser cache is cleared (Ctrl+F5)
+  custom-css-file: /assets/user.css
+  presets:
+    gruvbox-dark:
+      background-color: 0 0 16
+      primary-color: 43 59 81
+      positive-color: 61 66 44
+      negative-color: 6 96 59
+
+    zebra:
+      light: true
+      background-color: 0 0 95
+      primary-color: 0 0 10
+      negative-color: 0 90 50
+
+# Import shared library with YAML anchors
+$include: shared-library.yml
+
+pages:
+  # It's not necessary to create a new file for each page and include it, you can simply
+  # put its contents here, though multiple pages are easier to manage when separated
+  - $include: home.yml
+  - $include: homelab.yml

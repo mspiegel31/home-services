@@ -1,0 +1,82 @@
+# Shared YAML Library for Glance Configuration
+# This file contains reusable YAML anchors that can be referenced across multiple configuration files
+# Documentation: https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/
+
+# =============================================================================
+# SHARED SEARCH WIDGET CONFIGURATION
+# =============================================================================
+# This anchor defines a common search widget configuration that can be reused
+# across multiple pages to provide consistent search functionality
+
+shared-search: &shared-search
+  type: search
+  search-engine: perplexity
+  autofocus: true
+  new-tab: true
+  bangs:
+    - title: Google
+      shortcut: "!g"
+      url: https://www.google.com/search?q={QUERY}
+    - title: YouTube
+      shortcut: "!yt"
+      url: https://www.youtube.com/results?search_query={QUERY}
+    - title: GitHub
+      shortcut: "!gh"
+      url: https://github.com/search?q={QUERY}
+    - title: Reddit
+      shortcut: "!r"
+      url: https://www.reddit.com/search/?q={QUERY}
+    - title: Stack Overflow
+      shortcut: "!so"
+      url: https://stackoverflow.com/search?q={QUERY}
+    - title: Wikipedia
+      shortcut: "!w"
+      url: https://en.wikipedia.org/wiki/Special:Search?search={QUERY}
+
+babybuddy: &babybuddy
+  title: Baby Buddy
+  icon: auto-invert sh:baby-buddy
+  url: https://babybuddy.electricgarage.net
+
+openwebui: &openwebui
+  title: Open WebUI
+  icon: auto-invert sh:open-webui
+  url: https://openwebui.electricgarage.net
+
+karakeep: &karakeep
+  title: Karakeep
+  icon: auto-invert sh:karakeep
+  url: https://karakeep.electricgarage.net
+
+dzcCalendar: &dzcCalendar
+  title: Detroit Zen Center Calendar
+  icon: auto-invert mdi:calendar
+  url: https://www.detroitzencenter.org/events-registration
+# =============================================================================
+# FUTURE SHARED CONFIGURATIONS
+# =============================================================================
+# Add more shared configurations here as needed. Examples:
+
+# Common Reddit widget properties
+# shared-reddit-props: &shared-reddit-props
+#   type: reddit
+#   show-thumbnails: true
+#   collapse-after: 6
+
+# Common RSS feed configuration
+# shared-rss-props: &shared-rss-props
+#   type: rss
+#   cache: 12h
+#   style: detailed-list
+#   collapse-after: 3
+
+# Common bookmark styling
+# shared-bookmark-props: &shared-bookmark-props
+#   type: bookmarks
+#   style: grid
+
+# Common release widget configuration
+# shared-releases-props: &shared-releases-props
+#   type: releases
+#   show-source-icon: true
+#   cache: 5m

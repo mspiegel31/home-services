@@ -12,19 +12,27 @@ services:
     restart: unless-stopped
     command: [
       "git-sync",
-      "--repo=https://github.com/mspiegel31/glance-config.git",
+      "--repo=https://github.com/mspiegel31/home-services.git",
       "--ref=main",
-      "--root=/opt/glance-configs",
-      "--link=config",
+      "--root=/git",
+      "--link=current",
       "--period=2s",
       "--username=mspiegel31",
       "--add-user",
+      # exposes git-sync readiness after the first successful sync
+      "--http-bind=:1234",
       ]
     environment:
       - GITSYNC_PASSWORD=${GITSYNC_PASSWORD}
     volumes:
-      - /opt/glance-configs:/opt/glance-configs
+      - /opt/glance-configs:/git
     user: "1000:1000"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/glance/config/glance.yml && curl -f http://localhost:1234/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   glance:
     <<: *default-networks
@@ -32,9 +40,9 @@ services:
     container_name: glance
     image: glanceapp/glance
     restart: unless-stopped
+    entrypoint: ["/app/glance", "--config", "/git/current/services/glance/config/glance.yml"]
     volumes:
-      - /opt/glance/config:/app/config
-      - /opt/glance/assets:/app/assets
+      - /opt/glance-configs:/git:ro
       # Optionally, also mount docker socket if you want to use the docker containers widget
       # - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
@@ -44,7 +52,8 @@ services:
       - AUTH_SECRET_KEY=${AUTH_SECRET_KEY}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     depends_on:
-      - git-sync
+      git-sync:
+        condition: service_healthy
 
 networks:
   glance:

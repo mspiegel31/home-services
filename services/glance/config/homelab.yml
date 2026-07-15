@@ -1,0 +1,118 @@
+# icons docs: https://github.com/glanceapp/glance/blob/main/docs/configuration.md#icons
+- name: Homelab
+  head-widgets:
+    - *shared-search
+  columns:
+   - size: full
+     widgets:
+      - type: split-column
+        widgets:
+        - type: bookmarks
+          title: Applications
+          groups:
+            - title: NVR
+              links:
+                - title: Frigate
+                  icon: auto-invert sh:frigate
+                  url: https://192.168.1.113:8971
+                - title: Scrypted
+                  icon: auto-invert https://cdn.jsdelivr.net/gh/selfhst/icons/webp/scrypted.webp
+                  url: https://192.168.1.113:10443
+            - title: Photos
+              links:
+                - title: Immich
+                  icon: auto-invert sh:immich
+                  url: https://immich.electricgarage.net
+            - title: Finance
+              links:
+                - title: Actual Budget
+                  icon: auto-invert sh:actual-budget
+                  url: https://192.168.1.39:5006/budget
+            - title: Media
+              links:
+                - title: HiFiberry
+                  icon: auto-invert di:hifiberry
+                  url: http://192.168.1.10
+                - title: Automatic Ripping Machine
+                  icon: auto-invert https://cdn.jsdelivr.net/gh/selfhst/icons/webp/automatic-ripping-machine.webp
+                  url: http://192.168.1.14:8080/
+                - title: Picard
+                  icon: auto-invert mdi:brain
+                  url: http://192.168.1.115:5800/
+                - title: Filebot
+                  icon: auto-invert sh:filebrowser-quantum
+                  url: http://192.168.1.115:5454/
+            - title: Kiddo
+              links:
+                - *babybuddy
+        - type: bookmarks
+          title: Infrastructure
+          groups:
+            - title: Quick Links
+              links:
+                - title: Router
+                  icon: auto-invert sh:ubiquiti-unifi
+                  url: https://192.168.1.1
+
+                - title: Basic Infrastructure
+                  icon: auto-invert sh:portainer
+                  url: https://192.168.1.51:9443/
+
+                - title: Home Assistant
+                  icon: auto-invert sh:home-assistant
+                  url: http://192.168.1.72:8123
+
+            - title: Hosts
+              links:
+                - title: Main System
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.40:8006/
+
+                - title: Backup System
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.42:8006/
+
+                - title: Alt System
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.49:8006/
+
+
+                - title: NVR host
+                  icon: auto-invert sh:frigate
+                  url: https://192.168.1.116:9090
+
+            - title: Backups
+              links:
+              - title: PBS - Main
+                icon: auto-invert sh:proxmox
+                url: https://192.168.1.46:8007/
+              
+              - title: PBS - Backup
+                icon: auto-invert sh:proxmox
+                url: https://192.168.1.31:8007/
+ 
+            - title: Data
+              color: 200 90 80
+              links:
+                - title: TrueNAS - Main
+                  icon: auto-invert sh:truenas-core
+                  url: https://192.168.1.39
+                - title: TrueNAS - Backup
+                  icon: auto-invert sh:truenas-core
+                  url: https://192.168.1.37
+
+            - title: KVM
+              color: 270 90 80  # Neon Purple
+              links:
+              - title: Pi-KVM
+                icon: auto-invert sh:pikvm
+                url: http://pikvm.localdomain/
+
+              - title: GPU Rig KVM
+                icon: auto-invert sh:pikvm
+                url: https://192.168.1.94
+
+              - title: NAS KVM
+                icon: auto-invert mdi:monitor-eye
+                url: http://192.168.1.11
+                

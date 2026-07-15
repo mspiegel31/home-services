@@ -1,0 +1,175 @@
+# TODO: look into spinning up a git-sync container to pull this config form somewhere
+- name: Home
+  # Optionally, if you only have a single page you can hide the desktop navigation for a cleaner look
+  # hide-desktop-navigation: true
+  head-widgets:
+    - *shared-search
+
+  columns:
+    - size: small
+      widgets:
+      - type: bookmarks
+        title: Bookmarks
+        groups:
+          - title: Tools
+            links:
+              - *openwebui
+              - *karakeep
+              - *babybuddy
+              - *dzcCalendar
+
+
+          - title: Work - Infrastructure Apps
+            color: 210 70 50 # Blue
+            links:
+              - title: AWS account switcher
+                icon: auto-invert sh:amazon-web-services
+                url: ${AWS_SSO_URL}
+
+              - title: Infrastructure Docs
+                icon: mdi:book
+                url: ${INFRA_DOCS_URL}
+
+              - title: Grafana
+                icon: auto-invert sh:grafana
+                url: ${GRAFANA_URL}
+
+              - title: Spacelift
+                icon: auto-invert si:rocket
+                url: ${SPACELIFT_URL}
+
+              - title: Codefresh - GitOps
+                icon: auto-invert si:codefresh
+                url: ${CODEFRESH_URL}
+
+              - title: Wiz
+                icon: auto-invert mdi:security
+                url: ${WIZ_URL}
+      - type: group
+        widgets:
+        - type: releases
+          title: Work
+          show-source-icon: true
+          cache: 5m
+          token: ${GITHUB_TOKEN}
+          repositories:
+            # work
+            - codefresh-io/gitops-runtime-helm
+            - backstage/backstage
+            - kubernetes/kubernetes
+
+        - type: releases
+          title: self-hosted
+          show-source-icon: true
+          cache: 5m
+          repositories:
+            # personal
+            - immich-app/immich
+            - open-webui/open-webui
+            - glanceapp/glance
+            - blakeblackshear/frigate
+            - koush/scrypted
+            - karakeep-app/karakeep
+
+    - size: full
+      widgets:
+        - type: group
+          widgets:
+            - type: rss
+              limit: 10
+              style: detailed-list
+              collapse-after: 3
+              cache: 12h
+              feeds:
+                - url: https://www.kubernetes.dev/blog/index.xml
+                  title: K8s.dev
+                - url: https://lwkd.info/feed.xml
+                  title: Last week in Kubernetes Development
+                - url: https://posthog.com/rss.xml
+                  title: PostHog
+                - url: https://karpathy.bearblog.dev/feed/
+                  title: Andrej Karpathy
+                - url: https://randsinrepose.com/feed/
+                  title: Rands in Repose - Leadership
+                - url: https://selfh.st/rss/
+                  title: selfh.st
+                ### Design RSS feeds - these came with glances!
+                # - url: https://ciechanow.ski/atom.xml
+                # - url: https://www.joshwcomeau.com/rss.xml
+                #   # title: Josh Comeau
+                # - url: https://samwho.dev/rss.xml
+                # - url: https://ishadeed.com/feed.xml
+                #   title: Ahmad Shadeed
+                ###
+            - type: lobsters
+            - type: hacker-news
+            - type: bookmarks
+              title: Interesting Reads
+              groups:
+                - links:
+                  - title: PostHog Blog
+                    icon: auto-invert mdi:book
+                    url: https://posthog.com/blog
+
+                  - title: Dizzy Zone
+                    icon: auto-invert mdi:book
+                    url: https://dizzy.zone/posts/
+        - type: group
+          widgets:
+            - type: reddit
+              subreddit: localllama
+              show-thumbnails: true
+
+            - type: reddit
+              subreddit: selfhosted
+              show-thumbnails: true
+
+            - type: reddit
+              subreddit: homelab
+              show-thumbnails: true
+
+            - type: reddit
+              subreddit: kubernetes
+              show-thumbnails: true
+            
+            - type: reddit
+              subreddit: technology
+              show-thumbnails: true
+    - size: small
+      widgets:
+        - type: clock
+          hour-format: 12h
+          timezones:
+            - timezone: Europe/Warsaw
+              label: Poland
+            - timezone: Asia/Jerusalem
+              label: Israel
+            - timezone: Asia/Bangkok
+              label: Thailand
+        - type: group
+          widgets:
+          - type: weather
+            title: DTW
+            location: Detroit, United States
+            units: imperial # alternatively "imperial"
+            hour-format: 12h # alternatively "24h"
+            # Optionally hide the location from being displayed in the widget
+            # hide-location: true
+
+          - type: weather
+            title: 5D5
+            location: Northport, United States
+            units: imperial # alternatively "imperial"
+            hour-format: 12h # alternatively "24h"
+
+          - type: weather
+            title: WAW
+            location: Waw, Poland
+            units: imperial # alternatively "imperial"
+            hour-format: 12h # alternatively "24h"
+
+          - type: weather
+            title: TLV
+            location: Tel Aviv, Israel
+            units: imperial # alternatively "imperial"
+            hour-format: 12h # alternatively "24h"
