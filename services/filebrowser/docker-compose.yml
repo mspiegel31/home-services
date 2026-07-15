@@ -4,7 +4,7 @@ services:
     container_name: filebrowser
     ports:
       - "8900:80"
-    # user: "1000:1000"
+    user: "1000:1000"
     environment:
       - FILEBROWSER_CONFIG=data/config.yaml
       - TZ=America/Detroit
