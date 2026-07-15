@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   arm-ripper:
     image: automaticrippingmachine/automatic-ripping-machine:latest
