@@ -1,7 +1,15 @@
 name: immich
 
+# Define default network for all services
+x-networks: &default-networks
+  networks:
+    - immich
+    - cloudflare_tunnel
+
+
 services:
   immich-server:
+    <<: *default-networks
     container_name: immich_server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
     # extends:
@@ -36,12 +44,9 @@ services:
     restart: always
     healthcheck:
       disable: false
-    networks:
-      - cloudflare_tunnel
-      - immich
-      
 
   immich-machine-learning:
+    <<: *default-networks
     container_name: immich_machine_learning
     # For hardware acceleration, add one of -[armnn, cuda, openvino] to the image tag.
     # Example tag: ${IMMICH_VERSION:-release}-cuda
@@ -59,21 +64,17 @@ services:
     restart: always
     healthcheck:
       disable: false
-    networks:
-      - cloudflare_tunnel
-      - immich
 
   redis:
+    <<: *default-networks
     container_name: immich_redis
     image: docker.io/redis:6.2-alpine@sha256:2ba50e1ac3a0ea17b736ce9db2b0a9f6f8b85d4c27d5f5accc6a416d8f42c6d5
     healthcheck:
       test: redis-cli ping || exit 1
     restart: always
-    networks:
-      - cloudflare_tunnel
-      - immich
 
   database:
+    <<: *default-networks
     container_name: immich_postgres
     image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
     shm_size: 128mb
@@ -86,9 +87,6 @@ services:
       # Do not edit the next line. If you want to change the database storage location on your system, edit the value of DB_DATA_LOCATION in the .env file
       - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
     restart: always
-    networks:
-      - cloudflare_tunnel
-      - immich
 
 volumes:
   model-cache:
@@ -97,4 +95,3 @@ networks:
   immich:
   cloudflare_tunnel:
     external: true
-  
