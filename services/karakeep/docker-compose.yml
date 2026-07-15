@@ -17,12 +17,23 @@ services:
       - /mnt/tank/container-configs/karakeep:/data
     ports:
       - 4000:3000
-    env_file:
-      - stack.env
     environment:
       MEILI_ADDR: http://meilisearch:7700
       BROWSER_WEB_URL: http://chrome:9222
-      # OPENAI_API_KEY: 
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL}
+      CRAWLER_NUM_WORKERS: ${CRAWLER_NUM_WORKERS}
+      DISABLE_SIGNUPS: ${DISABLE_SIGNUPS}
+      CRAWLER_FULL_PAGE_ARCHIVE: ${CRAWLER_FULL_PAGE_ARCHIVE}
+      CRAWLER_VIDEO_DOWNLOAD: ${CRAWLER_VIDEO_DOWNLOAD}
+      CRAWLER_VIDEO_DOWNLOAD_MAX_SIZE: ${CRAWLER_VIDEO_DOWNLOAD_MAX_SIZE}
+      CRAWLER_VIDEO_DOWNLOAD_TIMEOUT_SEC: ${CRAWLER_VIDEO_DOWNLOAD_TIMEOUT_SEC}
+      INFERENCE_NUM_WORKERS: ${INFERENCE_NUM_WORKERS}
+      INFERENCE_CONTEXT_LENGTH: ${INFERENCE_CONTEXT_LENGTH}
+      CRAWLER_STORE_PDF: ${CRAWLER_STORE_PDF}
 
       # You almost never want to change the value of the DATA_DIR variable.
       # If you want to mount a custom directory, change the volume mapping above instead.
@@ -50,9 +61,8 @@ services:
     container_name: mellisearch
     image: getmeili/meilisearch:v1.13.3
     restart: unless-stopped
-    env_file:
-      - stack.env
     environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
       MEILI_NO_ANALYTICS: "true"
     volumes:
       - /mnt/tank/container-configs/melisearch:/meili_data
