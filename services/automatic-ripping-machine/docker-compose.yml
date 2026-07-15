@@ -1,0 +1,25 @@
+version: '3.8'
+services:
+  arm-ripper:
+    image: automaticrippingmachine/automatic-ripping-machine:latest
+    container_name: arm-rippers
+    restart: always
+    privileged: true
+    ports:
+      - "8675:8080" # Web UI access
+    volumes:
+      # Map host directories to container directories
+      - /mnt/tank/media-lib/movies:/home/arm/media # Main media share for ripped files
+      - /home/arm/media-lib/music:/home/arm/Music # Music specific share
+      - /mnt/tank/container-configs/arm/config:/etc/arm/config # Configuration files
+      - /mnt/tank/container-configs/arm/home:/home/arm # Home directory (optional, but often useful)
+      - /mnt/tank/container-configs/arm/logs:/home/arm/logs # Logs
+    environment:
+      # Set user and group IDs to match your host user for permissions
+      - ARM_GID=568
+      - ARM_UID=568
+    devices:
+      # Pass through your optical drive(s) to the container
+      - /dev/sr0:/dev/sr0
+      - /dev/sg5:/dev/sg0
+      # Add additional drives here if you have multiple
