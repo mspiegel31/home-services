@@ -23,11 +23,6 @@
                 - title: Immich
                   icon: auto-invert sh:immich
                   url: https://immich.electricgarage.net
-            - title: Finance
-              links:
-                - title: Actual Budget
-                  icon: auto-invert sh:actual-budget
-                  url: https://192.168.1.39:5006/budget
             - title: Media
               links:
                 - title: HiFiberry
@@ -36,15 +31,6 @@
                 - title: Automatic Ripping Machine
                   icon: auto-invert https://cdn.jsdelivr.net/gh/selfhst/icons/webp/automatic-ripping-machine.webp
                   url: http://192.168.1.14:8080/
-                - title: Picard
-                  icon: auto-invert mdi:brain
-                  url: http://192.168.1.115:5800/
-                - title: Filebot
-                  icon: auto-invert sh:filebrowser-quantum
-                  url: http://192.168.1.115:5454/
-            - title: Kiddo
-              links:
-                - *babybuddy
         - type: bookmarks
           title: Infrastructure
           groups:
