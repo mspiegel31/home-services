@@ -1,0 +1,74 @@
+services:
+  scrypted:
+    container_name: scrypted
+    restart: unless-stopped
+    network_mode: host
+    # privileged: true
+    image: ghcr.io/koush/scrypted
+    volumes:
+      # Uncomment the following lines to use Avahi daemon from the host.
+      # Ensure Avahi is running on the host machine:
+      # It can be installed with: sudo apt-get install avahi-daemon
+      # This is not compatible with running avahi inside the container (see above).
+      # Also, uncomment the lines under security_opt
+      # - /var/run/dbus:/var/run/dbus
+      # - /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket
+
+      # Default volume for the Scrypted database. Typically should not be changed.
+      # The volume will be placed relative to this docker-compose.yml.
+      - scrypted-db:/server/volume
+    devices: [
+      # uncomment the common systems devices to pass
+      # them through to docker.
+
+      # all usb devices, such as coral tpu
+      # "/dev/bus/usb:/dev/bus/usb",
+
+      # hardware accelerated video decoding, opencl, etc.
+      "/dev/dri:/dev/dri",
+
+      # AMD GPU
+      # "/dev/kfd:/dev/kfd",
+
+      # uncomment below as necessary.
+      # zwave usb serial device
+
+      # "/dev/ttyACM0:/dev/ttyACM0",
+
+      # coral PCI devices
+      # "/dev/apex_0:/dev/apex_0",
+      # "/dev/apex_1:/dev/apex_1",
+    ]
+
+
+  frigate:
+    container_name: frigate
+    privileged: true # this may not be necessary for all setups
+    restart: unless-stopped
+    image: ghcr.io/blakeblackshear/frigate:stable
+    shm_size: "256mb" # update for your cameras based on calculation above
+    devices:
+      - /dev/bus/usb:/dev/bus/usb # Passes the USB Coral, needs to be modified for other versions
+      - /dev/dri/renderD128:/dev/dri/renderD128 # For intel hwaccel, needs to be updated for your hardware
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /home/cloud/frigate/config:/config
+      - /mnt/large/frigate:/media/frigate
+      - type: tmpfs # Optional: 1GB of memory, reduces SSD/SD Card wear
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    ports:
+      - "8971:8971"
+      - "5000:5000" # Internal unauthenticated access. Expose carefully.
+      - "8554:8554" # RTSP feeds
+      - "8555:8555/tcp" # WebRTC over tcp
+      - "8555:8555/udp" # WebRTC over udp
+    environment:
+      FRIGATE_RTSP_PASSWORD: "${FRIGATE_RTSP_PASSWORD}"
+      OPENAI_BASE_URL: "https://openrouter.ai/api/v1"
+
+volumes:
+  config:
+  nvr:
+  scrypted-db:
