@@ -8,8 +8,18 @@
 
 name: immich
 
+# Networks for services that need external access via cloudflare tunnel.
+# Internal-only services (database, redis, ML) use the immich-carrol network only
+# to avoid DNS collisions with other stacks on the shared cloudflare_tunnel network.
+x-networks: &default-networks
+  networks:
+    - immich-carrol
+    - cloudflare_tunnel
+
+
 services:
   immich-server:
+    <<: *default-networks
     container_name: carrol_immich_server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
     # extends:
@@ -19,8 +29,12 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /mnt/tank/media-lib/carroll-immich:/usr/src/app/upload
 
-    env_file:
-      - stack.env
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_DATABASE_NAME: ${DB_DATABASE_NAME}
+      DB_HOSTNAME: ${DB_HOSTNAME:-carrol_immich_postgres}
+      TZ: ${TZ}
     ports:
       - "2284:2283"
     depends_on:
@@ -29,10 +43,6 @@ services:
     restart: always
     healthcheck:
       disable: false
-    networks:
-      - cloudflare_tunnel
-      - immich-carrol
-      
 
   immich-machine-learning:
     container_name: carrol_immich_machine_learning
@@ -44,13 +54,16 @@ services:
     #   service: cpu # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference - use the `-wsl` version for WSL2 where applicable
     volumes:
       - model-cache:/cache
-    env_file:
-      - stack.env
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_DATABASE_NAME: ${DB_DATABASE_NAME}
+      DB_HOSTNAME: ${DB_HOSTNAME:-carrol_immich_postgres}
+      TZ: ${TZ}
     restart: always
     healthcheck:
       disable: false
     networks:
-      - cloudflare_tunnel
       - immich-carrol
 
   redis:
@@ -60,7 +73,6 @@ services:
       test: redis-cli ping || exit 1
     restart: always
     networks:
-      - cloudflare_tunnel
       - immich-carrol
 
   database:
@@ -78,7 +90,6 @@ services:
 
     restart: always
     networks:
-      - cloudflare_tunnel
       - immich-carrol
 
 volumes:
@@ -88,4 +99,3 @@ networks:
   immich-carrol:
   cloudflare_tunnel:
     external: true
-  
