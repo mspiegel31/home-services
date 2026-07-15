@@ -1,0 +1,14 @@
+services:
+  filebrowser:
+    image: gtstef/filebrowser:stable
+    container_name: filebrowser
+    ports:
+      - "8900:80"
+    # user: "1000:1000"
+    environment:
+      - FILEBROWSER_CONFIG=data/config.yaml
+      - TZ=America/Detroit
+    volumes:
+      - /mnt/tank/container-configs/filebrowser:/home/filebrowser/data
+      - /mnt/tank/:/files
+    restart: unless-stopped
