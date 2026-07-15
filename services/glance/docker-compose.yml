@@ -51,6 +51,12 @@ services:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - AUTH_SECRET_KEY=${AUTH_SECRET_KEY}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - AWS_SSO_URL=${AWS_SSO_URL}
+      - INFRA_DOCS_URL=${INFRA_DOCS_URL}
+      - GRAFANA_URL=${GRAFANA_URL}
+      - SPACELIFT_URL=${SPACELIFT_URL}
+      - CODEFRESH_URL=${CODEFRESH_URL}
+      - WIZ_URL=${WIZ_URL}
     depends_on:
       git-sync:
         condition: service_healthy
