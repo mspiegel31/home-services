@@ -20,5 +20,4 @@ services:
     devices:
       # Pass through your optical drive(s) to the container
       - /dev/sr0:/dev/sr0
-      - /dev/sg5:/dev/sg0
       # Add additional drives here if you have multiple
