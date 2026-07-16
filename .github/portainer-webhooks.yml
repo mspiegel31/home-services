@@ -32,5 +32,3 @@ webhooks:
     uuid: <uuid>
   - path: services/plex
     uuid: <uuid>
-  - path: services/taskview
-    uuid: <uuid>
