@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Yarn Berry zero-install (commit cache, releases, and PnP files)
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+!.yarn/cache
+
+# Node.js (PnP doesn't use node_modules, but keep as safety net)
+node_modules/
