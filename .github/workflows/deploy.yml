@@ -1,0 +1,36 @@
+name: Deploy Stacks
+
+on:
+  push:
+    paths:
+      - 'services/**'
+      - '.github/portainer-webhooks.yml'
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Trigger Portainer webhooks
+        uses: ./.github/actions/portainer-webhook
+        env:
+          # Each env var name must match the value in .github/portainer-webhooks.yml
+          PORTAINER_WEBHOOK_AUTOMATIC_RIPPING_MACHINE: ${{ secrets.PORTAINER_WEBHOOK_AUTOMATIC_RIPPING_MACHINE }}
+          PORTAINER_WEBHOOK_CLOUDFLARED: ${{ secrets.PORTAINER_WEBHOOK_CLOUDFLARED }}
+          PORTAINER_WEBHOOK_FILEBROWSER: ${{ secrets.PORTAINER_WEBHOOK_FILEBROWSER }}
+          PORTAINER_WEBHOOK_FRIGATE: ${{ secrets.PORTAINER_WEBHOOK_FRIGATE }}
+          PORTAINER_WEBHOOK_GLANCE: ${{ secrets.PORTAINER_WEBHOOK_GLANCE }}
+          PORTAINER_WEBHOOK_GMAIL_CLEANER: ${{ secrets.PORTAINER_WEBHOOK_GMAIL_CLEANER }}
+          PORTAINER_WEBHOOK_IMMICH: ${{ secrets.PORTAINER_WEBHOOK_IMMICH }}
+          PORTAINER_WEBHOOK_IMMICH_CARROLL: ${{ secrets.PORTAINER_WEBHOOK_IMMICH_CARROLL }}
+          PORTAINER_WEBHOOK_KARAKEEP: ${{ secrets.PORTAINER_WEBHOOK_KARAKEEP }}
+          PORTAINER_WEBHOOK_OPENWEBUI: ${{ secrets.PORTAINER_WEBHOOK_OPENWEBUI }}
+          PORTAINER_WEBHOOK_PLEX: ${{ secrets.PORTAINER_WEBHOOK_PLEX }}
+          PORTAINER_WEBHOOK_TASKVIEW: ${{ secrets.PORTAINER_WEBHOOK_TASKVIEW }}
+        with:
+          base-url: ${{ secrets.PORTAINER_BASE_URL }}
+          cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
