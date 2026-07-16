@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs';
+import * as path from 'node:path';
 
 export interface TriggerTarget {
   subdir: string;
@@ -61,8 +62,7 @@ export class StackConfig {
   }
 
   private isPathUnderDir(filePath: string, dir: string): boolean {
-    const f = filePath.replace(/^\.\//, '');
-    const d = dir.replace(/\/$/, '');
-    return f === d || f.startsWith(d + '/');
+    const relative = path.relative(dir, filePath);
+    return !relative.startsWith('..') && !path.isAbsolute(relative);
   }
 }
