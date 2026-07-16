@@ -31,7 +31,7 @@ async function run(): Promise<void> {
     }
 
     // --- Resolve which stacks to trigger ---------------------------------
-    const targets = config.resolveTargets(changedFiles, process.env as Record<string, string>);
+    const targets = config.resolveTargets(changedFiles);
 
     if (targets.length === 0) {
       core.info('No stacks matched the changed files. Nothing to trigger.');

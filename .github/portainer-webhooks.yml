@@ -1,26 +1,36 @@
 # Portainer stack webhook mapping
 #
-# Each key is a subdirectory (relative to repo root) whose changes should
-# trigger a Portainer stack redeploy. Each value is the NAME of an
-# environment variable that holds the webhook UUID for that stack.
+# Each entry maps a subdirectory (relative to repo root) to its
+# Portainer webhook UUID. When files in that subdirectory change,
+# the action triggers a redeploy via the webhook.
 #
-# The environment variables are wired from GitHub secrets in the workflow
-# (see .github/workflows/deploy.yml). Using the naming convention
-# PORTAINER_WEBHOOK_<NAME> keeps the two in sync.
-#
-# Only stacks you want auto-deployed need to be listed here. Stacks using
-# Portainer's built-in polling can be omitted entirely.
+# Security: UUIDs are not treated as secrets. They are protected by
+# Cloudflare Access service tokens (CF-Access-Client-Id /
+# CF-Access-Client-Secret). An attacker needs both the service token
+# AND the UUID to trigger a redeploy.
 
-stacks:
-  services/automatic-ripping-machine: PORTAINER_WEBHOOK_AUTOMATIC_RIPPING_MACHINE
-  services/cloudflared: PORTAINER_WEBHOOK_CLOUDFLARED
-  services/filebrowser: PORTAINER_WEBHOOK_FILEBROWSER
-  services/frigate: PORTAINER_WEBHOOK_FRIGATE
-  services/glance: PORTAINER_WEBHOOK_GLANCE
-  services/gmail-cleaner: PORTAINER_WEBHOOK_GMAIL_CLEANER
-  services/immich: PORTAINER_WEBHOOK_IMMICH
-  services/immich-carroll: PORTAINER_WEBHOOK_IMMICH_CARROLL
-  services/karakeep: PORTAINER_WEBHOOK_KARAKEEP
-  services/openwebui: PORTAINER_WEBHOOK_OPENWEBUI
-  services/plex: PORTAINER_WEBHOOK_PLEX
-  services/taskview: PORTAINER_WEBHOOK_TASKVIEW
+webhooks:
+  - path: services/automatic-ripping-machine
+    uuid: <uuid>
+  - path: services/cloudflared
+    uuid: <uuid>
+  - path: services/filebrowser
+    uuid: <uuid>
+  - path: services/frigate
+    uuid: <uuid>
+  - path: services/glance
+    uuid: <uuid>
+  - path: services/gmail-cleaner
+    uuid: <uuid>
+  - path: services/immich
+    uuid: <uuid>
+  - path: services/immich-carroll
+    uuid: <uuid>
+  - path: services/karakeep
+    uuid: <uuid>
+  - path: services/openwebui
+    uuid: <uuid>
+  - path: services/plex
+    uuid: <uuid>
+  - path: services/taskview
+    uuid: <uuid>

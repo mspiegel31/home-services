@@ -7,52 +7,45 @@ export interface TriggerTarget {
   webhookId: string;
 }
 
-interface StackConfigFile {
-  stacks: Record<string, string>;
+interface WebhookEntry {
+  path: string;
+  uuid: string;
+}
+
+interface WebhookConfigFile {
+  webhooks: WebhookEntry[];
 }
 
 export class StackConfig {
-  private readonly stacks: Record<string, string>;
+  private readonly webhooks: WebhookEntry[];
 
   constructor(configPath: string) {
-    let config: StackConfigFile;
+    let config: WebhookConfigFile;
     try {
-      config = yaml.load(fs.readFileSync(configPath, 'utf-8')) as StackConfigFile;
+      config = yaml.load(fs.readFileSync(configPath, 'utf-8')) as WebhookConfigFile;
     } catch (err) {
       throw new Error(`Failed to read config file ${configPath}: ${(err as Error).message}`);
     }
 
-    const stacks = config?.stacks;
-    if (!stacks || typeof stacks !== 'object' || Array.isArray(stacks)) {
-      throw new Error(
-        "Config file must contain a 'stacks' mapping of subdirectory -> env var name"
-      );
+    const webhooks = config?.webhooks;
+    if (!webhooks || !Array.isArray(webhooks)) {
+      throw new Error("Config file must contain a 'webhooks' list of { path, uuid } entries");
     }
 
-    this.stacks = stacks;
+    this.webhooks = webhooks;
   }
 
-  resolveTargets(
-    changedFiles: string[],
-    env: Record<string, string>
-  ): TriggerTarget[] {
-    const entries = Object.entries(this.stacks);
-    if (entries.length === 0) {
-      core.info('No stacks configured. Nothing to do.');
+  resolveTargets(changedFiles: string[]): TriggerTarget[] {
+    if (this.webhooks.length === 0) {
+      core.info('No webhooks configured. Nothing to do.');
       return [];
     }
 
     const targets: TriggerTarget[] = [];
 
-    for (const [subdir, envVarName] of entries) {
-      if (typeof envVarName !== 'string') {
-        core.warning(`Stack '${subdir}' maps to a non-string value. Skipping.`);
-        continue;
-      }
-
-      const webhookId = env[envVarName];
-      if (!webhookId) {
-        core.warning(`Env var '${envVarName}' for stack '${subdir}' is not set. Skipping.`);
+    for (const { path: subdir, uuid } of this.webhooks) {
+      if (!subdir || !uuid) {
+        core.warning(`Skipping entry with missing path or uuid: ${JSON.stringify({ subdir, uuid })}`);
         continue;
       }
 
@@ -60,7 +53,7 @@ export class StackConfig {
         changedFiles.length === 0 || changedFiles.some((f) => this.isPathUnderDir(f, subdir));
 
       if (hasChange) {
-        targets.push({ subdir, webhookId });
+        targets.push({ subdir, webhookId: uuid });
       }
     }
 
