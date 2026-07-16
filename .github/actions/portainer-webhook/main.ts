@@ -57,9 +57,9 @@ async function run(): Promise<void> {
 
     for (const { subdir, webhookId } of targets) {
       try {
-        core.info(`POST ${subdir} ...`);
+        core.info(`POST ${subdir} -> ${baseUrl}/api/stacks/webhooks/${webhookId}`);
         const result = await client.trigger(webhookId);
-        core.info(`  ok  ${subdir} - HTTP ${result.status}`);
+        core.info(`  ok  ${subdir} - HTTP ${result.status}${result.body ? ` ${result.body}` : ''}`);
         triggered.push(subdir);
       } catch (err) {
         if (err instanceof WebhookHttpError) {
@@ -80,7 +80,7 @@ async function run(): Promise<void> {
     core.setOutput('triggered', triggered.join(','));
 
     if (failed.length > 0) {
-      core.warning(`${failed.length} webhook(s) failed: ${failed.join(', ')}`);
+      core.setFailed(`${failed.length} webhook(s) failed: ${failed.join(', ')}`);
     } else if (triggered.length > 0) {
       core.info(`All ${triggered.length} webhook(s) succeeded.`);
     }
