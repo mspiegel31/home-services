@@ -22,5 +22,5 @@ outputs:
   triggered:
     description: 'Comma-separated list of subdirectories whose webhooks were triggered'
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'entry.js'

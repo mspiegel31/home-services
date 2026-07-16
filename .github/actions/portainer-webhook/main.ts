@@ -20,7 +20,7 @@ async function run(): Promise<void> {
     // --- Detect changed files --------------------------------------------
     const payload = readEventPayload();
     const diff = new GitDiff(payload);
-    const changedFiles = diff.getChangedFiles();
+    const changedFiles = await diff.getChangedFiles();
 
     if (changedFiles.length === 0) {
       core.info('No diff available — will trigger all configured webhooks.');

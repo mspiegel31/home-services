@@ -29,6 +29,7 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./",\
         "packageDependencies": [\
           ["@actions/core", "npm:1.11.1"],\
+          ["@actions/exec", "npm:1.1.1"],\
           ["@types/js-yaml", "npm:4.0.9"],\
           ["@types/node", "npm:20.19.43"],\
           ["home-services", "workspace:."],\
@@ -243,6 +244,7 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./",\
         "packageDependencies": [\
           ["@actions/core", "npm:1.11.1"],\
+          ["@actions/exec", "npm:1.1.1"],\
           ["@types/js-yaml", "npm:4.0.9"],\
           ["@types/node", "npm:20.19.43"],\
           ["home-services", "workspace:."],\

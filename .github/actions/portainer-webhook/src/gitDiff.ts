@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
+import * as exec from '@actions/exec';
 import * as fs from 'fs';
-import { execSync } from 'child_process';
 
 export interface PushShas {
   before?: string;
@@ -10,31 +10,42 @@ export interface PushShas {
 export class GitDiff {
   constructor(private readonly shas: PushShas) {}
 
-  getChangedFiles(): string[] {
+  async getChangedFiles(): Promise<string[]> {
     const { before, after } = this.shas;
 
     if (before && !/^0+$/.test(before)) {
-      try {
-        const out = execSync(`git diff --name-only ${before} ${after}`, {
-          encoding: 'utf-8',
-        });
-        return out.trim().split('\n').filter(Boolean);
-      } catch {
-        core.warning(`git diff ${before}..${after} failed. Falling back to HEAD~1.`);
+      const head = after || process.env.GITHUB_SHA;
+      if (head) {
+        try {
+          const { stdout } = await exec.getExecOutput(
+            'git',
+            ['diff', '--no-renames', '--name-only', '-z', before, head],
+            { silent: !core.isDebug() }
+          );
+          return this.parseNullTerminated(stdout);
+        } catch {
+          core.warning(`git diff ${before}..${head} failed. Falling back to HEAD~1.`);
+        }
       }
     }
 
     try {
-      const out = execSync('git diff --name-only HEAD~1 HEAD', {
-        encoding: 'utf-8',
-      });
-      return out.trim().split('\n').filter(Boolean);
+      const { stdout } = await exec.getExecOutput(
+        'git',
+        ['diff', '--no-renames', '--name-only', '-z', 'HEAD~1', 'HEAD'],
+        { silent: !core.isDebug() }
+      );
+      return this.parseNullTerminated(stdout);
     } catch {
       core.warning(
         'Could not compute a git diff (insufficient history). All configured webhooks will fire.'
       );
       return [];
     }
+  }
+
+  private parseNullTerminated(stdout: string): string[] {
+    return stdout.split('\0').filter(Boolean);
   }
 }
 

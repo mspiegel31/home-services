@@ -1,5 +1,3 @@
-import * as https from 'https';
-import * as http from 'http';
 import { WebhookHttpError, WebhookConnectionError } from './errors';
 
 export interface WebhookResult {
@@ -18,42 +16,31 @@ export class WebhookClient {
 
   async trigger(webhookId: string): Promise<WebhookResult> {
     const fullUrl = `${this.baseUrl}/api/stacks/webhooks/${webhookId}`;
-    const parsed = new URL(fullUrl);
-    const isHttps = parsed.protocol === 'https:';
-    const mod = isHttps ? https : http;
 
-    return new Promise<WebhookResult>((resolve, reject) => {
-      const options = {
-        method: 'POST' as const,
-        hostname: parsed.hostname,
-        port: parsed.port || (isHttps ? 443 : 80),
-        path: parsed.pathname,
-        headers: { ...this.headers, 'Content-Length': 0 },
-      };
-
-      const req = mod.request(options, (res) => {
-        let body = '';
-        res.on('data', (chunk: Buffer) => (body += chunk));
-        res.on('end', () => {
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            resolve({ status: res.statusCode, body });
-          } else {
-            reject(
-              new WebhookHttpError(
-                `HTTP ${res.statusCode}: ${body || '(no body)'}`,
-                res.statusCode ?? 0,
-                body
-              )
-            );
-          }
-        });
+    let response: Response;
+    try {
+      response = await fetch(fullUrl, {
+        method: 'POST',
+        headers: this.headers,
       });
-
-      req.on('error', (err: NodeJS.ErrnoException) =>
-        reject(new WebhookConnectionError(err.code || err.message, err.code || 'UNKNOWN'))
+    } catch (err) {
+      const cause = (err as Error & { cause?: NodeJS.ErrnoException }).cause;
+      throw new WebhookConnectionError(
+        cause?.code || (err as Error).message,
+        cause?.code || 'UNKNOWN'
       );
+    }
 
-      req.end();
-    });
+    const body = await response.text();
+
+    if (response.ok) {
+      return { status: response.status, body };
+    }
+
+    throw new WebhookHttpError(
+      `HTTP ${response.status}: ${body || '(no body)'}`,
+      response.status,
+      body
+    );
   }
 }
