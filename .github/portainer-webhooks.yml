@@ -19,7 +19,7 @@ webhooks:
   - path: services/frigate
     uuid: <uuid>
   - path: services/glance
-    uuid: <uuid>
+    uuid: 53ce3180-30bd-4c2b-8bf2-c8770f3da6e1
   - path: services/gmail-cleaner
     uuid: <uuid>
   - path: services/immich
