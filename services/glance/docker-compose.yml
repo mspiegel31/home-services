@@ -36,7 +36,6 @@ services:
 
   glance:
     <<: *default-networks
-
     container_name: glance
     image: glanceapp/glance
     restart: unless-stopped
