@@ -88,15 +88,11 @@
             - title: KVM
               color: 270 90 80  # Neon Purple
               links:
-              - title: Pi-KVM
-                icon: auto-invert sh:pikvm
-                url: http://pikvm.localdomain/
-
               - title: GPU Rig KVM
                 icon: auto-invert sh:pikvm
-                url: https://192.168.1.94
+                url: https://192.168.1.98
 
               - title: NAS KVM
                 icon: auto-invert mdi:monitor-eye
-                url: http://192.168.1.11
+                url: http://192.168.1.55
                 
