@@ -1,0 +1,38 @@
+# Ollama LLM inference server with NVIDIA GPU passthrough
+# Deployed on Proxmox VM 600 (RTX 2070 SUPER, 8GB VRAM, 48GB RAM)
+# Context length set high for agentic frameworks (opencode system prompt ~80K tokens);
+# Ollama auto-offloads overflow KV cache to system RAM when VRAM is full.
+
+x-networks: &default-networks
+  networks:
+    - ollama
+
+services:
+  ollama:
+    <<: *default-networks
+    container_name: ollama
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"   # LAN-accessible; bind to 0.0.0.0 by default
+    environment:
+      # Agentic context: opencode/turnstone/hermes system prompts can be ~80K tokens.
+      # 256K ceiling covers that with headroom. Ollama spills overflow KV cache to RAM.
+      - OLLAMA_CONTEXT_LENGTH=262144
+      # 8GB VRAM holds one model at a time. Enforce single-model; auto-unload idle.
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=2m
+      # Optional KV cache quantization to reduce VRAM pressure (uncomment if needed):
+      # - OLLAMA_KV_CACHE_TYPE=q8_0   # 8-bit KV: halves cache size, ~1% quality loss
+    volumes:
+      - /mnt/models/ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+networks:
+  ollama:
