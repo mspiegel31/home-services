@@ -56,9 +56,9 @@
                   icon: auto-invert sh:proxmox
                   url: https://192.168.1.42:8006/
 
-                - title: Alt System
+                - title: AI System
                   icon: auto-invert sh:proxmox
-                  url: https://192.168.1.49:8006/
+                  url: https://192.168.1.45:8006/
 
 
                 - title: NVR host
