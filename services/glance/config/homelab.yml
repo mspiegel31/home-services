@@ -90,7 +90,7 @@
               links:
               - title: GPU Rig KVM
                 icon: auto-invert mdi:monitor-eye
-                url: https://192.168.1.98
+                url: https://192.168.1.90
 
               - title: NAS KVM
                 icon: auto-invert mdi:monitor-eye
