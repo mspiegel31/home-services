@@ -35,6 +35,7 @@ services:
       - LLAMA_ARG_CACHE_TYPE_V=q4_0
       - LLAMA_ARG_THREADS=12             # physical core count (Ryzen 5700X)
       - LLAMA_ARG_JINJA=true             # apply chat template from GGUF metadata
+      - LLAMA_ARG_MODELS_MAX=1           # 8GB VRAM holds one model; router swaps on request
       - LLAMA_ARG_HOST=0.0.0.0
     command: --models-dir /models
     volumes:
