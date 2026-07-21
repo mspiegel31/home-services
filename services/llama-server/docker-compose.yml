@@ -1,11 +1,11 @@
-# llama.cpp server with native router mode, MoE expert CPU offload, and 128K context
+# llama.cpp server with native router mode, --fit auto-placement, and 128K context
 # Deployed on Proxmox VM 600 (RTX 2070 SUPER, 8GB VRAM, 48GB RAM) alongside ollama.
 #
 # Why this exists alongside ollama: Ollama's Modelfile does not expose
-# --n-cpu-moe, --override-tensor, --no-kv-offload, or per-layer tensor
-# placement. For MoE coding models (Qwen3.6-35B-A3B) and 128K context on
-# dense models (Gemma 4 E4B), those flags are the difference between
-# collapsing at 30k tokens and running clean at 128k.
+# --fit, --override-tensor, --no-kv-offload, or per-layer tensor placement.
+# For MoE coding models (Qwen3.6-35B-A3B) and 128K context on dense models
+# (Gemma 4 E4B), those flags are the difference between collapsing at 30k
+# tokens and running clean at 128k.
 # See: https://ai.plainenglish.io/best-local-llm-for-8gb-vram-coding-i-tried-everything-51a9528dd77e
 #
 # 128K context on 8GB VRAM is achievable because Gemma 4 uses hybrid
@@ -22,8 +22,8 @@
 #
 # Per-model config (PR #17859, merged 2025-12-15): --models-preset points at
 # an INI file with a [*] global section and [model] override sections. This is
-# how Gemma (128K) and Qwen (16K + cpu-moe) get DIFFERENT context sizes despite
-# sharing one router. Args that differ per model (ctx-size, cpu-moe) live in
+# how Gemma (128K) and Qwen (256K) get DIFFERENT context sizes despite sharing
+# one router. Args that differ per model (ctx-size, no-kv-offload) live in
 # config/presets.ini; truly-global args stay here in `environment:` below.
 # The INI reaches the container via the git-sync sidecar (same pattern as the
 # glance stack): repo -> /opt/llama-server-configs on host -> mounted :ro here.
@@ -73,18 +73,19 @@ services:
     ports:
       - "11435:8080"   # adjacent to ollama on 11434; LAN-accessible
     environment:
-      # NOTE: LLAMA_ARG_CTX_SIZE and LLAMA_ARG_CPU_MOE are intentionally NOT set
-      # here — they differ per model and are owned by config/presets.ini.
-      # CLI args would override the INI (CLI > [model] > [*]), and a global env
-      # ctx-size would force every model to the same context, defeating the
-      # whole point of the preset file.
+      # NOTE: LLAMA_ARG_CTX_SIZE is intentionally NOT set here — it differs
+      # per model and is owned by config/presets.ini. A global env ctx-size
+      # would override the INI (CLI > [model] > [*]) and force every model to
+      # the same context, defeating the whole point of the preset file.
 
-      # --- GPU placement ---
-      # All model weights on GPU. E4B at UD-Q4_K_XL is ~4.77GB, leaving ~3GB
-      # VRAM for KV cache + CUDA context. For MoE models like Qwen3.6-35B-A3B
-      # (~20GB), weights spill to CPU automatically via the per-model cpu-moe
-      # setting in presets.ini.
-      - LLAMA_ARG_N_GPU_LAYERS=99
+      # --- GPU placement: --fit handles this, do NOT set n-gpu-layers ---
+      # --fit (on by default, common/fit.cpp) auto-distributes layers across
+      # GPU/CPU based on available VRAM. For MoE models it routes expert
+      # tensors to CPU via tensor_buft_overrides (equivalent to cpu-moe but
+      # finer-grained — it can partially overflow the boundary layer). Setting
+      # LLAMA_ARG_N_GPU_LAYERS explicitly would DISABLE this auto-sizing and
+      # cause --fit to abort if the model doesn't fit at the forced count.
+      # Source: https://github.com/ggml-org/llama.cpp/blob/master/common/fit.cpp
 
       # --- KV cache offload: now PER-MODEL, see config/presets.ini ---
       # PREVIOUSLY set globally to false (KV -> system RAM) as insurance. That
