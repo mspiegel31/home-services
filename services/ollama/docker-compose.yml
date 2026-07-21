@@ -27,6 +27,7 @@ services:
       - OLLAMA_KV_CACHE_TYPE=q8_0    # 8-bit KV: halves cache size, ~1% quality loss
       - OLLAMA_NUM_PARALLEL=1        # avoid concurrent KV cache pressure
       - OLLAMA_NUM_THREAD=12         # physical core count, not thread count
+      - LLAMA_ARG_CPU_MOE=1 
     volumes:
       - /mnt/models/ollama:/root/.ollama
     deploy:
