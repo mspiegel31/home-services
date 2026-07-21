@@ -1,0 +1,33 @@
+# Hermes Agent — agentic framework backed by Ollama (LAN IP 192.168.1.97)
+# Web dashboard on :9119 (basic auth gated), gateway API on :8642
+# Deployed on Proxmox VM 600 alongside ollama; reaches it via LAN, no shared Docker network
+
+x-networks: &default-networks
+  networks:
+    - hermes
+
+services:
+  hermes:
+    <<: *default-networks
+    container_name: hermes
+    image: nousresearch/hermes-agent:latest
+    restart: unless-stopped
+    command: gateway run
+    ports:
+      - "8642:8642"   # gateway OpenAI-compatible API (optional — for external tools)
+      - "9119:9119"   # web dashboard
+    volumes:
+      - /mnt/models/hermes:/opt/data
+    environment:
+      - HERMES_DASHBOARD=1
+      - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=${HERMES_DASHBOARD_USER}
+      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=${HERMES_DASHBOARD_PASS}
+    shm_size: 1g   # Playwright/browser tools; drop if you don't need browser automation
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2.0"
+
+networks:
+  hermes:
