@@ -86,15 +86,15 @@ services:
       # setting in presets.ini.
       - LLAMA_ARG_N_GPU_LAYERS=99
 
-      # --- KV cache offload to system RAM ---
-      # Moves the KV cache from GPU VRAM to pinned CPU system RAM (PCIe DMA).
-      # Default is enabled (KV on GPU); setting to false moves KV to CPU.
-      # Cost: every attention pass transfers KV over PCIe (~16GB/s on PCIe 3.0),
-      # expect 30-50% speed hit vs GPU KV. Benefit: frees ~2-4GB VRAM, enabling
-      # 128K context on 8GB cards. Insurance even when Gemma 4 SWA makes KV small.
-      # Docs: https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+      # --- KV cache offload: now PER-MODEL, see config/presets.ini ---
+      # PREVIOUSLY set globally to false (KV -> system RAM) as insurance. That
+      # was wrong for models that fit fully in VRAM (E4B, ~4.77GB): it forced a
+      # PCIe round-trip on every attention pass during BOTH prefill (TTFT) and
+      # decode (tok/s) despite spare VRAM — a 30-50% speed hit for no benefit.
+      # KV placement is a per-model VRAM-pressure decision, so it lives in the
+      # preset now: models that fit keep KV on GPU (default); MoE models under
+      # pressure set `no-kv-offload = true` in their [section].
       # Discussion: https://github.com/ggml-org/llama.cpp/discussions/9226
-      - LLAMA_ARG_KV_OFFLOAD=false
 
       # --- Flash attention ---
       # Mandatory for quantized KV cache (q4_0, q8_0). Without flash attention,
