@@ -1,0 +1,51 @@
+# llama.cpp server with native router mode and MoE expert CPU offload
+# Deployed on Proxmox VM 600 (RTX 2070 SUPER, 8GB VRAM, 48GB RAM) alongside ollama.
+#
+# Why this exists alongside ollama: Ollama's Modelfile does not expose
+# --n-cpu-moe, --override-tensor, or per-layer tensor placement. For MoE
+# coding models (Qwen3.6-35B-A3B etc.) on 8GB VRAM, those flags are the
+# difference between collapsing at 30k tokens and running clean past 60k.
+# See: https://ai.plainenglish.io/best-local-llm-for-8gb-vram-coding-i-tried-everything-51a9528dd77e
+#
+# Router mode (PR #17470, merged Dec 2025) gives on-the-fly model swapping
+# without llama-swap for llama.cpp-only setups. Add llama-swap only if you
+# also route to whisper.cpp / stable-diffusion.cpp / vLLM backends.
+
+x-networks: &default-networks
+  networks:
+    - llama-server
+
+services:
+  llama-server:
+    <<: *default-networks
+    container_name: llama-server
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    restart: unless-stopped
+    ports:
+      - "11435:8080"   # adjacent to ollama on 11434; LAN-accessible
+    environment:
+      # Agentic context: coding agents accumulate 40k+ tokens fast
+      # (tool calls, diffs, retries, stack traces). 65K ctx fits a full
+      # debugging session; q4_0 KV cache halves VRAM pressure vs f16.
+      - LLAMA_ARG_CTX_SIZE=65536
+      - LLAMA_ARG_N_GPU_LAYERS=99        # all attention/dense layers on GPU
+      - LLAMA_ARG_CPU_MOE=1              # keep routed MoE experts on CPU (the article's --n-cpu-moe)
+      - LLAMA_ARG_FLASH_ATTN=1           # mandatory on 8GB VRAM
+      - LLAMA_ARG_CACHE_TYPE_K=q4_0      # 4-bit KV cache: ~75% VRAM cut vs f16, ~1% quality loss
+      - LLAMA_ARG_CACHE_TYPE_V=q4_0
+      - LLAMA_ARG_THREADS=12             # physical core count (Ryzen 5700X)
+      - LLAMA_ARG_JINJA=true             # apply chat template from GGUF metadata
+      - LLAMA_ARG_HOST=0.0.0.0
+    command: --models-dir /models
+    volumes:
+      - /mnt/models/llama-server:/models   # GGUFs here; router auto-loads on request
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+networks:
+  llama-server:
