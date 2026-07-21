@@ -22,8 +22,11 @@ services:
       # 8GB VRAM holds one model at a time. Enforce single-model; auto-unload idle.
       - OLLAMA_MAX_LOADED_MODELS=1
       - OLLAMA_KEEP_ALIVE=2m
-      # Optional KV cache quantization to reduce VRAM pressure (uncomment if needed):
-      # - OLLAMA_KV_CACHE_TYPE=q8_0   # 8-bit KV: halves cache size, ~1% quality loss
+      # Tuning for 8GB VRAM + CPU KV cache offload (per Level1Techs community guidance):
+      - OLLAMA_FLASH_ATTENTION=1     # mandatory, no downside
+      - OLLAMA_KV_CACHE_TYPE=q8_0    # 8-bit KV: halves cache size, ~1% quality loss
+      - OLLAMA_NUM_PARALLEL=1        # avoid concurrent KV cache pressure
+      - OLLAMA_NUM_THREAD=12         # physical core count, not thread count
     volumes:
       - /mnt/models/ollama:/root/.ollama
     deploy:
