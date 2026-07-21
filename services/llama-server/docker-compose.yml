@@ -1,11 +1,20 @@
-# llama.cpp server with native router mode and MoE expert CPU offload
+# llama.cpp server with native router mode, MoE expert CPU offload, and 128K context
 # Deployed on Proxmox VM 600 (RTX 2070 SUPER, 8GB VRAM, 48GB RAM) alongside ollama.
 #
 # Why this exists alongside ollama: Ollama's Modelfile does not expose
-# --n-cpu-moe, --override-tensor, or per-layer tensor placement. For MoE
-# coding models (Qwen3.6-35B-A3B etc.) on 8GB VRAM, those flags are the
-# difference between collapsing at 30k tokens and running clean past 60k.
+# --n-cpu-moe, --override-tensor, --no-kv-offload, or per-layer tensor
+# placement. For MoE coding models (Qwen3.6-35B-A3B) and 128K context on
+# dense models (Gemma 4 E4B), those flags are the difference between
+# collapsing at 30k tokens and running clean at 128k.
 # See: https://ai.plainenglish.io/best-local-llm-for-8gb-vram-coding-i-tried-everything-51a9528dd77e
+#
+# 128K context on 8GB VRAM is achievable because Gemma 4 uses hybrid
+# sliding-window attention (5:1 SWA:global ratio, 512-token window).
+# Only ~7 of 42 layers cache KV at full context; the rest cache 512
+# tokens max. Real KV at q8_0 for 128K is ~2-4GB, not the 13.8GB the
+# legacy formula predicts. --no-kv-offload moves even that to system RAM
+# as insurance, at the cost of PCIe bandwidth on every attention pass.
+# Docs: https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
 #
 # Router mode (PR #17470, merged Dec 2025) gives on-the-fly model swapping
 # without llama-swap for llama.cpp-only setups. Add llama-swap only if you
@@ -24,18 +33,75 @@ services:
     ports:
       - "11435:8080"   # adjacent to ollama on 11434; LAN-accessible
     environment:
-      # Agentic context: coding agents accumulate 40k+ tokens fast
-      # (tool calls, diffs, retries, stack traces). 65K ctx fits a full
-      # debugging session; q4_0 KV cache halves VRAM pressure vs f16.
-      - LLAMA_ARG_CTX_SIZE=65536
-      - LLAMA_ARG_N_GPU_LAYERS=99        # all attention/dense layers on GPU
-      - LLAMA_ARG_CPU_MOE=1              # keep routed MoE experts on CPU (the article's --n-cpu-moe)
-      - LLAMA_ARG_FLASH_ATTN=1           # mandatory on 8GB VRAM
-      - LLAMA_ARG_CACHE_TYPE_K=q4_0      # 4-bit KV cache: ~75% VRAM cut vs f16, ~1% quality loss
-      - LLAMA_ARG_CACHE_TYPE_V=q4_0
-      - LLAMA_ARG_THREADS=12             # physical core count (Ryzen 5700X)
-      - LLAMA_ARG_JINJA=true             # apply chat template from GGUF metadata
-      - LLAMA_ARG_MODELS_MAX=1           # 8GB VRAM holds one model; router swaps on request
+      # --- Context window ---
+      # 128K context for agentic coding (tool calls, diffs, retries, stack traces
+      # accumulate fast — a single debugging session can hit 40k+ tokens).
+      # Gemma 4's sliding-window attention makes this fit; see header comment.
+      - LLAMA_ARG_CTX_SIZE=131072
+
+      # --- GPU placement ---
+      # All model weights on GPU. E4B at UD-Q4_K_XL is ~4.77GB, leaving ~3GB
+      # VRAM for KV cache + CUDA context. For MoE models like Qwen3.6-35B-A3B
+      # (~20GB), weights spill to CPU automatically via LLAMA_ARG_CPU_MOE.
+      - LLAMA_ARG_N_GPU_LAYERS=99
+
+      # --- MoE expert offload ---
+      # Keep routed MoE experts on CPU; only attention/dense layers on GPU.
+      # This is the flag the 8GB VRAM coding article identified as the
+      # difference between collapsing at 30k tokens and running clean past 60k.
+      # Harmless on dense models (no experts to offload).
+      # Source: https://ai.plainenglish.io/best-local-llm-for-8gb-vram-coding-i-tried-everything-51a9528dd77e
+      - LLAMA_ARG_CPU_MOE=1
+
+      # --- KV cache offload to system RAM ---
+      # Moves the KV cache from GPU VRAM to pinned CPU system RAM (PCIe DMA).
+      # Default is enabled (KV on GPU); setting to false moves KV to CPU.
+      # Cost: every attention pass transfers KV over PCIe (~16GB/s on PCIe 3.0),
+      # expect 30-50% speed hit vs GPU KV. Benefit: frees ~2-4GB VRAM, enabling
+      # 128K context on 8GB cards. Insurance even when Gemma 4 SWA makes KV small.
+      # Docs: https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+      # Discussion: https://github.com/ggml-org/llama.cpp/discussions/9226
+      - LLAMA_ARG_KV_OFFLOAD=false
+
+      # --- Flash attention ---
+      # Mandatory for quantized KV cache (q4_0, q8_0). Without flash attention,
+      # llama.cpp falls back to f16 KV which is 4x larger. Also improves speed
+      # on supported architectures. Auto-enabled for some models in 0.30+.
+      # Required: https://github.com/ggml-org/llama.cpp/issues/10378
+      - LLAMA_ARG_FLASH_ATTN=1
+
+      # --- KV cache quantization ---
+      # q8_0 = 8-bit KV cache. Halves KV size vs f16 with ~1% quality loss.
+      # Combined with --no-kv-offload, this halves PCIe traffic per attention pass.
+      # More aggressive options: q4_0 (75% cut, ~1% quality loss), turbo4_0
+      # (TurboQuant, ~4.5 bits/value, near-lossless at 3.6x compression).
+      # Allowed values: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1
+      - LLAMA_ARG_CACHE_TYPE_K=q8_0
+      - LLAMA_ARG_CACHE_TYPE_V=q8_0
+
+      # --- Batch sizes ---
+      # Controls how many tokens are processed per batch during prompt evaluation.
+      # Larger batch = faster prefill but more VRAM for intermediate buffers.
+      # ubatch is the physical batch size (must be <= batch). The 2048/512 split
+      # avoids a flash-attention scratch buffer VRAM spike documented in
+      # https://github.com/KaiFelixBennett/gemma4-turboquant-rdna4
+      # that can cause OOM on 8GB cards with large context windows.
+      - LLAMA_ARG_BATCH_SIZE=2048
+      - LLAMA_ARG_UBATCH_SIZE=512
+
+      # --- CPU threads ---
+      # Physical core count (Ryzen 5700X has 6 cores / 12 threads).
+      # Using physical core count, not thread count, per Level1Techs guidance.
+      - LLAMA_ARG_THREADS=12
+
+      # --- Router mode ---
+      # Apply chat template from GGUF metadata (needed for instruction-tuned models).
+      - LLAMA_ARG_JINJA=true
+      # 8GB VRAM holds one model at a time. Router unloads model A before loading
+      # model B when a request comes in for B. Multi-model availability without
+      # multi-model concurrency — the only safe mode on this hardware.
+      - LLAMA_ARG_MODELS_MAX=1
+
       - LLAMA_ARG_HOST=0.0.0.0
     command: --models-dir /models
     volumes:
