@@ -19,12 +19,52 @@
 # Router mode (PR #17470, merged Dec 2025) gives on-the-fly model swapping
 # without llama-swap for llama.cpp-only setups. Add llama-swap only if you
 # also route to whisper.cpp / stable-diffusion.cpp / vLLM backends.
+#
+# Per-model config (PR #17859, merged 2025-12-15): --models-preset points at
+# an INI file with a [*] global section and [model] override sections. This is
+# how Gemma (128K) and Qwen (16K + cpu-moe) get DIFFERENT context sizes despite
+# sharing one router. Args that differ per model (ctx-size, cpu-moe) live in
+# config/presets.ini; truly-global args stay here in `environment:` below.
+# The INI reaches the container via the git-sync sidecar (same pattern as the
+# glance stack): repo -> /opt/llama-server-configs on host -> mounted :ro here.
+# REQUIRES an image built after 2025-12-15; verify --models-preset exists:
+#   docker exec llama-server llama-server --help | grep models-preset
 
 x-networks: &default-networks
   networks:
     - llama-server
 
 services:
+  # Syncs this repo to the host so presets.ini is available to llama-server.
+  # Mirrors the glance stack's git-sync sidecar. Edit config/presets.ini in the
+  # repo, push, and this pulls it within `--period`; no manual scp to the VM.
+  git-sync:
+    container_name: llama-server-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2
+    restart: unless-stopped
+    command: [
+      "git-sync",
+      "--repo=https://github.com/mspiegel31/home-services.git",
+      "--ref=main",
+      "--root=/git",
+      "--link=current",
+      "--period=30s",
+      "--username=mspiegel31",
+      "--add-user",
+      "--http-bind=:1234",
+      ]
+    environment:
+      - GITSYNC_PASSWORD=${GITSYNC_PASSWORD}
+    volumes:
+      - /opt/llama-server-configs:/git
+    user: "1000:1000"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/llama-server/config/presets.ini && curl -f http://localhost:1234/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
   llama-server:
     <<: *default-networks
     container_name: llama-server
@@ -33,25 +73,18 @@ services:
     ports:
       - "11435:8080"   # adjacent to ollama on 11434; LAN-accessible
     environment:
-      # --- Context window ---
-      # 128K context for agentic coding (tool calls, diffs, retries, stack traces
-      # accumulate fast — a single debugging session can hit 40k+ tokens).
-      # Gemma 4's sliding-window attention makes this fit; see header comment.
-      - LLAMA_ARG_CTX_SIZE=131072
+      # NOTE: LLAMA_ARG_CTX_SIZE and LLAMA_ARG_CPU_MOE are intentionally NOT set
+      # here — they differ per model and are owned by config/presets.ini.
+      # CLI args would override the INI (CLI > [model] > [*]), and a global env
+      # ctx-size would force every model to the same context, defeating the
+      # whole point of the preset file.
 
       # --- GPU placement ---
       # All model weights on GPU. E4B at UD-Q4_K_XL is ~4.77GB, leaving ~3GB
       # VRAM for KV cache + CUDA context. For MoE models like Qwen3.6-35B-A3B
-      # (~20GB), weights spill to CPU automatically via LLAMA_ARG_CPU_MOE.
+      # (~20GB), weights spill to CPU automatically via the per-model cpu-moe
+      # setting in presets.ini.
       - LLAMA_ARG_N_GPU_LAYERS=99
-
-      # --- MoE expert offload ---
-      # Keep routed MoE experts on CPU; only attention/dense layers on GPU.
-      # This is the flag the 8GB VRAM coding article identified as the
-      # difference between collapsing at 30k tokens and running clean past 60k.
-      # Harmless on dense models (no experts to offload).
-      # Source: https://ai.plainenglish.io/best-local-llm-for-8gb-vram-coding-i-tried-everything-51a9528dd77e
-      - LLAMA_ARG_CPU_MOE=1
 
       # --- KV cache offload to system RAM ---
       # Moves the KV cache from GPU VRAM to pinned CPU system RAM (PCIe DMA).
@@ -103,9 +136,14 @@ services:
       - LLAMA_ARG_MODELS_MAX=1
 
       - LLAMA_ARG_HOST=0.0.0.0
-    command: --models-dir /models
+    # Per-model overrides come from the git-synced presets.ini (see header).
+    command: --models-dir /models --models-preset /config/current/services/llama-server/config/presets.ini
     volumes:
       - /mnt/models/llama-server:/models   # GGUFs here; router auto-loads on request
+      - /opt/llama-server-configs:/config:ro   # git-synced repo; presets.ini lives under current/
+    depends_on:
+      git-sync:
+        condition: service_healthy
     deploy:
       resources:
         reservations:
