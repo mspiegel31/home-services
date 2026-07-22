@@ -47,8 +47,6 @@ services:
       - lemonade-llama:/opt/lemonade/llama
       # Persist config.json, model options, and other backend state
       - lemonade-recipe:/opt/lemonade/.cache/lemonade
-      # Seed config.json from the repo (copied into the volume on first run)
-      - ./config/config.json:/config-seed.json:ro
       # Scan for GGUFs already present in the llama.cpp models directory
       - /mnt/models/llama-server:/extra-models:ro
     # Seed config.json into the volume on first run, then start lemond.
