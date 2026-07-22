@@ -8,16 +8,11 @@
 # - Multi-modal: LLM, speech-to-text (whisper), TTS, image generation
 # - OpenAI-compatible API at /api/v1 — drop-in replacement for cloud APIs
 #
-# v10.x config model: lemond only accepts --port and --host as CLI args.
-# All other config lives in config.json (extra_models_dir, llamacpp.backend,
-# etc). We seed config.json into the lemonade-recipe volume on first run
-# via the entrypoint wrapper; after that, `lemonade config set` can change
-# settings at runtime and they persist in the volume across restarts.
-#
-# Model discovery: config.json sets extra_models_dir=/extra-models, which
-# we mount from /mnt/models/llama-server (the same GGUFs the llama.cpp
-# router stack serves). Models pulled via `lemonade pull` land in the
-# lemonade-cache volume (HuggingFace cache format).
+# Running with the image's default config for now. The default CMD is
+# `./lemond --host 0.0.0.0` (port 13305, auto backend detection).
+# To customize later, set values at runtime via `lemonade config set`
+# or drop a config.json into the lemonade-recipe volume; settings
+# persist across restarts.
 #
 # Secrets (set in Portainer UI):
 #   LEMONADE_API_KEY  — REQUIRED. Bearer token for /api/* and /v1/* endpoints.
@@ -35,27 +30,18 @@ services:
     ports:
       - "13306:13305"  # adjacent to llama-server (11435) and ollama (11434)
     environment:
-      # v10.x: only LEMONADE_API_KEY and HF_TOKEN are recognized env vars.
-      # All other config (host, port, backend, extra_models_dir) lives in
-      # config.json — see the entrypoint wrapper below.
       - LEMONADE_API_KEY=${LEMONADE_API_KEY}
       - HF_TOKEN=${HF_TOKEN}
     volumes:
       # Persist HuggingFace model downloads
-      - lemonade-cache:/opt/lemonade/.cache/huggingface
+      - /mnt/models/lemonade/cache:/opt/lemonade/.cache/huggingface
       # Persist llama backend binaries (vulkan, rocm, cpu, cuda)
-      - lemonade-llama:/opt/lemonade/llama
+      - /mnt/models/lemonade/llama:/opt/lemonade/llama
       # Persist config.json, model options, and other backend state
-      - lemonade-recipe:/opt/lemonade/.cache/lemonade
-      # Scan for GGUFs already present in the llama.cpp models directory
+      - /mnt/models/lemonade/recipe:/opt/lemonade/.cache/lemonade
+      # GGUFs already present in the llama.cpp models directory.
+      # Requires `lemonade config set extra_models_dir /extra-models` to use.
       - /mnt/models/llama-server:/extra-models:ro
-    # Seed config.json into the volume on first run, then start lemond.
-    # On subsequent restarts the existing config.json is used, so runtime
-    # changes made via `lemonade config set` persist.
-    entrypoint: ["sh", "-c"]
-    command: >
-      [ -f /opt/lemonade/.cache/lemonade/config.json ] || cp /config-seed.json /opt/lemonade/.cache/lemonade/config.json;
-      exec ./lemond --host 0.0.0.0
     deploy:
       resources:
         reservations:
@@ -63,8 +49,3 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-
-volumes:
-  lemonade-cache:
-  lemonade-llama:
-  lemonade-recipe:
