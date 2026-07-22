@@ -8,31 +8,76 @@
 # - Multi-modal: LLM, speech-to-text (whisper), TTS, image generation
 # - OpenAI-compatible API at /api/v1 — drop-in replacement for cloud APIs
 #
-# Running with the image's default config for now. The default CMD is
-# `./lemond --host 0.0.0.0` (port 13305, auto backend detection).
-# To customize later, set values at runtime via `lemonade config set`
-# or drop a config.json into the lemonade-recipe volume; settings
-# persist across restarts.
+# Running with the image's default config, plus one override:
+# extra_models_dir=/extra-models so the container scans the GGUFs already
+# present at /mnt/models/llama-server. The override lives in defaults.json
+# and is merged on top of the image's built-in defaults via
+# LEMONADE_DEFAULTS_PATH; the user's config.json (in the recipe bind mount)
+# still takes precedence for any runtime `lemonade config set` changes.
+#
+# defaults.json reaches the container via a git-sync sidecar (same pattern
+# as the llama-server and glance stacks): repo -> /opt/lemonade-configs on
+# host -> mounted :ro in the lemonade container. Portainer CE doesn't
+# resolve relative bind-mount paths for repository stacks, so the file
+# must be synced to a known host path.
+#
+# The default CMD is `./lemond --host 0.0.0.0` (port 13305, auto backend
+# detection).
 #
 # Secrets (set in Portainer UI):
 #   LEMONADE_API_KEY  — REQUIRED. Bearer token for /api/* and /v1/* endpoints.
 #                       Without it, anyone on the LAN can use the server.
 #   HF_TOKEN          — OPTIONAL. Needed only to pull gated HuggingFace models.
+#   GITSYNC_PASSWORD  — REQUIRED. GitHub PAT for the git-sync sidecar.
 #
 # API: curl -H "Authorization: Bearer $LEMONADE_API_KEY" http://localhost:13306/api/v1/models
 # UI:  http://localhost:13306/
 
 services:
+  # Syncs this repo to the host so defaults.json is available to lemonade.
+  # Mirrors the llama-server stack's git-sync sidecar. Edit defaults.json in
+  # the repo, push, and this pulls it within `--period`.
+  git-sync:
+    container_name: lemonade-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2
+    restart: unless-stopped
+    command: [
+      "git-sync",
+      "--repo=https://github.com/mspiegel31/home-services.git",
+      "--ref=main",
+      "--root=/git",
+      "--link=current",
+      "--period=30s",
+      "--username=mspiegel31",
+      "--add-user",
+      "--http-bind=:1234",
+      ]
+    environment:
+      - GITSYNC_PASSWORD=${GITSYNC_PASSWORD}
+    volumes:
+      - /opt/lemonade-configs:/git
+    user: "1000:1000"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/lemonade/defaults.json && curl -f http://localhost:1234/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
   lemonade:
-    image: ghcr.io/lemonade-sdk/lemonade-server:latest
     container_name: lemonade-server
+    image: ghcr.io/lemonade-sdk/lemonade-server:latest
     restart: unless-stopped
     ports:
       - "13306:13305"  # adjacent to llama-server (11435) and ollama (11434)
     environment:
       - LEMONADE_API_KEY=${LEMONADE_API_KEY}
       - HF_TOKEN=${HF_TOKEN}
+      # Merge defaults.json on top of the image's built-in defaults
+      - LEMONADE_DEFAULTS_PATH=/config/current/services/lemonade/defaults.json
     volumes:
+      # git-synced repo; defaults.json lives under current/
+      - /opt/lemonade-configs:/config:ro
       # Persist HuggingFace model downloads
       - /mnt/models/lemonade/cache:/opt/lemonade/.cache/huggingface
       # Persist llama backend binaries (vulkan, rocm, cpu, cuda)
@@ -40,8 +85,11 @@ services:
       # Persist config.json, model options, and other backend state
       - /mnt/models/lemonade/recipe:/opt/lemonade/.cache/lemonade
       # GGUFs already present in the llama.cpp models directory.
-      # Requires `lemonade config set extra_models_dir /extra-models` to use.
+      # Discovered via the extra_models_dir override in defaults.json.
       - /mnt/models/llama-server:/extra-models:ro
+    depends_on:
+      git-sync:
+        condition: service_healthy
     deploy:
       resources:
         reservations:
