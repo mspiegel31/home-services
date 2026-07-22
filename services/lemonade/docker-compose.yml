@@ -57,12 +57,6 @@ services:
     volumes:
       - /opt/lemonade-configs:/git
     user: "1000:1000"
-    healthcheck:
-      test: ["CMD-SHELL", "test -f /git/current/services/lemonade/defaults.json && curl -f http://localhost:1234/ || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
 
   lemonade:
     container_name: lemonade-server
