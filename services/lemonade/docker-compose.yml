@@ -1,0 +1,32 @@
+# API: curl http://localhost:13306/api/v1/models
+# UI:  http://localhost:13306/
+
+services:
+  lemonade:
+    image: ghcr.io/lemonade-sdk/lemonade-server:latest
+    container_name: lemonade-server
+    restart: unless-stopped
+    ports:
+      - "13306:13305"  # adjacent to llama-server (11435) and ollama (11434)
+    environment:
+      - LEMONADE_LLAMACPP=cuda
+      - LEMONADE_HOST=0.0.0.0
+    volumes:
+      # Persist HuggingFace model downloads inside Lemonade's cache
+      - /mnt/models/lemonade/model-cache:/root/.cache/huggingface
+      # Persist llama backend binaries (vulkan, rocm, cpu, cuda)
+      - /mnt/models/lemonade/llama:/opt/lemonade/llama
+      # Scan for GGUFs already present in the llama.cpp models directory
+      - /mnt/models/llama-server:/extra-models:ro
+    command: ["./lemond", "--extra-models-dir", "/extra-models"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  lemonade-cache:
+  lemonade-llama:
