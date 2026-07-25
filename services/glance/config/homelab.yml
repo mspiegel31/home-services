@@ -26,9 +26,6 @@
                 - title: HiFiberry
                   icon: auto-invert di:hifiberry
                   url: http://192.168.1.10
-                - title: Automatic Ripping Machine
-                  icon: auto-invert https://cdn.jsdelivr.net/gh/selfhst/icons/webp/automatic-ripping-machine.webp
-                  url: http://192.168.1.14:8080/
         - type: bookmarks
           title: Infrastructure
           groups:
@@ -60,17 +57,8 @@
                   icon: auto-invert sh:proxmox
                   url: https://192.168.1.45:8006/
 
-
-                - title: NVR host
-                  icon: auto-invert sh:frigate
-                  url: https://192.168.1.116:9090
-
             - title: Backups
               links:
-              - title: PBS - Main
-                icon: auto-invert sh:proxmox
-                url: https://192.168.1.46:8007/
-              
               - title: PBS - Backup
                 icon: auto-invert sh:proxmox
                 url: https://192.168.1.31:8007/
