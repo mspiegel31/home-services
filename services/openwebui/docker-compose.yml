@@ -87,11 +87,11 @@ configs:
             "description": "Context7 MCP - Up-to-date code documentation for any library"
           },
           "youtube-transcript": {
-            "command": "uvx",
-            "args": [
-              "--from",
-              "git+https://github.com/jkawamoto/mcp-youtube-transcript",
-              "mcp-youtube-transcript"
+            "type": "local",
+            "command": [
+              "npx",
+              "-y",
+              "@kevinwatt/yt-dlp-mcp@latest"
             ]
           },
           "karakeep": {
