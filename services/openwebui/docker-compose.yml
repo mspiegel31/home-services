@@ -87,9 +87,8 @@ configs:
             "description": "Context7 MCP - Up-to-date code documentation for any library"
           },
           "youtube-transcript": {
-            "type": "local",
+            "type": "npx",
             "command": [
-              "npx",
               "-y",
               "@kevinwatt/yt-dlp-mcp@latest"
             ]
