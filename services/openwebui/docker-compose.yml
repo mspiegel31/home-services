@@ -58,7 +58,7 @@ services:
   mcpo:
     <<: *default-networks
     container_name: mcpo
-    image: ghcr.io/open-webui/mcpo:main
+    image: ghcr.io/mspiegel31/mcpo-yt-dlp:latest
     # ports:
     #   - "8001:8000"
     environment:
