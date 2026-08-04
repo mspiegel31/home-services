@@ -87,8 +87,11 @@ configs:
             "description": "Context7 MCP - Up-to-date code documentation for any library"
           },
           "youtube-transcript": {
-            "command": "yt-dlp-mcp",
-            "args": []
+            "command": "npx",
+            "args": [
+              "-y",
+              "@kevinwatt/yt-dlp-mcp@latest"
+            ]
           },
           "karakeep": {
             "command": "npx",

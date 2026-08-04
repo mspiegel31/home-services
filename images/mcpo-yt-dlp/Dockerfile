@@ -13,11 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # venv at /app/.venv (VIRTUAL_ENV is already set in the base).
 RUN uv pip install yt-dlp
 
-# Pre-install the npm package globally so the bin is on PATH
-RUN npm install -g @kevinwatt/yt-dlp-mcp@latest
-
 # yt-dlp-mcp validates that its downloads directory exists at startup
 RUN mkdir -p /root/Downloads
 
 # Verify all dependencies are reachable
-RUN yt-dlp --version && ffmpeg -version | head -1 && yt-dlp-mcp --help >/dev/null 2>&1 || true
+RUN yt-dlp --version && ffmpeg -version | head -1
