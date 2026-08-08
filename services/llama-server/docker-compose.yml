@@ -1,150 +1,50 @@
-# llama.cpp server with native router mode, --fit auto-placement, and 128K context
-# Deployed on Proxmox VM 600 (RTX 2070 SUPER, 8GB VRAM, 48GB RAM) alongside ollama.
+# llama.cpp router for Proxmox VM 600 (RTX 2070 SUPER, 8GB VRAM, 48GB RAM).
 #
-# Why this exists alongside ollama: Ollama's Modelfile does not expose
-# --fit, --override-tensor, --no-kv-offload, or per-layer tensor placement.
-# For MoE coding models (Qwen3.6-35B-A3B) and 128K context on dense models
-# (Gemma 4 E4B), those flags are the difference between collapsing at 30k
-# tokens and running clean at 128k.
-# See: https://ai.plainenglish.io/best-local-llm-for-8gb-vram-coding-i-tried-everything-51a9528dd77e
+# Context stays unset: llama.cpp reads each GGUF's training limit, then --fit
+# reduces it only when the available GPU or system memory cannot sustain it.
+# Never set LLAMA_ARG_CTX_SIZE=0 here: an explicit zero requests the full
+# training context and disables --fit's context reduction.
 #
-# 128K context on 8GB VRAM is achievable because Gemma 4 uses hybrid
-# sliding-window attention (5:1 SWA:global ratio, 512-token window).
-# Only ~7 of 42 layers cache KV at full context; the rest cache 512
-# tokens max. Real KV at q8_0 for 128K is ~2-4GB, not the 13.8GB the
-# legacy formula predicts. --no-kv-offload moves even that to system RAM
-# as insurance, at the cost of PCIe bandwidth on every attention pass.
-# Docs: https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
-#
-# Router mode (PR #17470, merged Dec 2025) gives on-the-fly model swapping
-# without llama-swap for llama.cpp-only setups. Add llama-swap only if you
-# also route to whisper.cpp / stable-diffusion.cpp / vLLM backends.
-#
-# Per-model config (PR #17859, merged 2025-12-15): --models-preset points at
-# an INI file with a [*] global section and [model] override sections. This is
-# how Gemma (128K) and Qwen (256K) get DIFFERENT context sizes despite sharing
-# one router. Args that differ per model (ctx-size, no-kv-offload) live in
-# config/presets.ini; truly-global args stay here in `environment:` below.
-# The INI reaches the container via the git-sync sidecar (same pattern as the
-# glance stack): repo -> /opt/llama-server-configs on host -> mounted :ro here.
-# REQUIRES an image built after 2025-12-15; verify --models-preset exists:
-#   docker exec llama-server llama-server --help | grep models-preset
+# KV lives in system RAM so dense 12B models retain long agent contexts instead
+# of being reduced to the 4K --fit floor. This is slower than GPU KV but makes
+# long-context operation reliable across arbitrary downloaded GGUFs.
 
 x-networks: &default-networks
   networks:
     - llama-server
 
 services:
-  # Syncs this repo to the host so presets.ini is available to llama-server.
-  # Mirrors the glance stack's git-sync sidecar. Edit config/presets.ini in the
-  # repo, push, and this pulls it within `--period`; no manual scp to the VM.
-  git-sync:
-    container_name: llama-server-git-sync
-    image: registry.k8s.io/git-sync/git-sync:v4.4.2
-    restart: unless-stopped
-    command: [
-      "git-sync",
-      "--repo=https://github.com/mspiegel31/home-services.git",
-      "--ref=main",
-      "--root=/git",
-      "--link=current",
-      "--period=30s",
-      "--username=mspiegel31",
-      "--add-user",
-      "--http-bind=:1234",
-      ]
-    environment:
-      - GITSYNC_PASSWORD=${GITSYNC_PASSWORD}
-    volumes:
-      - /opt/llama-server-configs:/git
-    user: "1000:1000"
-    healthcheck:
-      test: ["CMD-SHELL", "test -f /git/current/services/llama-server/config/presets.ini && curl -f http://localhost:1234/ || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
-
   llama-server:
     <<: *default-networks
     container_name: llama-server
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
     restart: unless-stopped
     ports:
-      - "11435:8080"   # adjacent to ollama on 11434; LAN-accessible
+      - "11435:8080"
     environment:
-      # NOTE: LLAMA_ARG_CTX_SIZE is intentionally NOT set here — it differs
-      # per model and is owned by config/presets.ini. A global env ctx-size
-      # would override the INI (CLI > [model] > [*]) and force every model to
-      # the same context, defeating the whole point of the preset file.
+      # --fit adjusts only unset values. Preserve a 1 GiB VRAM margin for
+      # transient CUDA allocations instead of risking successful-load OOMs.
+      - LLAMA_ARG_FIT=on
+      - LLAMA_ARG_FIT_TARGET=1024
+      - LLAMA_ARG_FIT_CTX=4096
+      - LLAMA_ARG_KV_OFFLOAD=false
 
-      # --- GPU placement: --fit handles this, do NOT set n-gpu-layers ---
-      # --fit (on by default, common/fit.cpp) auto-distributes layers across
-      # GPU/CPU based on available VRAM. For MoE models it routes expert
-      # tensors to CPU via tensor_buft_overrides (equivalent to cpu-moe but
-      # finer-grained — it can partially overflow the boundary layer). Setting
-      # LLAMA_ARG_N_GPU_LAYERS explicitly would DISABLE this auto-sizing and
-      # cause --fit to abort if the model doesn't fit at the forced count.
-      # Source: https://github.com/ggml-org/llama.cpp/blob/master/common/fit.cpp
-
-      # --- KV cache offload: now PER-MODEL, see config/presets.ini ---
-      # PREVIOUSLY set globally to false (KV -> system RAM) as insurance. That
-      # was wrong for models that fit fully in VRAM (E4B, ~4.77GB): it forced a
-      # PCIe round-trip on every attention pass during BOTH prefill (TTFT) and
-      # decode (tok/s) despite spare VRAM — a 30-50% speed hit for no benefit.
-      # KV placement is a per-model VRAM-pressure decision, so it lives in the
-      # preset now: models that fit keep KV on GPU (default); MoE models under
-      # pressure set `no-kv-offload = true` in their [section].
-      # Discussion: https://github.com/ggml-org/llama.cpp/discussions/9226
-
-      # --- Flash attention ---
-      # Mandatory for quantized KV cache (q4_0, q8_0). Without flash attention,
-      # llama.cpp falls back to f16 KV which is 4x larger. Also improves speed
-      # on supported architectures. Auto-enabled for some models in 0.30+.
-      # Required: https://github.com/ggml-org/llama.cpp/issues/10378
+      # q8_0 is the quality-preserving KV tradeoff for long system-RAM caches.
       - LLAMA_ARG_FLASH_ATTN=1
-
-      # --- KV cache quantization ---
-      # q8_0 = 8-bit KV cache. Halves KV size vs f16 with ~1% quality loss.
-      # Combined with --no-kv-offload, this halves PCIe traffic per attention pass.
-      # More aggressive options: q4_0 (75% cut, ~1% quality loss), turbo4_0
-      # (TurboQuant, ~4.5 bits/value, near-lossless at 3.6x compression).
-      # Allowed values: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1
       - LLAMA_ARG_CACHE_TYPE_K=q8_0
       - LLAMA_ARG_CACHE_TYPE_V=q8_0
-
-      # --- Batch sizes ---
-      # Controls how many tokens are processed per batch during prompt evaluation.
-      # Larger batch = faster prefill but more VRAM for intermediate buffers.
-      # ubatch is the physical batch size (must be <= batch). The 2048/512 split
-      # avoids a flash-attention scratch buffer VRAM spike documented in
-      # https://github.com/KaiFelixBennett/gemma4-turboquant-rdna4
-      # that can cause OOM on 8GB cards with large context windows.
       - LLAMA_ARG_BATCH_SIZE=2048
       - LLAMA_ARG_UBATCH_SIZE=512
-
-      # --- CPU threads ---
-      # Physical core count (Ryzen 5700X has 6 cores / 12 threads).
-      # Using physical core count, not thread count, per Level1Techs guidance.
       - LLAMA_ARG_THREADS=12
-
-      # --- Router mode ---
-      # Apply chat template from GGUF metadata (needed for instruction-tuned models).
       - LLAMA_ARG_JINJA=true
-      # 8GB VRAM holds one model at a time. Router unloads model A before loading
-      # model B when a request comes in for B. Multi-model availability without
-      # multi-model concurrency — the only safe mode on this hardware.
-      - LLAMA_ARG_MODELS_MAX=1
 
+      # One loaded model and one slot reserve all fitted context for one agent.
+      - LLAMA_ARG_MODELS_MAX=1
+      - LLAMA_ARG_PARALLEL=1
       - LLAMA_ARG_HOST=0.0.0.0
-    # Per-model overrides come from the git-synced presets.ini (see header).
-    command: --models-dir /models --models-preset /config/current/services/llama-server/config/presets.ini
+    command: --models-dir /models
     volumes:
-      - /mnt/models/llama-server:/models   # GGUFs here; router auto-loads on request
-      - /opt/llama-server-configs:/config:ro   # git-synced repo; presets.ini lives under current/
-    depends_on:
-      git-sync:
-        condition: service_healthy
+      - /mnt/models/llama-server:/models
     deploy:
       resources:
         reservations:
