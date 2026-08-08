@@ -29,10 +29,12 @@ services:
       - LLAMA_ARG_FIT_CTX=4096
       - LLAMA_ARG_KV_OFFLOAD=false
 
-      # q8_0 is the quality-preserving KV tradeoff for long system-RAM caches.
+      # q4_0 doubles usable cache capacity versus q8_0; this favors agent history
+      # over the small quality loss from more aggressive KV quantization.
       - LLAMA_ARG_FLASH_ATTN=1
-      - LLAMA_ARG_CACHE_TYPE_K=q8_0
-      - LLAMA_ARG_CACHE_TYPE_V=q8_0
+      - LLAMA_ARG_CACHE_TYPE_K=q4_0
+      - LLAMA_ARG_CACHE_TYPE_V=q4_0
+      - LLAMA_ARG_KV_UNIFIED=true
       - LLAMA_ARG_BATCH_SIZE=2048
       - LLAMA_ARG_UBATCH_SIZE=512
       - LLAMA_ARG_THREADS=12
