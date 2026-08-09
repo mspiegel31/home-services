@@ -4,9 +4,9 @@
 # is the exception: a preset holds its proven 256K target so --fit proceeds to
 # its MoE expert-spill phase instead of reducing context to the 4K floor first.
 #
-# KV lives in system RAM so dense 12B models retain long agent contexts instead
-# of being reduced to the 4K --fit floor. This is slower than GPU KV but makes
-# long-context operation reliable across arbitrary downloaded GGUFs.
+# KV lives in system RAM by default so unknown GGUFs retain long agent contexts.
+# Small, explicitly reviewed models can opt into GPU KV in presets.ini; --fit then
+# reduces their context to preserve the 1 GiB CUDA headroom when necessary.
 
 x-networks: &default-networks
   networks:
