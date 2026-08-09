@@ -1,0 +1,62 @@
+name: searxng-agents
+
+services:
+  searxng:
+    container_name: searxng-agents
+    image: docker.io/searxng/searxng:${SEARXNG_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SEARXNG_BASE_URL: "https://${SEARXNG_HOSTNAME:?Set SEARXNG_HOSTNAME in Portainer}"
+      SEARXNG_SECRET: "${SEARXNG_SECRET:?Set SEARXNG_SECRET in Portainer}"
+      SEARXNG_IMAGE_PROXY: "false"
+      SEARXNG_METHOD: "GET"
+    configs:
+      - source: searxng_settings
+        target: /etc/searxng/settings.yml
+    volumes:
+      - searxng-cache:/var/cache/searxng
+    networks:
+      - cloudflare_tunnel
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+configs:
+  searxng_settings:
+    content: |
+      use_default_settings: true
+
+      server:
+        base_url: "https://searxng.electricgarage.net"
+        secret_key: "changeme"
+        limiter: false
+        public_instance: false
+        image_proxy: false
+        method: GET
+        default_http_headers:
+          X-Content-Type-Options: nosniff
+          X-Download-Options: noopen
+          X-Robots-Tag: noindex, nofollow
+          Referrer-Policy: no-referrer
+          Permissions-Policy: geolocation=(), camera=(), microphone=()
+
+      search:
+        formats:
+          - json
+
+      ui:
+        query_in_title: false
+        default_theme: simple
+        infinite_scroll: false
+
+volumes:
+  searxng-cache:
+
+networks:
+  cloudflare_tunnel:
+    external: true
