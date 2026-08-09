@@ -84,7 +84,7 @@ configs:
         }
         handle @allowed {
           basic_auth {
-            {$SEARXNG_BASICAUTH}
+            {$$SEARXNG_BASICAUTH}
           }
           reverse_proxy searxng:8080
         }
