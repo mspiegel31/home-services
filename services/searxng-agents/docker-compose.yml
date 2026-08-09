@@ -61,13 +61,21 @@ configs:
       }
 
       # Human hostname — Cloudflare Access does the auth in front of this.
-      http://{$SEARXNG_HOSTNAME} {
+      http://searxng.electricgarage.net {
+        log {
+          output stdout
+          format console
+        }
         encode gzip zstd
         reverse_proxy searxng:8080
       }
 
       # Agent hostname — Basic auth, GET only, two endpoints only.
-      http://{$SEARXNG_API_HOSTNAME} {
+      http://searxng-api.electricgarage.net {
+        log {
+          output stdout
+          format console
+        }
         encode gzip zstd
 
         @allowed {
