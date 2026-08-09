@@ -51,8 +51,8 @@ services:
     environment:
       # Leave placement and context sizing adaptive for every current and future GGUF.
       - LLAMA_ARG_FIT=on
-      # Reserve 1 GiB for transient CUDA allocations instead of loading at the OOM edge.
-      - LLAMA_ARG_FIT_TARGET=1024
+      # Reserve 256 MiB for CUDA workspace and allocator fragmentation without wasting 1 GiB.
+      - LLAMA_ARG_FIT_TARGET=256
       # Reject a model that cannot sustain at least a minimally useful agent context.
       - LLAMA_ARG_FIT_CTX=4096
       # Preserve 8GB VRAM for weights so unknown GGUFs can fit long contexts in RAM.
