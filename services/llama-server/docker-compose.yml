@@ -22,27 +22,37 @@ services:
     ports:
       - "11435:8080"
     environment:
-      # --fit adjusts only unset values. Preserve a 1 GiB VRAM margin for
-      # transient CUDA allocations instead of risking successful-load OOMs.
+      # Leave placement and context sizing adaptive for every current and future GGUF.
       - LLAMA_ARG_FIT=on
+      # Reserve 1 GiB for transient CUDA allocations instead of loading at the OOM edge.
       - LLAMA_ARG_FIT_TARGET=1024
+      # Reject a model that cannot sustain at least a minimally useful agent context.
       - LLAMA_ARG_FIT_CTX=4096
+      # Keep the large attention history in 48GB system RAM, not scarce 8GB VRAM.
       - LLAMA_ARG_KV_OFFLOAD=false
 
-      # q4_0 doubles usable cache capacity versus q8_0; this favors agent history
-      # over the small quality loss from more aggressive KV quantization.
+      # Quantized KV cache depends on Flash Attention; it also accelerates long attention passes.
       - LLAMA_ARG_FLASH_ATTN=1
+      # Four-bit keys double history capacity relative to q8_0 at a small cache-quality cost.
       - LLAMA_ARG_CACHE_TYPE_K=q4_0
+      # Four-bit values provide the matching memory reduction for the other half of the cache.
       - LLAMA_ARG_CACHE_TYPE_V=q4_0
+      # A shared cache arena avoids reserving a fixed partition for every request slot.
       - LLAMA_ARG_KV_UNIFIED=true
+      # A 2048-token logical batch keeps large prompt prefills efficient.
       - LLAMA_ARG_BATCH_SIZE=2048
+      # A 512-token physical batch limits CUDA scratch-memory spikes on the 8GB card.
       - LLAMA_ARG_UBATCH_SIZE=512
+      # Twelve CPU threads handle RAM-resident cache traffic and CPU-offloaded tensors.
       - LLAMA_ARG_THREADS=12
+      # The embedded GGUF template preserves each model's role and tool-call formatting.
       - LLAMA_ARG_JINJA=true
 
-      # One loaded model and one slot reserve all fitted context for one agent.
+      # Two model weight sets do not safely coexist in the available VRAM.
       - LLAMA_ARG_MODELS_MAX=1
+      # Give a single agent session the full fitted context instead of splitting it across clients.
       - LLAMA_ARG_N_PARALLEL=1
+      # Accept LAN traffic through the published Docker port.
       - LLAMA_ARG_HOST=0.0.0.0
     command: --models-dir /models
     volumes:
