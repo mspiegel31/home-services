@@ -59,10 +59,10 @@ services:
       - LLAMA_ARG_KV_OFFLOAD=false
       # Quantized KV cache depends on Flash Attention; it also accelerates long attention passes.
       - LLAMA_ARG_FLASH_ATTN=1
-      # Four-bit keys double history capacity relative to q8_0 at a small cache-quality cost.
-      - LLAMA_ARG_CACHE_TYPE_K=q4_0
-      # Four-bit values provide the matching memory reduction for the other half of the cache.
-      - LLAMA_ARG_CACHE_TYPE_V=q4_0
+      # Eight-bit keys retain attention-state fidelity with half the f16 memory cost.
+      - LLAMA_ARG_CACHE_TYPE_K=q8_0
+      # Eight-bit values match key precision and prevent asymmetric cache quality.
+      - LLAMA_ARG_CACHE_TYPE_V=q8_0
       # A shared cache arena avoids reserving a fixed partition for every request slot.
       - LLAMA_ARG_KV_UNIFIED=true
       # A 2048-token logical batch keeps large prompt prefills efficient.
