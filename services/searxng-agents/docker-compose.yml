@@ -8,15 +8,16 @@ services:
     environment:
       SEARXNG_BASE_URL: "https://${SEARXNG_HOSTNAME:?Set SEARXNG_HOSTNAME in Portainer}"
       SEARXNG_SECRET: "${SEARXNG_SECRET:?Set SEARXNG_SECRET in Portainer}"
-      SEARXNG_IMAGE_PROXY: "false"
+      SEARXNG_IMAGE_PROXY: "true"
       SEARXNG_METHOD: "GET"
+      SEARXNG_LIMITER: "false"
     configs:
       - source: searxng_settings
         target: /etc/searxng/settings.yml
     volumes:
       - searxng-cache:/var/cache/searxng
     networks:
-      - cloudflare_tunnel
+      - internal
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
       interval: 30s
@@ -28,37 +29,132 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  caddy:
+    container_name: searxng-agents-caddy
+    image: docker.io/library/caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SEARXNG_HOSTNAME: "${SEARXNG_HOSTNAME:?Set SEARXNG_HOSTNAME in Portainer}"
+      SEARXNG_API_HOSTNAME: "${SEARXNG_API_HOSTNAME:?Set SEARXNG_API_HOSTNAME in Portainer}"
+      SEARXNG_BASICAUTH: "${SEARXNG_BASICAUTH:?Set SEARXNG_BASICAUTH in Portainer as: <user> <bcrypt-hash>}"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - cloudflare_tunnel
+      - internal
+    depends_on:
+      searxng:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
 configs:
+  caddyfile:
+    content: |
+      {
+        auto_https off
+        admin off
+      }
+
+      # Human hostname — Cloudflare Access does the auth in front of this.
+      http://{$SEARXNG_HOSTNAME} {
+        encode gzip zstd
+        reverse_proxy searxng:8080
+      }
+
+      # Agent hostname — Basic auth, GET only, two endpoints only.
+      http://{$SEARXNG_API_HOSTNAME} {
+        encode gzip zstd
+
+        @allowed {
+          method GET
+          path /search /config /healthz
+        }
+        handle @allowed {
+          basic_auth {
+            {$SEARXNG_BASICAUTH}
+          }
+          reverse_proxy searxng:8080
+        }
+        handle {
+          respond 404
+        }
+      }
+
   searxng_settings:
     content: |
       use_default_settings: true
 
+      general:
+        instance_name: "electricgarage search"
+        privacypolicy_url: false
+        donation_url: false
+        contact_url: false
+        enable_metrics: false
+
       server:
-        base_url: "https://searxng.electricgarage.net"
+        base_url: false
         secret_key: "changeme"
         limiter: false
         public_instance: false
-        image_proxy: false
-        method: GET
+        image_proxy: true
+        method: "GET"
         default_http_headers:
           X-Content-Type-Options: nosniff
           X-Download-Options: noopen
-          X-Robots-Tag: noindex, nofollow
+          X-Robots-Tag: noindex, nofollow, noarchive
           Referrer-Policy: no-referrer
           Permissions-Policy: geolocation=(), camera=(), microphone=()
 
       search:
+        safe_search: 0
+        autocomplete: "duckduckgo"
+        autocomplete_min: 3
+        favicon_resolver: "duckduckgo"
+        default_lang: "en"
         formats:
+          - html
           - json
 
       ui:
         query_in_title: false
-        default_theme: simple
         infinite_scroll: false
+        default_theme: simple
+        results_on_new_tab: false
+        theme_args:
+          simple_style: auto
+
+      outgoing:
+        request_timeout: 5.0
+        max_request_timeout: 10.0
+        pool_connections: 100
+        pool_maxsize: 20
+        enable_http2: true
+
+      engines:
+        - name: mojeek
+          disabled: false
+        - name: mwmbl
+          disabled: false
+        - name: yandex
+          disabled: false
+        - name: yandex images
+          disabled: false
+        - name: bing
+          disabled: false
+        - name: baidu
+          disabled: false
 
 volumes:
   searxng-cache:
+  caddy-data:
+  caddy-config:
 
 networks:
   cloudflare_tunnel:
     external: true
+  internal:
