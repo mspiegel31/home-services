@@ -1,9 +1,8 @@
 # llama.cpp router for Proxmox VM 600 (RTX 2070 SUPER, 8GB VRAM, 48GB RAM).
 #
-# Context stays unset: llama.cpp reads each GGUF's training limit, then --fit
-# reduces it only when the available GPU or system memory cannot sustain it.
-# Never set LLAMA_ARG_CTX_SIZE=0 here: an explicit zero requests the full
-# training context and disables --fit's context reduction.
+# Most models leave context unset so --fit chooses a hardware-safe value. Qwen
+# is the exception: a preset holds its proven 256K target so --fit proceeds to
+# its MoE expert-spill phase instead of reducing context to the 4K floor first.
 #
 # KV lives in system RAM so dense 12B models retain long agent contexts instead
 # of being reduced to the 4K --fit floor. This is slower than GPU KV but makes
@@ -14,6 +13,34 @@ x-networks: &default-networks
     - llama-server
 
 services:
+  # The Qwen-only router preset is versioned with this stack.
+  git-sync:
+    container_name: llama-server-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2
+    restart: unless-stopped
+    command: [
+      "git-sync",
+      "--repo=https://github.com/mspiegel31/home-services.git",
+      "--ref=main",
+      "--root=/git",
+      "--link=current",
+      "--period=30s",
+      "--username=mspiegel31",
+      "--add-user",
+      "--http-bind=:1234",
+      ]
+    environment:
+      - GITSYNC_PASSWORD=${GITSYNC_PASSWORD}
+    volumes:
+      - /opt/llama-server-configs:/git
+    user: "1000:1000"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/llama-server/config/presets.ini && curl -f http://localhost:1234/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
   llama-server:
     <<: *default-networks
     container_name: llama-server
@@ -54,9 +81,13 @@ services:
       - LLAMA_ARG_N_PARALLEL=1
       # Accept LAN traffic through the published Docker port.
       - LLAMA_ARG_HOST=0.0.0.0
-    command: --models-dir /models
+    command: --models-dir /models --models-preset /config/current/services/llama-server/config/presets.ini
     volumes:
       - /mnt/models/llama-server:/models
+      - /opt/llama-server-configs:/config:ro
+    depends_on:
+      git-sync:
+        condition: service_healthy
     deploy:
       resources:
         reservations:
