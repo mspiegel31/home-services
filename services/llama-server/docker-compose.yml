@@ -55,8 +55,8 @@ services:
       - LLAMA_ARG_FIT_TARGET=1024
       # Reject a model that cannot sustain at least a minimally useful agent context.
       - LLAMA_ARG_FIT_CTX=4096
-      # KV placement differs by architecture, so model presets decide it below.
-
+      # Preserve 8GB VRAM for weights so unknown GGUFs can fit long contexts in RAM.
+      - LLAMA_ARG_KV_OFFLOAD=false
       # Quantized KV cache depends on Flash Attention; it also accelerates long attention passes.
       - LLAMA_ARG_FLASH_ATTN=1
       # Four-bit keys double history capacity relative to q8_0 at a small cache-quality cost.
