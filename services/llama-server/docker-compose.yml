@@ -5,8 +5,8 @@
 # its MoE expert-spill phase instead of reducing context to the 4K floor first.
 #
 # KV lives in system RAM by default so unknown GGUFs retain long agent contexts.
-# Small, explicitly reviewed models can opt into GPU KV in presets.ini; --fit then
-# reduces their context to preserve the 1 GiB CUDA headroom when necessary.
+# Reviewed models can opt into GPU KV in presets.ini; --fit then reduces their
+# context to preserve the 1 GiB CUDA headroom when necessary.
 
 x-networks: &default-networks
   networks:
