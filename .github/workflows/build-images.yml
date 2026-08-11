@@ -23,37 +23,46 @@ jobs:
         with:
           fetch-depth: 0
 
-      - id: set
-        env:
-          INPUT_IMAGE: ${{ inputs.image }}
-          BEFORE: ${{ github.event.before }}
-          SHA: ${{ github.sha }}
-          WORKFLOW: .github/workflows/build-images.yml
-        run: |
-          set -euo pipefail
+      - uses: actions/github-script@v7
+        id: set
+        with:
+          script: |
+            // Every directory under images/ containing a Dockerfile is a buildable image.
+            const globber = await glob.create('images/*/Dockerfile');
+            const all = [...new Set((await globber.glob()).map(f => f.split('/')[1]))].sort();
 
-          # Every directory under images/ containing a Dockerfile is a buildable image.
-          all=$(git ls-files 'images/*/Dockerfile' | cut -d/ -f2 | sort -u)
+            const inputImage = context.payload.inputs?.image || '';
+            let changed;
 
-          if [ -n "$INPUT_IMAGE" ]; then
-            changed="$INPUT_IMAGE"
-          else
-            # Diff the push range; fall back to all images when the range is
-            # unavailable (manual dispatch, new branch, force push).
-            files=$(git diff --name-only "$BEFORE" "$SHA" 2>/dev/null || true)
-            if [ -z "$files" ] || echo "$files" | grep -qx "$WORKFLOW"; then
-              changed="$all"
-            else
-              touched=$(echo "$files" | sed -n 's|^images/\([^/][^/]*\)/.*|\1|p' | sort -u)
-              changed=$(comm -12 <(echo "$all") <(echo "$touched"))
-            fi
-          fi
+            if (inputImage) {
+              changed = [inputImage];
+            } else {
+              // Diff the push range; fall back to all images when the range is
+              // unavailable (manual dispatch, new branch, force push).
+              let diffFiles = null;
+              const before = context.payload.before;
+              if (before) {
+                try {
+                  const res = await exec.getExecOutput('git', ['diff', '--name-only', before, context.sha]);
+                  diffFiles = res.stdout.split('\n').filter(Boolean);
+                } catch {
+                  diffFiles = null;
+                }
+              }
 
-          count=$(echo "$changed" | grep -c . || true)
-          matrix=$(echo "$changed" | jq -R . | jq -cs '{image: map(select(length > 0))}')
-          echo "Building: ${changed:-<none>}"
-          echo "count=$count" >> "$GITHUB_OUTPUT"
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+              if (!diffFiles || diffFiles.includes('.github/workflows/build-images.yml')) {
+                changed = all;
+              } else {
+                const touched = new Set(
+                  diffFiles.filter(f => f.startsWith('images/')).map(f => f.split('/')[1])
+                );
+                changed = all.filter(i => touched.has(i));
+              }
+            }
+
+            core.info(`Building: ${changed.length ? changed.join(', ') : '<none>'}`);
+            core.setOutput('count', changed.length);
+            core.setOutput('matrix', JSON.stringify({ image: changed }));
 
   build:
     needs: changes
