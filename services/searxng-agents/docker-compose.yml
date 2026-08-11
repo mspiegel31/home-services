@@ -181,7 +181,7 @@ configs:
 
       engines:
         - name: google
-          disabled: true
+          disabled: false
         # Scraper-friendly engines prioritized for agent workloads.
         - name: duckduckgo
           disabled: false
