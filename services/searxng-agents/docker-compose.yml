@@ -11,11 +11,15 @@ services:
       SEARXNG_IMAGE_PROXY: "true"
       SEARXNG_METHOD: "GET"
       SEARXNG_LIMITER: "false"
+      SEARXNG_VALKEY_URL: "valkey://valkey:6379/0"
     configs:
       - source: searxng_settings
         target: /etc/searxng/settings.yml
     volumes:
       - searxng-cache:/var/cache/searxng
+    depends_on:
+      valkey:
+        condition: service_healthy
     networks:
       - internal
     healthcheck:
@@ -29,9 +33,26 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  valkey:
+    container_name: searxng-agents-valkey
+    image: docker.io/valkey/valkey:8-alpine
+    restart: unless-stopped
+    command: valkey-server --save "" --appendonly no --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - valkey-data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+
   caddy:
     container_name: searxng-agents-caddy
-    image: docker.io/library/caddy:2-alpine
+    image: ghcr.io/mspiegel31/caddy-ratelimit:latest
     restart: unless-stopped
     environment:
       SEARXNG_HOSTNAME: "${SEARXNG_HOSTNAME:?Set SEARXNG_HOSTNAME in Portainer}"
@@ -78,6 +99,18 @@ configs:
         }
         encode gzip zstd
 
+        rate_limit {
+          zone api_burst {
+            key static
+            events 30
+            window 10s
+          }
+          zone api_sustained {
+            key static
+            events 200
+            window 1m
+          }
+        }
         @allowed {
           method GET
           path /search /config /healthz
@@ -96,6 +129,9 @@ configs:
   searxng_settings:
     content: |
       use_default_settings: true
+
+      valkey:
+        url: valkey://valkey:6379/0
 
       general:
         instance_name: "electricgarage search"
@@ -139,11 +175,20 @@ configs:
       outgoing:
         request_timeout: 5.0
         max_request_timeout: 10.0
-        pool_connections: 100
+        pool_connections: 30
         pool_maxsize: 20
         enable_http2: true
 
       engines:
+        - name: google
+          disabled: true
+        # Scraper-friendly engines prioritized for agent workloads.
+        - name: duckduckgo
+          disabled: false
+        - name: wikipedia
+          disabled: false
+        - name: brave
+          disabled: false
         - name: mojeek
           disabled: false
         - name: mwmbl
@@ -159,6 +204,7 @@ configs:
 
 volumes:
   searxng-cache:
+  valkey-data:
   caddy-data:
   caddy-config:
 
