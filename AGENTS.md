@@ -9,6 +9,8 @@ a collection of primarily docker-compose stacks for use with various portainer h
 
 1. media apps are hosted on zfs.  their configs and data should be located in /mnt/tank/container-configs/<APP_NAME>
 
+1. for github workflows, strongly prefer github script to bash for ad-hoc scripting
+
 ## examples/prior art
 1. large amounts of homelab content can be found at https://github.com/JamesTurland/JimsGarage
 1. self-hosted app listing can also be found at https://selfh.st/apps/

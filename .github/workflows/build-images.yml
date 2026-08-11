@@ -1,0 +1,108 @@
+name: Build images
+
+on:
+  push:
+    paths:
+      - 'images/**'
+      - '.github/workflows/build-images.yml'
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Image to build (directory name under images/; blank builds all)'
+        required: false
+        default: ''
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      count: ${{ steps.set.outputs.count }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/github-script@v7
+        id: set
+        with:
+          script: |
+            // Every directory under images/ containing a Dockerfile is a buildable image.
+            const globber = await glob.create('images/*/Dockerfile');
+            const all = [...new Set((await globber.glob()).map(f => f.split('/')[1]))].sort();
+
+            const inputImage = context.payload.inputs?.image || '';
+            let changed;
+
+            if (inputImage) {
+              changed = [inputImage];
+            } else {
+              // Diff the push range; fall back to all images when the range is
+              // unavailable (manual dispatch, new branch, force push).
+              let diffFiles = null;
+              const before = context.payload.before;
+              if (before) {
+                try {
+                  const res = await exec.getExecOutput('git', ['diff', '--name-only', before, context.sha]);
+                  diffFiles = res.stdout.split('\n').filter(Boolean);
+                } catch {
+                  diffFiles = null;
+                }
+              }
+
+              if (!diffFiles || diffFiles.includes('.github/workflows/build-images.yml')) {
+                changed = all;
+              } else {
+                const touched = new Set(
+                  diffFiles.filter(f => f.startsWith('images/')).map(f => f.split('/')[1])
+                );
+                changed = all.filter(i => touched.has(i));
+              }
+            }
+
+            core.info(`Building: ${changed.length ? changed.join(', ') : '<none>'}`);
+            core.setOutput('count', changed.length);
+            core.setOutput('matrix', JSON.stringify({ image: changed }));
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.count != '0'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: images/${{ matrix.image }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
