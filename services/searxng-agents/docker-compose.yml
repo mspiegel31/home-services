@@ -88,7 +88,7 @@ configs:
           format console
         }
         encode gzip zstd
-        reverse_proxy searxng:8080
+        reverse_proxy searxng-agents:8080
       }
 
       # Agent hostname — Basic auth, GET only, two endpoints only.
@@ -119,7 +119,7 @@ configs:
           basic_auth {
             {$$SEARXNG_BASICAUTH}
           }
-          reverse_proxy searxng:8080
+          reverse_proxy searxng-agents:8080
         }
         handle {
           respond 404
