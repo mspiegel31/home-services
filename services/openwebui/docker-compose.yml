@@ -8,7 +8,12 @@ x-networks: &default-networks
 
 services:
   searxng:
-    <<: *default-networks
+    # NOT on cloudflare_tunnel: the name "searxng" collided with the
+    # searxng-agents stack's service alias and split-brained caddy's upstream
+    # (public hostname intermittently served by this legacy instance).
+    # openwebui reaches it via the openwebui network; tunnel access was unused.
+    networks:
+      - openwebui
     container_name: searxng
     image: searxng/searxng:latest
     ports:
