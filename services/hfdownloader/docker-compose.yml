@@ -6,8 +6,9 @@ services:
     user: "0:0"
     ports:
       - "11436:8080"   # adjacent to ollama (11434) and llama-server (11435); LAN-accessible
-    command: serve --local-dir /models --addr 0.0.0.0 --port 8080
+    command: serve --addr 0.0.0.0 --port 8080
     environment:
       - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/models   # cache root; downloads use hub/models--* layout shared with llama-swap vLLM backends
     volumes:
-      - /mnt/models/huggingface:/models   # same host path hfdownloader writes; flat-file output
+      - /mnt/models/huggingface:/models   # tree vLLM backends consume via config.yaml's HF_HOME=/models/huggingface
