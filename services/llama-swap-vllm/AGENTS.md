@@ -1,18 +1,15 @@
 # llama-swap-vllm
 
 Portainer CE stack: git-sync sidecar + llama-swap router in the upstream
-`unified-cuda` image (digest-pinned) + lazily spawned vLLM backend containers
+`unified-cuda` image (unpinned tag) + lazily spawned vLLM backend containers
 via the Docker socket. Secrets (`LLAMA_SWAP_API_KEY`, `HF_TOKEN`) are injected
 by Portainer — never commit them.
 
-## Router image
-
-- `ghcr.io/mostlygeek/llama-swap:unified-cuda@sha256:...` — the `unified-cuda`
-  tag is a moving nightly build from llama-swap main HEAD; the digest pin is
-  the version control. To upgrade: pull the new digest
-  (`docker manifest inspect ghcr.io/mostlygeek/llama-swap:unified-cuda`) and
-  update `docker-compose.yml`. `/versions.txt` inside the image lists the
-  bundled component revisions.
+- `ghcr.io/mostlygeek/llama-swap:unified-cuda`, unpinned — the tag is a
+  moving nightly build from llama-swap main HEAD, so re-pulls auto-upgrade
+  the router. Check `/versions.txt` inside the container for the bundled
+  component revisions. Pin a build by appending `@sha256:<digest>`
+  (`docker manifest inspect`) if a specific version is needed.
 - The image bundles `vllm-wrapper` (vLLM sleep/wake support). Currently
   unused — sleep/wake is disabled in `config.yaml` pending upstream vLLM fixes
   (garbled output on wake).
