@@ -18,7 +18,13 @@ macros:
     --volume /mnt/models:/models
     --label io.mspiegel.llama-swap.managed=true
     --label io.mspiegel.llama-swap.model=${MODEL_ID}
-  VLLM_COMMON: "--model ${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching"
+# Hybrid/SSM models (qwen3.8 DeltaNet, nemotron + ornith Mamba) need one
+# linear-attention state cache block per concurrent decode. The CUDA graph
+# capture pass asserts max-num-seqs <= available blocks; at vLLM's default
+# (1024) this aborts startup when the co-resident util budget leaves fewer
+# blocks (measured 359 for ornith at 0.47). 256 is the shared per-model cap -
+# under the available blocks, generous for a 72GB card shared by two models.
+models:
 
 models:
   "muse-glimmer-30b":
@@ -66,6 +72,7 @@ models:
       ${VLLM_COMMON}
       --max-model-len 262144
       --gpu-memory-utilization 0.49
+      --max-num-seqs 256
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
       --tool-call-parser qwen3_coder
@@ -90,6 +97,7 @@ models:
       ${VLLM_COMMON}
       --max-model-len 1048576
       --gpu-memory-utilization 0.45
+      --max-num-seqs 256
       --kv-cache-dtype fp8
       --max-num-batched-tokens 16384
       --moe-backend marlin
@@ -119,6 +127,7 @@ models:
       ${VLLM_COMMON}
       --max-model-len 131072
       --gpu-memory-utilization 0.47
+      --max-num-seqs 256
       --kv-cache-dtype fp8
       --tensor-parallel-size 1
       --reasoning-parser qwen3
