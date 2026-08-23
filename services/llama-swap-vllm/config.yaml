@@ -2,7 +2,7 @@ healthCheckTimeout: 3600
 logLevel: info
 logToStdout: both
 includeAliasesInList: true
-globalTTL: 1800
+globalTTL: 3600
 unloadTimeout: 120
 
 apiKeys:
@@ -18,7 +18,7 @@ macros:
     --volume /mnt/models:/models
     --label io.mspiegel.llama-swap.managed=true
     --label io.mspiegel.llama-swap.model=${MODEL_ID}
-  VLLM_COMMON: "--model ${checkpoint} --served-model-name ${MODEL_ID} --max-num-seqs 1"
+  VLLM_COMMON: "--model ${checkpoint} --served-model-name ${MODEL_ID} --max-num-seqs 1 --enable-prefix-caching"
 
 models:
   "meta-models/Muse-Glimmer-30B":
@@ -31,13 +31,8 @@ models:
       checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 3600
     unloadTimeout: 120
-    capabilities:
-      in: [text, image]
-      out: [text]
-      tools: true
-      context: 131072
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-muse-glimmer
@@ -59,13 +54,8 @@ models:
       - qwen3.8-27b
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 3600
     unloadTimeout: 120
-    capabilities:
-      in: [text, image]
-      out: [text]
-      tools: true
-      context: 262144
     cmd: >-
       vllm-wrapper serve
       --vllm-url http://127.0.0.1:11502
@@ -83,7 +73,6 @@ models:
       --reasoning-parser qwen3
       --tool-call-parser qwen3_coder
       --enable-auto-tool-choice
-      --enable-prefix-caching
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       --enable-sleep-mode
     cmdStop: vllm-wrapper sleep --sleep-level 1 --vllm-url http://127.0.0.1:11502 --stop-pid ${PID}
@@ -95,13 +84,8 @@ models:
       - nemotron-3.5-lightning
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 3600
     unloadTimeout: 120
-    capabilities:
-      in: [text]
-      out: [text]
-      tools: true
-      context: 1048576
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-nemotron-3-5
@@ -112,7 +96,6 @@ models:
       --gpu-memory-utilization 0.45
       --kv-cache-dtype fp8
       --max-num-batched-tokens 16384
-      --enable-prefix-caching
       --moe-backend marlin
       --mamba-backend flashinfer
       --mamba-cache-mode align
@@ -131,13 +114,8 @@ models:
       - ornith-1.5-35b
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 3600
     unloadTimeout: 120
-    capabilities:
-      in: [text]
-      out: [text]
-      tools: true
-      context: 262144
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-ornith-1-5
@@ -147,7 +125,6 @@ models:
       --max-model-len 262144
       --gpu-memory-utilization 0.45
       --tensor-parallel-size 1
-      --enable-prefix-caching
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
