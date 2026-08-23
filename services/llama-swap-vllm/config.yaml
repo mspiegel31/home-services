@@ -99,9 +99,7 @@ models:
       --gpu-memory-utilization 0.42
       --kv-cache-dtype fp8
       --max-num-batched-tokens 16384
-      --moe-backend marlin
       --mamba-backend flashinfer
-      --mamba-cache-mode align
       --mamba-ssm-cache-dtype float16
       --enable-mamba-cache-stochastic-rounding
       --mamba-cache-philox-rounds 5
@@ -112,7 +110,7 @@ models:
 
   "ornith-1.5-35b":
     name: Ornith 1.5 35B-A3B NVFP4
-    description: Ornith 1.5 35B-A3B co-resident at 131,072-token context (fp8 KV), native 262,144 when served alone
+    description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
     macros:
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
     proxy: http://vllm-ornith-1-5:8000
@@ -127,7 +125,6 @@ models:
       --max-model-len auto
       --gpu-memory-utilization 0.42
       --kv-cache-dtype fp8
-      --tensor-parallel-size 1
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
