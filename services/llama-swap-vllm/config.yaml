@@ -1,0 +1,101 @@
+healthCheckTimeout: 3600
+logLevel: info
+logToStdout: both
+includeAliasesInList: true
+globalTTL: 1800
+unloadTimeout: 90
+
+apiKeys:
+  - "${env.LLAMA_SWAP_API_KEY}"
+
+models:
+  "unsloth/Qwen3.8-27B-NVFP4":
+    name: Qwen3.8 27B NVFP4
+    description: Qwen3.8 27B at its native 262,144-token context
+    aliases:
+      - qwen3.8-27b
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 1800
+    unloadTimeout: 90
+    capabilities:
+      in: [text, image]
+      out: [text]
+      tools: true
+      context: 262144
+    cmd: |
+      docker run --init --rm
+      --name vllm-qwen
+      --gpus all
+      --ipc host
+      --env HF_TOKEN
+      --publish 127.0.0.1:${PORT}:8000
+      --env HF_HOME=/models/huggingface
+      --env VLLM_CACHE_ROOT=/models/vllm
+      --volume /mnt/models:/models
+      vllm/vllm-openai:v0.27.1
+      --model unsloth/Qwen3.8-27B-NVFP4
+      --served-model-name unsloth/Qwen3.8-27B-NVFP4
+      --max-model-len 262144
+      --gpu-memory-utilization 0.90
+      --kv-cache-dtype fp8
+      --max-num-seqs 8
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_coder
+      --enable-auto-tool-choice
+      --enable-prefix-caching
+    cmdStop: docker stop --time 90 vllm-qwen
+
+  "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4":
+    name: NVIDIA Nemotron 3.5 Lightning 30B-A3B NVFP4
+    description: Nemotron 3.5 Lightning at its native 1,048,576-token context
+    aliases:
+      - nemotron-3.5-lightning
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 1800
+    unloadTimeout: 90
+    capabilities:
+      in: [text]
+      out: [text]
+      tools: true
+      context: 1048576
+    cmd: |
+      docker run --init --rm
+      --name vllm-nemotron
+      --gpus all
+      --ipc host
+      --env HF_TOKEN
+      --publish 127.0.0.1:${PORT}:8000
+      --env HF_HOME=/models/huggingface
+      --env VLLM_CACHE_ROOT=/models/vllm
+      --volume /mnt/models:/models
+      vllm/vllm-openai:v0.27.1
+      --model nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+      --served-model-name nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+      --max-model-len 1048576
+      --gpu-memory-utilization 0.90
+      --kv-cache-dtype fp8
+      --max-num-seqs 8
+      --enable-prefix-caching
+      --mamba-backend flashinfer
+      --mamba-cache-mode align
+      --mamba-ssm-cache-dtype float16
+      --enable-mamba-cache-stochastic-rounding
+      --mamba-cache-philox-rounds 5
+      --reasoning-parser nemotron_v3
+      --tool-call-parser qwen3_coder
+      --enable-auto-tool-choice
+    cmdStop: docker stop --time 90 vllm-nemotron
+
+routing:
+  router:
+    use: group
+    settings:
+      groups:
+        gpu:
+          swap: true
+          exclusive: true
+          members:
+            - unsloth/Qwen3.8-27B-NVFP4
+            - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4

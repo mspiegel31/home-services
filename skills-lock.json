@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "llama-cpp": {
+      "source": "ovachiever/droid-tings",
+      "sourceType": "github",
+      "skillPath": "skills/llama-cpp/SKILL.md",
+      "computedHash": "1e14d7905cffe5f5ec2f51152a1745b728bcdef8990c285a2a1ce4f4ff5b7518"
+    }
+  }
+}
