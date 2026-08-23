@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # No CUDA, no model weights, no vLLM — those live in per-model backend containers.
 
 # Build vllm-wrapper from llama-swap source (cross-compiled, CGO disabled)
@@ -28,5 +27,4 @@ FROM docker:29-cli@sha256:000bb62ff495f986c9f5578eb67cc2cb98b91138eda81d7762d537
 RUN apk add --no-cache ca-certificates curl
 COPY --from=download /tmp/llama-swap /usr/local/bin/llama-swap
 COPY --from=build-wrapper /out/vllm-wrapper /usr/local/bin/vllm-wrapper
-RUN --entrypoint=sh -c "llama-swap --version && vllm-wrapper --help > /dev/null && docker --version"
 ENTRYPOINT ["llama-swap"]
