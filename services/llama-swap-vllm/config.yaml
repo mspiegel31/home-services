@@ -9,20 +9,16 @@ apiKeys:
   - "${env.LLAMA_SWAP_API_KEY}"
 
 macros:
-  - name: VLLM_IMAGE
-    value: "vllm/vllm-openai:v0.27.1@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967"
-  - name: checkpoint
-    value: "${MODEL_ID}"
-  - name: DOCKER_PREFIX
-    value: >-
-      docker run --init --rm --gpus all --ipc host
-      --env HF_TOKEN --env HF_HOME=/models/huggingface
-      --env VLLM_CACHE_ROOT=/models/vllm
-      --volume /mnt/models:/models
-      --label io.mspiegel.llama-swap.managed=true
-      --label io.mspiegel.llama-swap.model=${MODEL_ID}
-  - name: VLLM_COMMON
-    value: "--model ${checkpoint} --served-model-name ${MODEL_ID} --max-num-seqs 1"
+  VLLM_IMAGE: "vllm/vllm-openai:v0.27.1@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967"
+  checkpoint: "${MODEL_ID}"
+  DOCKER_PREFIX: >-
+    docker run --init --rm --gpus all --ipc host
+    --env HF_TOKEN --env HF_HOME=/models/huggingface
+    --env VLLM_CACHE_ROOT=/models/vllm
+    --volume /mnt/models:/models
+    --label io.mspiegel.llama-swap.managed=true
+    --label io.mspiegel.llama-swap.model=${MODEL_ID}
+  VLLM_COMMON: "--model ${checkpoint} --served-model-name ${MODEL_ID} --max-num-seqs 1"
 
 models:
   "meta-models/Muse-Glimmer-30B":
@@ -31,10 +27,8 @@ models:
     aliases:
       - muse-glimmer-30b
     macros:
-      - name: VLLM_IMAGE
-        value: "vllm/vllm-openai:muse-glimmer@sha256:413c8fbecb1204a218117c77a4ea4b3a211d5686ff99c31d82ba6dd0cec8c5a6"
-      - name: checkpoint
-        value: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
+      VLLM_IMAGE: "vllm/vllm-openai:muse-glimmer@sha256:413c8fbecb1204a218117c77a4ea4b3a211d5686ff99c31d82ba6dd0cec8c5a6"
+      checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
