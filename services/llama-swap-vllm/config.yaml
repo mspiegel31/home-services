@@ -30,7 +30,7 @@ macros:
 models:
   "muse-glimmer-30b":
     name: Muse Glimmer 30B NVFP4
-    description: Muse Glimmer 30B at its native 131,072-token context
+    description: Muse Glimmer 30B with auto-fit context (native 131,072 when served alone)
     macros:
       VLLM_IMAGE: "vllm/vllm-openai:muse-glimmer@sha256:413c8fbecb1204a218117c77a4ea4b3a211d5686ff99c31d82ba6dd0cec8c5a6"
       checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
@@ -43,8 +43,8 @@ models:
       --name vllm-muse-glimmer
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-model-len 131072
-      --gpu-memory-utilization 0.49
+      --max-model-len auto
+      --gpu-memory-utilization 0.48
       --kv-cache-dtype fp8
       --generation-config auto
       --reasoning-parser muse_glimmer
@@ -54,7 +54,7 @@ models:
 
   "qwen3.8-27b":
     name: Qwen3.8 27B NVFP4
-    description: Qwen3.8 27B at its native 262,144-token context
+    description: Qwen3.8 27B with auto-fit context (native 262,144 when served alone)
     macros:
       checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
     proxy: http://127.0.0.1:${PORT}
@@ -71,8 +71,8 @@ models:
       --env VLLM_SERVER_DEV_MODE=1
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-model-len 262144
-      --gpu-memory-utilization 0.6
+      --max-model-len auto
+      --gpu-memory-utilization 0.48
       --max-num-seqs 256
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
@@ -84,7 +84,7 @@ models:
 
   "nemotron-3.5-lightning":
     name: NVIDIA Nemotron 3.5 Lightning 30B-A3B NVFP4
-    description: Nemotron 3.5 Lightning at its native 1,048,576-token context
+    description: Nemotron 3.5 Lightning with auto-fit context (native 1,048,576 when served alone)
     macros:
       checkpoint: "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4"
     proxy: http://vllm-nemotron-3-5:8000
@@ -96,8 +96,8 @@ models:
       --name vllm-nemotron-3-5
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-model-len 1048576
-      --gpu-memory-utilization 0.45
+      --max-model-len auto
+      --gpu-memory-utilization 0.42
       --max-num-seqs 256
       --kv-cache-dtype fp8
       --max-num-batched-tokens 16384
@@ -126,8 +126,8 @@ models:
       --name vllm-ornith-1-5
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-model-len 131072
-      --gpu-memory-utilization 0.44
+      --max-model-len auto
+      --gpu-memory-utilization 0.42
       --max-num-seqs 256
       --kv-cache-dtype fp8
       --tensor-parallel-size 1
