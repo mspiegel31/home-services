@@ -1,4 +1,4 @@
-# llama-swap vLLM router: llama-swap + vllm-wrapper + Docker CLI.
+# syntax=docker/dockerfile:1.7
 # No CUDA, no model weights, no vLLM — those live in per-model backend containers.
 
 # Build vllm-wrapper from llama-swap source (cross-compiled, CGO disabled)
