@@ -72,7 +72,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len 262144
-      --gpu-memory-utilization 0.45
+      --gpu-memory-utilization 0.6
       --max-num-seqs 256
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
