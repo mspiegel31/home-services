@@ -14,13 +14,13 @@ FROM alpine:3.21 AS download
 ARG TARGETARCH
 RUN apk add --no-cache curl
 RUN set -eux; \
-    curl -fsSL -o /tmp/llama-swap.tar.gz \
+    curl -fsSL -o "/tmp/llama-swap_250_linux_${TARGETARCH}.tar.gz" \
       "https://github.com/mostlygeek/llama-swap/releases/download/v250/llama-swap_250_linux_${TARGETARCH}.tar.gz"; \
     curl -fsSL -o /tmp/checksums.txt \
       "https://github.com/mostlygeek/llama-swap/releases/download/v250/llama-swap_250_checksums.txt"; \
     grep "llama-swap_250_linux_${TARGETARCH}.tar.gz" /tmp/checksums.txt > /tmp/verify.txt; \
     cd /tmp && sha256sum -c verify.txt; \
-    tar -xzf llama-swap.tar.gz -C /tmp
+    tar -xzf "llama-swap_250_linux_${TARGETARCH}.tar.gz" -C /tmp
 
 # Runtime: Docker CLI as the multi-arch base
 FROM docker:29-cli@sha256:000bb62ff495f986c9f5578eb67cc2cb98b91138eda81d7762d5371eb8a497fe
