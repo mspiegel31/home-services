@@ -55,6 +55,9 @@ models:
     macros:
       checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
     proxy: http://127.0.0.1:${PORT}
+    # MTP speculative decoding disabled: known accuracy bug with
+    # prefix caching (vllm#43559, still open). Uncomment below to re-enable.
+    # --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
     cmd: >-
       vllm-wrapper serve
       --vllm-url http://vllm-qwen3-8-27b:8000
@@ -72,7 +75,6 @@ models:
       --tool-call-parser qwen3_coder
       --enable-auto-tool-choice
       --enable-sleep-mode
-      # --speculative-config '{"method":"mtp","num_speculative_tokens":3}'  # disabled: MTP+prefix cache accuracy bug (vllm#43559)
     cmdStop: vllm-wrapper sleep --sleep-level 1 --vllm-url http://vllm-qwen3-8-27b:8000 --stop-pid ${PID}
 
   "nemotron-3.5-lightning":
