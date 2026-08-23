@@ -1,7 +1,6 @@
 healthCheckTimeout: 3600
 logLevel: info
 logToStdout: both
-includeAliasesInList: true
 globalTTL: 3600
 unloadTimeout: 120
 
@@ -13,6 +12,7 @@ macros:
   checkpoint: "${MODEL_ID}"
   DOCKER_PREFIX: >-
     docker run --init --rm --gpus all --ipc host
+    --network llama-swap-vllm-backend
     --env HF_TOKEN --env HF_HOME=/models/huggingface
     --env VLLM_CACHE_ROOT=/models/vllm
     --volume /mnt/models:/models
@@ -21,22 +21,19 @@ macros:
   VLLM_COMMON: "--model ${checkpoint} --served-model-name ${MODEL_ID} --max-num-seqs 1 --enable-prefix-caching"
 
 models:
-  "meta-models/Muse-Glimmer-30B":
+  "muse-glimmer-30b":
     name: Muse Glimmer 30B NVFP4
     description: Muse Glimmer 30B at its native 131,072-token context
-    aliases:
-      - muse-glimmer-30b
     macros:
       VLLM_IMAGE: "vllm/vllm-openai:muse-glimmer@sha256:413c8fbecb1204a218117c77a4ea4b3a211d5686ff99c31d82ba6dd0cec8c5a6"
       checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
-    proxy: http://127.0.0.1:${PORT}
+    proxy: http://vllm-muse-glimmer:8000
     checkEndpoint: /health
     ttl: 3600
     unloadTimeout: 120
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-muse-glimmer
-      --publish 127.0.0.1:${PORT}:8000
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len 131072
@@ -47,23 +44,22 @@ models:
       --enable-auto-tool-choice
     cmdStop: docker stop --time 90 vllm-muse-glimmer
 
-  "unsloth/Qwen3.8-27B-NVFP4":
+  "qwen3.8-27b":
     name: Qwen3.8 27B NVFP4
     description: Qwen3.8 27B at its native 262,144-token context
-    aliases:
-      - qwen3.8-27b
+    macros:
+      checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 3600
     unloadTimeout: 120
     cmd: >-
       vllm-wrapper serve
-      --vllm-url http://127.0.0.1:11502
+      --vllm-url http://vllm-qwen3-8-27b:8000
       --listen 127.0.0.1:${PORT}
       --wait-timeout 3600s --
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b
-      --publish 127.0.0.1:11502:8000
       --env VLLM_SERVER_DEV_MODE=1
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
@@ -75,21 +71,20 @@ models:
       --enable-auto-tool-choice
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       --enable-sleep-mode
-    cmdStop: vllm-wrapper sleep --sleep-level 1 --vllm-url http://127.0.0.1:11502 --stop-pid ${PID}
+    cmdStop: vllm-wrapper sleep --sleep-level 1 --vllm-url http://vllm-qwen3-8-27b:8000 --stop-pid ${PID}
 
-  "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4":
+  "nemotron-3.5-lightning":
     name: NVIDIA Nemotron 3.5 Lightning 30B-A3B NVFP4
     description: Nemotron 3.5 Lightning at its native 1,048,576-token context
-    aliases:
-      - nemotron-3.5-lightning
-    proxy: http://127.0.0.1:${PORT}
+    macros:
+      checkpoint: "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4"
+    proxy: http://vllm-nemotron-3-5:8000
     checkEndpoint: /health
     ttl: 3600
     unloadTimeout: 120
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-nemotron-3-5
-      --publish 127.0.0.1:${PORT}:8000
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len 1048576
@@ -107,19 +102,18 @@ models:
       --enable-auto-tool-choice
     cmdStop: docker stop --time 90 vllm-nemotron-3-5
 
-  "ornith-ai/Ornith-1.5-35B-A3B-NVFP4":
+  "ornith-1.5-35b":
     name: Ornith 1.5 35B-A3B NVFP4
     description: Ornith 1.5 35B-A3B at its native 262,144-token context
-    aliases:
-      - ornith-1.5-35b
-    proxy: http://127.0.0.1:${PORT}
+    macros:
+      checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
+    proxy: http://vllm-ornith-1-5:8000
     checkEndpoint: /health
     ttl: 3600
     unloadTimeout: 120
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-ornith-1-5
-      --publish 127.0.0.1:${PORT}:8000
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len 262144
@@ -139,11 +133,11 @@ routing:
           swap: true
           exclusive: false
           members:
-            - meta-models/Muse-Glimmer-30B
-            - unsloth/Qwen3.8-27B-NVFP4
+            - muse-glimmer-30b
+            - qwen3.8-27b
         moe:
           swap: true
           exclusive: false
           members:
-            - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
-            - ornith-ai/Ornith-1.5-35B-A3B-NVFP4
+            - nemotron-3.5-lightning
+            - ornith-1.5-35b

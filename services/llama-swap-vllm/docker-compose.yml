@@ -14,6 +14,10 @@ name: llama-swap-vllm
 volumes:
   llama-swap-config:
 
+networks:
+  backend:
+    name: llama-swap-vllm-backend
+
 services:
   git-sync:
     container_name: llama-swap-vllm-git-sync
@@ -43,12 +47,15 @@ services:
     image: ghcr.io/mspiegel31/llama-swap-vllm:latest
     pull_policy: always
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "11437:8080"
+    networks:
+      - backend
     stop_grace_period: 2m
     environment:
       - LLAMA_SWAP_API_KEY=${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
       - HF_TOKEN=${HF_TOKEN:?Set HF_TOKEN in Portainer}
-    command: ["--config", "/config/current/services/llama-swap-vllm/config.yaml", "--listen", "0.0.0.0:11437", "--watch-config"]
+    command: ["--config", "/config/current/services/llama-swap-vllm/config.yaml", "--listen", "0.0.0.0:8080", "--watch-config"]
     volumes:
       - llama-swap-config:/config:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -56,7 +63,7 @@ services:
       git-sync:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:11437/health"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
       interval: 30s
       timeout: 5s
       retries: 5
