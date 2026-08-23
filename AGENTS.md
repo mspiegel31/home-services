@@ -1,6 +1,9 @@
 # Description
 a collection of primarily docker-compose stacks for use with various portainer hosts
 
+## Hardware
+- GPU: RTX PRO 5000 Blackwell 72GB | RAM: 64GB | CPU: Ryzen 5700G
+
 ## General Context
 1. I am using the Portainer Community Edition
 
