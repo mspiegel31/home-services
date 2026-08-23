@@ -1,0 +1,16 @@
+services:
+  hfdownloader:
+    container_name: hfdownloader
+    image: ghcr.io/bodaay/huggingfacemodeldownloader:latest
+    restart: unless-stopped
+    user: "0:0"
+    ports:
+      - "11436:8080"   # adjacent to ollama (11434) and llama-server (11435); LAN-accessible
+    command: serve --local-dir /models --addr 0.0.0.0 --port 8080
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+    volumes:
+      - /mnt/models/huggingface:/models   # same host path hfdownloader writes; flat-file output
+
+networks:
+  hfdownloader:
