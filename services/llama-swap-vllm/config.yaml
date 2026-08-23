@@ -15,6 +15,7 @@ macros:
     --network llama-swap-vllm-backend
     --env HF_TOKEN --env HF_HOME=/models/huggingface
     --env VLLM_CACHE_ROOT=/models/vllm
+    --env PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     --volume /mnt/models:/models
     --label io.mspiegel.llama-swap.managed=true
     --label io.mspiegel.llama-swap.model=${MODEL_ID}
@@ -71,7 +72,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len 262144
-      --gpu-memory-utilization 0.49
+      --gpu-memory-utilization 0.45
       --max-num-seqs 256
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
@@ -126,7 +127,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len 131072
-      --gpu-memory-utilization 0.47
+      --gpu-memory-utilization 0.44
       --max-num-seqs 256
       --kv-cache-dtype fp8
       --tensor-parallel-size 1
