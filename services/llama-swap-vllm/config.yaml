@@ -128,7 +128,6 @@ models:
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
-      --trust-remote-code
     cmdStop: docker stop --time 90 vllm-ornith-1-5
 
 routing:
