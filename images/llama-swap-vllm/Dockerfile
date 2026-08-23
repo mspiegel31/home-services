@@ -4,7 +4,7 @@
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build-wrapper
 ARG TARGETOS
 ARG TARGETARCH
-WORKDIR /src
+RUN apk add --no-cache git
 RUN git clone --depth=1 --branch v250 https://github.com/mostlygeek/llama-swap.git .
 ENV CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH
 RUN go build -ldflags="-s -w" -o /out/vllm-wrapper ./cmd/vllm-wrapper
