@@ -1,5 +1,4 @@
 healthCheckTimeout: 3600
-logLevel: info
 logToStdout: both
 globalTTL: 3600
 unloadTimeout: 120
@@ -35,9 +34,6 @@ models:
       VLLM_IMAGE: "vllm/vllm-openai:muse-glimmer@sha256:413c8fbecb1204a218117c77a4ea4b3a211d5686ff99c31d82ba6dd0cec8c5a6"
       checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
     proxy: http://vllm-muse-glimmer:8000
-    checkEndpoint: /health
-    ttl: 3600
-    unloadTimeout: 120
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-muse-glimmer
@@ -46,7 +42,6 @@ models:
       --max-model-len auto
       --gpu-memory-utilization 0.48
       --kv-cache-dtype fp8
-      --generation-config auto
       --reasoning-parser muse_glimmer
       --tool-call-parser muse_glimmer
       --enable-auto-tool-choice
@@ -58,9 +53,6 @@ models:
     macros:
       checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
     proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 3600
-    unloadTimeout: 120
     cmd: >-
       vllm-wrapper serve
       --vllm-url http://vllm-qwen3-8-27b:8000
@@ -87,9 +79,6 @@ models:
     macros:
       checkpoint: "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4"
     proxy: http://vllm-nemotron-3-5:8000
-    checkEndpoint: /health
-    ttl: 3600
-    unloadTimeout: 120
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-nemotron-3-5
@@ -114,9 +103,6 @@ models:
     macros:
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
     proxy: http://vllm-ornith-1-5:8000
-    checkEndpoint: /health
-    ttl: 3600
-    unloadTimeout: 120
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-ornith-1-5
@@ -132,17 +118,14 @@ models:
 
 routing:
   router:
-    use: group
     settings:
       groups:
         dense:
-          swap: true
           exclusive: false
           members:
             - muse-glimmer-30b
             - qwen3.8-27b
         moe:
-          swap: true
           exclusive: false
           members:
             - nemotron-3.5-lightning
