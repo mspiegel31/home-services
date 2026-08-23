@@ -71,8 +71,8 @@ models:
       --reasoning-parser qwen3
       --tool-call-parser qwen3_coder
       --enable-auto-tool-choice
-      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       --enable-sleep-mode
+      # --speculative-config '{"method":"mtp","num_speculative_tokens":3}'  # disabled: MTP+prefix cache accuracy bug (vllm#43559)
     cmdStop: vllm-wrapper sleep --sleep-level 1 --vllm-url http://vllm-qwen3-8-27b:8000 --stop-pid ${PID}
 
   "nemotron-3.5-lightning":
