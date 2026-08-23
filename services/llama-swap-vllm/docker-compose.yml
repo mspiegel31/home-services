@@ -1,0 +1,70 @@
+# llama-swap vLLM router for RTX PRO 5000 Blackwell 72GB.
+#
+# git-sync sidecar pulls this repository into a named volume; the router
+# reads its config from the volume and watches for changes via --watch-config.
+# vLLM backend containers are created lazily by llama-swap through the
+# Docker socket — they are NOT Compose-managed services.
+#
+# Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
+# ref main, path services/llama-swap-vllm/docker-compose.yml, poll 5 min,
+# re-pull image on, force redeployment off.
+
+name: llama-swap-vllm
+
+volumes:
+  llama-swap-config:
+
+networks:
+  backend:
+    name: llama-swap-vllm-backend
+
+services:
+  git-sync:
+    container_name: llama-swap-vllm-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
+    restart: unless-stopped
+    user: "0:0"
+    command: [
+      "git-sync",
+      "--repo=https://github.com/mspiegel31/home-services.git",
+      "--ref=main",
+      "--root=/git",
+      "--link=current",
+      "--period=30s",
+      "--http-bind=:1234",
+    ]
+    volumes:
+      - llama-swap-config:/git
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/llama-swap-vllm/config.yaml && curl -fsS http://127.0.0.1:1234/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  llama-swap:
+    container_name: llama-swap-vllm
+    image: ghcr.io/mspiegel31/llama-swap-vllm:latest
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "11437:8080"
+    networks:
+      - backend
+    stop_grace_period: 2m
+    environment:
+      - LLAMA_SWAP_API_KEY=${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
+      - HF_TOKEN=${HF_TOKEN:?Set HF_TOKEN in Portainer}
+    command: ["--config", "/config/current/services/llama-swap-vllm/config.yaml", "--listen", "0.0.0.0:8080", "--watch-config"]
+    volumes:
+      - llama-swap-config:/config:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      git-sync:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

@@ -1,0 +1,143 @@
+healthCheckTimeout: 3600
+logLevel: info
+logToStdout: both
+globalTTL: 3600
+unloadTimeout: 120
+
+apiKeys:
+  - "${env.LLAMA_SWAP_API_KEY}"
+
+macros:
+  VLLM_IMAGE: "vllm/vllm-openai:v0.27.1@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967"
+  checkpoint: "${MODEL_ID}"
+  DOCKER_PREFIX: >-
+    docker run --init --rm --gpus all --ipc host
+    --network llama-swap-vllm-backend
+    --env HF_TOKEN --env HF_HOME=/models/huggingface
+    --env VLLM_CACHE_ROOT=/models/vllm
+    --volume /mnt/models:/models
+    --label io.mspiegel.llama-swap.managed=true
+    --label io.mspiegel.llama-swap.model=${MODEL_ID}
+  VLLM_COMMON: "--model ${checkpoint} --served-model-name ${MODEL_ID} --max-num-seqs 1 --enable-prefix-caching"
+
+models:
+  "muse-glimmer-30b":
+    name: Muse Glimmer 30B NVFP4
+    description: Muse Glimmer 30B at its native 131,072-token context
+    macros:
+      VLLM_IMAGE: "vllm/vllm-openai:muse-glimmer@sha256:413c8fbecb1204a218117c77a4ea4b3a211d5686ff99c31d82ba6dd0cec8c5a6"
+      checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
+    proxy: http://vllm-muse-glimmer:8000
+    checkEndpoint: /health
+    ttl: 3600
+    unloadTimeout: 120
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-muse-glimmer
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len 131072
+      --gpu-memory-utilization 0.49
+      --generation-config auto
+      --reasoning-parser muse_glimmer
+      --tool-call-parser muse_glimmer
+      --enable-auto-tool-choice
+    cmdStop: docker stop --time 90 vllm-muse-glimmer
+
+  "qwen3.8-27b":
+    name: Qwen3.8 27B NVFP4
+    description: Qwen3.8 27B at its native 262,144-token context
+    macros:
+      checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 3600
+    unloadTimeout: 120
+    cmd: >-
+      vllm-wrapper serve
+      --vllm-url http://vllm-qwen3-8-27b:8000
+      --listen 127.0.0.1:${PORT}
+      --wait-timeout 3600s --
+      ${DOCKER_PREFIX}
+      --name vllm-qwen3-8-27b
+      --env VLLM_SERVER_DEV_MODE=1
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len 262144
+      --gpu-memory-utilization 0.49
+      --kv-cache-dtype fp8
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_coder
+      --enable-auto-tool-choice
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      --enable-sleep-mode
+    cmdStop: vllm-wrapper sleep --sleep-level 1 --vllm-url http://vllm-qwen3-8-27b:8000 --stop-pid ${PID}
+
+  "nemotron-3.5-lightning":
+    name: NVIDIA Nemotron 3.5 Lightning 30B-A3B NVFP4
+    description: Nemotron 3.5 Lightning at its native 1,048,576-token context
+    macros:
+      checkpoint: "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4"
+    proxy: http://vllm-nemotron-3-5:8000
+    checkEndpoint: /health
+    ttl: 3600
+    unloadTimeout: 120
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-nemotron-3-5
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len 1048576
+      --gpu-memory-utilization 0.45
+      --kv-cache-dtype fp8
+      --max-num-batched-tokens 16384
+      --moe-backend marlin
+      --mamba-backend flashinfer
+      --mamba-cache-mode align
+      --mamba-ssm-cache-dtype float16
+      --enable-mamba-cache-stochastic-rounding
+      --mamba-cache-philox-rounds 5
+      --reasoning-parser nemotron_v3
+      --tool-call-parser qwen3_coder
+      --enable-auto-tool-choice
+    cmdStop: docker stop --time 90 vllm-nemotron-3-5
+
+  "ornith-1.5-35b":
+    name: Ornith 1.5 35B-A3B NVFP4
+    description: Ornith 1.5 35B-A3B at its native 262,144-token context
+    macros:
+      checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
+    proxy: http://vllm-ornith-1-5:8000
+    checkEndpoint: /health
+    ttl: 3600
+    unloadTimeout: 120
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-ornith-1-5
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len 262144
+      --gpu-memory-utilization 0.45
+      --tensor-parallel-size 1
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_xml
+      --enable-auto-tool-choice
+    cmdStop: docker stop --time 90 vllm-ornith-1-5
+
+routing:
+  router:
+    use: group
+    settings:
+      groups:
+        dense:
+          swap: true
+          exclusive: false
+          members:
+            - muse-glimmer-30b
+            - qwen3.8-27b
+        moe:
+          swap: true
+          exclusive: false
+          members:
+            - nemotron-3.5-lightning
+            - ornith-1.5-35b
