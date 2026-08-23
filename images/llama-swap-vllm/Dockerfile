@@ -6,7 +6,7 @@ FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build-wrapper
 ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src
-RUN git clone --depth=1 --branch v250 https://github.com/llama-swap/llama-swap.git .
+RUN git clone --depth=1 --branch v250 https://github.com/mostlygeek/llama-swap.git .
 ENV CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH
 RUN go build -ldflags="-s -w" -o /out/vllm-wrapper ./cmd/vllm-wrapper
 
@@ -16,9 +16,9 @@ ARG TARGETARCH
 RUN apk add --no-cache curl
 RUN set -eux; \
     curl -fsSL -o /tmp/llama-swap.tar.gz \
-      "https://github.com/llama-swap/llama-swap/releases/download/v250/llama-swap_250_linux_${TARGETARCH}.tar.gz"; \
+      "https://github.com/mostlygeek/llama-swap/releases/download/v250/llama-swap_250_linux_${TARGETARCH}.tar.gz"; \
     curl -fsSL -o /tmp/checksums.txt \
-      "https://github.com/llama-swap/llama-swap/releases/download/v250/llama-swap_250_checksums.txt"; \
+      "https://github.com/mostlygeek/llama-swap/releases/download/v250/llama-swap_250_checksums.txt"; \
     grep "llama-swap_250_linux_${TARGETARCH}.tar.gz" /tmp/checksums.txt > /tmp/verify.txt; \
     cd /tmp && sha256sum -c verify.txt --strict; \
     tar -xzf llama-swap.tar.gz -C /tmp
@@ -28,6 +28,5 @@ FROM docker:29-cli@sha256:000bb62ff495f986c9f5578eb67cc2cb98b91138eda81d7762d537
 RUN apk add --no-cache ca-certificates curl
 COPY --from=download /tmp/llama-swap /usr/local/bin/llama-swap
 COPY --from=build-wrapper /out/vllm-wrapper /usr/local/bin/vllm-wrapper
-ENTRYPOINT []
-RUN llama-swap --version && vllm-wrapper --help > /dev/null && docker --version
+RUN --entrypoint=sh -c "llama-swap --version && vllm-wrapper --help > /dev/null && docker --version"
 ENTRYPOINT ["llama-swap"]
