@@ -11,6 +11,3 @@ services:
       - HF_TOKEN=${HF_TOKEN}
     volumes:
       - /mnt/models/huggingface:/models   # same host path hfdownloader writes; flat-file output
-
-networks:
-  hfdownloader:
