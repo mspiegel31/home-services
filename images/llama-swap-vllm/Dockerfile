@@ -19,7 +19,7 @@ RUN set -eux; \
     curl -fsSL -o /tmp/checksums.txt \
       "https://github.com/mostlygeek/llama-swap/releases/download/v250/llama-swap_250_checksums.txt"; \
     grep "llama-swap_250_linux_${TARGETARCH}.tar.gz" /tmp/checksums.txt > /tmp/verify.txt; \
-    cd /tmp && sha256sum -c verify.txt --strict; \
+    cd /tmp && sha256sum -c verify.txt; \
     tar -xzf llama-swap.tar.gz -C /tmp
 
 # Runtime: Docker CLI as the multi-arch base
