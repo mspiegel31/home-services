@@ -24,6 +24,8 @@ macros:
 # (1024) this aborts startup when the co-resident util budget leaves fewer
 # blocks (measured 359 for ornith at 0.47). 256 is the shared per-model cap -
 # under the available blocks, generous for a 72GB card shared by two models.
+  VLLM_COMMON: "--model ${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching"
+
 models:
   "muse-glimmer-30b":
     name: Muse Glimmer 30B NVFP4
