@@ -8,8 +8,15 @@
 # Rebuilding the derived image via CI picks up base updates; with
 # `pull_policy: always` Portainer re-pulls the derived image on deploy.
 #
-# git-sync sidecar pulls this repository into a named volume; the router
-# reads its config from the volume and watches for changes via --watch-config.
+# git-sync sidecar pulls this repository into a named volume and atomically
+# swaps the `current` symlink on every commit to main. llama-swap's
+# --watch-config polls os.Stat (modTime+size) every 2s, so the symlink swap
+# triggers a reload even when config.yaml content is unchanged — any push
+# to the repo (frigate, glance, etc.) would reload models and drop
+# in-flight requests. A content-hash-gated copy wrapper (see entrypoint
+# below) breaks that coupling: llama-swap watches a stable copy that only
+# changes when config.yaml's bytes actually differ.
+#
 # vLLM backend containers are created lazily by llama-swap through the
 # Docker socket — they are NOT Compose-managed services.
 #
@@ -72,7 +79,27 @@ services:
     environment:
       - LLAMA_SWAP_API_KEY=${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
       - HF_TOKEN=${HF_TOKEN:?Set HF_TOKEN in Portainer}
-    command: ["--config", "/config/current/services/llama-swap-vllm/config.yaml", "--listen", "0.0.0.0:8080", "--watch-config"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        SRC=/config/current/services/llama-swap-vllm/config.yaml
+        STABLE=/tmp/config.yaml
+        cp "$$SRC" "$$STABLE.tmp"
+        mv "$$STABLE.tmp" "$$STABLE"
+        LAST=$$(sha256sum "$$SRC" | cut -d' ' -f1)
+        (
+          while true; do
+            sleep 5
+            CUR=$$(sha256sum "$$SRC" | cut -d' ' -f1)
+            if [ "$$CUR" != "$$LAST" ]; then
+              LAST=$$CUR
+              cp "$$SRC" "$$STABLE.tmp"
+              mv "$$STABLE.tmp" "$$STABLE"
+            fi
+          done
+        ) &
+        exec llama-swap --config "$$STABLE" --listen 0.0.0.0:8080 --watch-config
     volumes:
       - llama-swap-config:/config:ro
       - /var/run/docker.sock:/var/run/docker.sock

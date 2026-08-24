@@ -33,6 +33,15 @@ by Portainer — never commit them.
   (`proxy: http://<container-name>:8000`); the router container shares the
   `llama-swap-vllm-backend` network. Never proxy via host loopback ports.
 
+## Config-sync wrapper
+
+git-sync re-syncs and atomically swaps the `current` symlink on every commit
+to main. llama-swap's `--watch-config` polls `os.Stat` (modTime+size) every 2s,
+so the symlink swap triggers a config reload even when `config.yaml` is
+unchanged. The compose file wraps the entrypoint with a SHA-256-gated copy
+loop (5s poll) that only updates the stable copy when `config.yaml` bytes
+actually change. Edit the wrapper in `docker-compose.yml`, not here.
+
 ## Sleep/wake status
 
 Sleep/wake is disabled (cold swap via `docker stop`/`docker run`). The
