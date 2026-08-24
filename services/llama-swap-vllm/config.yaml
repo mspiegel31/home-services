@@ -43,6 +43,10 @@ models:
     macros:
       VLLM_IMAGE: "vllm/vllm-openai:muse-glimmer@sha256:413c8fbecb1204a218117c77a4ea4b3a211d5686ff99c31d82ba6dd0cec8c5a6"
       checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
+      # DFlash spec decode needs lower --max-num-seqs: the global 128 produces
+      # a negative token budget (-6144) with the draft head. 64 + explicit
+      # --max-num-batched-tokens 16384 avoids the crash (recipes#782).
+      MAX_NUM_SEQS: "64"
     proxy: http://vllm-muse-glimmer:8000
     cmd: >-
       ${DOCKER_PREFIX}
@@ -55,7 +59,8 @@ models:
       --reasoning-parser muse_glimmer
       --tool-call-parser muse_glimmer
       --enable-auto-tool-choice
-      --speculative-config '{"method":"dflash","model":"meta-models/Muse-Glimmer-30B-assistant","num_speculative_tokens":16}'
+      --speculative-config '{"method":"dflash","model":"meta-models/Muse-Glimmer-30B-assistant","num_speculative_tokens":15}'
+      --max-num-batched-tokens 16384
     cmdStop: docker stop --time 90 vllm-muse-glimmer
 
   "gemma-4-31b":
