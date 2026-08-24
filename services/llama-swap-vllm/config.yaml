@@ -177,6 +177,27 @@ models:
       --enable-auto-tool-choice
     cmdStop: docker stop --time 90 vllm-gemma-4-26b
 
+  "deepseek-v4-flash":
+    name: DeepSeek V4 Flash
+    description: DeepSeek-V4-Flash 290B MoE served by FreeToken (experts page in from SSD, hot experts LRU-cached on GPU)
+    macros:
+      FREETOKEN_IMAGE: "ghcr.io/mspiegel31/freetoken:latest"
+      checkpoint: "/models/huggingface/models/deepseek-ai/DeepSeek-V4-Flash-0731"
+    proxy: http://freetoken-deepseek-v4-flash:1919
+    # 156GB checkpoint (FP8 dense + FP4 experts) on the 72GB GPU: FreeToken's
+    # bandwidth-adaptive offload backend keeps an LRU of hot expert slots in
+    # VRAM; misses stream from the SSD page cache or compute on CPU. First
+    # request is slow (JIT kernel compile + weight page-in) — the named
+    # volume keeps the JIT/benchbw cache warm across container rebuilds.
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name freetoken-deepseek-v4-flash
+      --volume freetoken-cache:/root/.cache/freetoken
+      ${FREETOKEN_IMAGE}
+      serve --model ${checkpoint} --served-model-name ${MODEL_ID}
+      --host 0.0.0.0 --port 1919 --moe-backend auto
+    cmdStop: docker stop --time 120 freetoken-deepseek-v4-flash
+
 routing:
   router:
     settings:
@@ -192,3 +213,4 @@ routing:
           members:
             - nemotron-3.5-lightning
             - ornith-1.5-35b-a3b
+            - deepseek-v4-flash
