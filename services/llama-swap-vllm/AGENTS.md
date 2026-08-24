@@ -1,35 +1,62 @@
 # llama-swap-vllm
 
-Portainer CE stack: git-sync sidecar + llama-swap router in the upstream
-`unified-cuda` image (unpinned tag) + lazily spawned vLLM backend containers
-via the Docker socket. Secrets (`LLAMA_SWAP_API_KEY`, `HF_TOKEN`) are injected
-by Portainer — never commit them.
+llama-swap runs as a host systemd service. A git-sync container (Portainer
+stack) pulls this repo into `/home/cloud/llama-swap`; llama-swap reads its
+config from the bind-mounted directory and watches for changes via
+`--watch-config`. vLLM backend containers are spawned lazily by llama-swap
+through the host Docker CLI — they are NOT Compose-managed services.
 
-- `ghcr.io/mostlygeek/llama-swap:unified-cuda`, unpinned — the tag is a
-  moving nightly build from llama-swap main HEAD, so re-pulls auto-upgrade
-  the router. Check `/versions.txt` inside the container for the bundled
-  component revisions. Pin a build by appending `@sha256:<digest>`
-  (`docker manifest inspect`) if a specific version is needed.
-- The image bundles `vllm-wrapper` (vLLM sleep/wake support). Currently
-  unused — sleep/wake is disabled in `config.yaml` pending upstream vLLM fixes
-  (garbled output on wake).
-- We do not run the image's own llama.cpp/whisper/sd tooling: all backends are
-  vLLM containers spawned through the socket. The image's CUDA runtime is
-  12.9.1; that only matters if we ever load a model into the router image
-  itself (host driver is newer, CUDA 13.2-compat, so that would work too).
-- GPU stats (temperature, power, utilization, memory in `/metrics` and the
-  UI) come from `nvidia-smi` inside the router container. The `deploy` GPU
-  reservation in the compose is required for that; it allocates no VRAM.
+Secrets (`LLAMA_SWAP_API_KEY`, `HF_TOKEN`) live in `/etc/llama-swap/env`
+(EnvironmentFile for the systemd unit) — never commit them.
+
+## Files
+
+- `install.sh` — installs the llama-swap binary (+ optional vllm-wrapper),
+  creates `/etc/llama-swap/env`, and enables the systemd service. Run with
+  sudo on the host.
+- `llama-swap.service` — systemd unit. Listens on `0.0.0.0:11437`.
+- `env.example` — template for `/etc/llama-swap/env`.
+- `docker-compose.yml` — Portainer stack with only the git-sync sidecar.
+  Bind-mounts `/home/cloud/llama-swap` for the config checkout.
+- `config.yaml` — llama-swap model definitions. Read by the host binary via
+  the git-sync bind mount.
+
+## Architecture
+
+```
+git-sync container → /home/cloud/llama-swap/current/ (bind mount)
+                          ↓
+llama-swap (host systemd) → reads config.yaml (--watch-config)
+                          ↓
+                    docker run -p ${PORT}:8000 vllm/vllm-openai:...
+                          ↓
+                    proxy → http://localhost:${PORT}
+```
+
+Each model uses the `${PORT}` macro: llama-swap assigns a unique port
+(starting at `startPort: 5800`), publishes it via `-p ${PORT}:8000` in the
+docker run command, and proxies to `http://localhost:${PORT}` (the default
+when `proxy:` is omitted).
 
 ## `config.yaml` rules
 
 - **Never add `--trust-remote-code` to a model's `cmd`.** Every backend must
   load without executing Python code from its model repository.
 - `macros` (global and per-model) must be a YAML **mapping** (`NAME: value`),
-  never a list of `{name, value}` — llama-swap v250 rejects non-mapping
-  blocks with "macros must be a mapping".
+  never a list of `{name, value}` — llama-swap rejects non-mapping blocks
+  with "macros must be a mapping".
 - `--enable-prefix-caching` lives in the `VLLM_COMMON` macro (all backends);
   do not duplicate it per model.
-- Backends are addressed by docker network DNS
-  (`proxy: http://<container-name>:8000`); the router container shares the
-  `llama-swap-vllm-backend` network. Never proxy via host loopback ports.
+- Backends publish their port to the host via `-p ${PORT}:8000` in
+  `DOCKER_PREFIX`; `proxy:` is omitted (defaults to
+  `http://localhost:${PORT}`). Never use Docker network DNS names — the
+  router runs on the host, not inside a Docker network.
+
+## Sleep/wake status
+
+Sleep/wake is disabled (cold swap via `docker stop`/`docker run`). The
+garbled output on wake was caused by vLLM bugs — FP8 KV cache scale factors
+not reinitialized on wake (vllm#25800, PR #28783) and prefix cache not
+resetting (vllm#16234) — not by containerization. Re-enable when our pinned
+vLLM image includes both fixes. `vllm-wrapper` is installed if Go is present
+on the host; it enables sleep/wake without code changes to `config.yaml`.

@@ -1,32 +1,16 @@
-# llama-swap vLLM router for RTX PRO 5000 Blackwell 72GB.
+# git-sync sidecar pulls this repository into /home/cloud/llama-swap.
+# The llama-swap router runs as a host systemd service (see install.sh
+# and llama-swap.service) and reads its config from the bind-mounted
+# directory, watching for changes via --watch-config.
 #
-# Router runs in the upstream unified-cuda image (unpinned — tracks the
-# moving nightly build from llama-swap main, so re-pulls auto-upgrade it).
-# The image bundles vllm-wrapper (vLLM sleep/wake) and exposes GPU stats
-# via /metrics using in-container nvidia-smi; the GPU reservation on the
-# router service is what makes nvidia-smi work inside the container.
-
-# To pin a specific build instead, fetch the digest with
-# `docker manifest inspect ghcr.io/mostlygeek/llama-swap:unified-cuda` and
-# append `@sha256:<digest>` to the image tag.
-#
-# git-sync sidecar pulls this repository into a named volume; the router
-# reads its config from the volume and watches for changes via --watch-config.
 # vLLM backend containers are created lazily by llama-swap through the
-# Docker socket — they are NOT Compose-managed services.
+# host Docker CLI — they are NOT Compose-managed services.
 #
 # Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
 # ref main, path services/llama-swap-vllm/docker-compose.yml, poll 5 min,
 # re-pull image on, force redeployment off.
 
 name: llama-swap-vllm
-
-volumes:
-  llama-swap-config:
-
-networks:
-  backend:
-    name: llama-swap-vllm-backend
 
 services:
   git-sync:
@@ -44,46 +28,10 @@ services:
       "--http-bind=:1234",
     ]
     volumes:
-      - llama-swap-config:/git
+      - /home/cloud/llama-swap:/git
     healthcheck:
       test: ["CMD-SHELL", "test -f /git/current/services/llama-swap-vllm/config.yaml && curl -fsS http://127.0.0.1:1234/"]
       interval: 5s
       timeout: 3s
-      retries: 5
-      start_period: 15s
-
-  llama-swap:
-    container_name: llama-swap-vllm
-    image: ghcr.io/mostlygeek/llama-swap:unified-cuda
-    pull_policy: always
-    restart: unless-stopped
-    ports:
-      - "11437:8080"
-    networks:
-      - backend
-    # GPU device so in-container nvidia-smi works for /metrics; no VRAM is
-    # allocated unless a CUDA context is created (the router never does).
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    stop_grace_period: 2m
-    environment:
-      - LLAMA_SWAP_API_KEY=${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
-      - HF_TOKEN=${HF_TOKEN:?Set HF_TOKEN in Portainer}
-    command: ["--config", "/config/current/services/llama-swap-vllm/config.yaml", "--listen", "0.0.0.0:8080", "--watch-config"]
-    volumes:
-      - llama-swap-config:/config:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      git-sync:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
-      interval: 30s
-      timeout: 5s
       retries: 5
       start_period: 15s

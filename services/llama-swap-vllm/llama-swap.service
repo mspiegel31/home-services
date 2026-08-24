@@ -1,0 +1,16 @@
+[Unit]
+Description=llama-swap model router for vLLM backends
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/llama-swap --config /home/cloud/llama-swap/current/services/llama-swap-vllm/config.yaml --listen 0.0.0.0:11437 --watch-config
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/etc/llama-swap/env
+# Give vLLM containers time to stop gracefully on service stop
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

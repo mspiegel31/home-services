@@ -2,6 +2,7 @@ healthCheckTimeout: 3600
 logToStdout: both
 globalTTL: 3600
 unloadTimeout: 120
+startPort: 5800
 
 apiKeys:
   - "${env.LLAMA_SWAP_API_KEY}"
@@ -11,7 +12,7 @@ macros:
   checkpoint: "${MODEL_ID}"
   DOCKER_PREFIX: >-
     docker run --init --rm --gpus all --ipc host
-    --network llama-swap-vllm-backend
+    --publish ${PORT}:8000
     --env HF_TOKEN --env HF_HOME=/models/huggingface
     --env VLLM_CACHE_ROOT=/models/vllm
     --env PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -35,7 +36,6 @@ models:
     macros:
       VLLM_IMAGE: "vllm/vllm-openai:muse-glimmer@sha256:413c8fbecb1204a218117c77a4ea4b3a211d5686ff99c31d82ba6dd0cec8c5a6"
       checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
-    proxy: http://vllm-muse-glimmer:8000
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-muse-glimmer
@@ -54,11 +54,13 @@ models:
     description: Qwen3.8 27B with auto-fit context (native 262,144 when served alone)
     macros:
       checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
-    # MTP: starting at 1 draft token. Known accuracy bug with prefix caching
-    # (vllm#43559, still open) — revisit bumping to 3 once upstream fixes land.
-    # Sleep/wake also disabled: still produces garbled output on wake
-    # despite prefix-cache auto-reset in v0.27.1. Revisit when upstream fixes land.
-    proxy: http://vllm-qwen3-8-27b:8000
+    # MTP: starting at 1 draft token. Accuracy bug with prefix caching
+    # (vllm#43559, closed in PR #43650/#47861) — revisit bumping to 3 once
+    # the fix ships in our pinned vLLM image.
+    # Sleep/wake disabled: garbled output on wake was caused by FP8 KV cache
+    # scale factors not reinitialized (vllm#25800, fixed in PR #28783) and
+    # prefix-cache not resetting (vllm#16234). Container vs native was not
+    # the cause; re-enable when our vLLM image includes both fixes.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b
@@ -78,7 +80,6 @@ models:
     description: Nemotron 3.5 Lightning with auto-fit context (native 1,048,576 when served alone)
     macros:
       checkpoint: "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4"
-    proxy: http://vllm-nemotron-3-5:8000
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-nemotron-3-5
@@ -102,7 +103,6 @@ models:
     description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
     macros:
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
-    proxy: http://vllm-ornith-1-5:8000
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-ornith-1-5
