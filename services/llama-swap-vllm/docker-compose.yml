@@ -1,14 +1,12 @@
 # llama-swap vLLM router for RTX PRO 5000 Blackwell 72GB.
 #
-# Router runs in the upstream unified-cuda image (unpinned — tracks the
-# moving nightly build from llama-swap main, so re-pulls auto-upgrade it).
-# The image bundles vllm-wrapper (vLLM sleep/wake) and exposes GPU stats
-# via /metrics using in-container nvidia-smi; the GPU reservation on the
-# router service is what makes nvidia-smi work inside the container.
-
-# To pin a specific build instead, fetch the digest with
-# `docker manifest inspect ghcr.io/mostlygeek/llama-swap:unified-cuda` and
-# append `@sha256:<digest>` to the image tag.
+# Router runs in a derived image (unified-cuda + docker.io CLI) so it can
+# spawn vLLM backend containers through the Docker socket. The base image
+# bundles vllm-wrapper (vLLM sleep/wake) and nvidia-smi for GPU stats.
+#
+# The base tag `unified-cuda` is a moving nightly from llama-swap main HEAD.
+# Rebuilding the derived image via CI picks up base updates; with
+# `pull_policy: always` Portainer re-pulls the derived image on deploy.
 #
 # git-sync sidecar pulls this repository into a named volume; the router
 # reads its config from the volume and watches for changes via --watch-config.
@@ -54,7 +52,7 @@ services:
 
   llama-swap:
     container_name: llama-swap-vllm
-    image: ghcr.io/mostlygeek/llama-swap:unified-cuda
+    image: ghcr.io/mspiegel31/llama-swap-vllm:latest
     pull_policy: always
     restart: unless-stopped
     ports:
