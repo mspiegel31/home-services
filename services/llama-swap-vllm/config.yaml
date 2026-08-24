@@ -55,6 +55,7 @@ models:
       --reasoning-parser muse_glimmer
       --tool-call-parser muse_glimmer
       --enable-auto-tool-choice
+      --speculative-config '{"method":"dflash","model":"meta-models/Muse-Glimmer-30B-assistant","num_speculative_tokens":16}'
     cmdStop: docker stop --time 90 vllm-muse-glimmer
 
   "gemma-4-31b":
