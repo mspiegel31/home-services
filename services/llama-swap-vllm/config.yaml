@@ -55,6 +55,11 @@ models:
     macros:
       checkpoint: "unsloth/gemma-4-31B-it-NVFP4"
     proxy: http://vllm-gemma-4-31b:8000
+    # vLLM v0.27.1 + transformers 5.15 crash at startup on gemma-4's head_dim
+    # (AmbiguousGlobalPerLayerAttributeError) even though this checkpoint's
+    # head_dim is a flat, homogeneous 256. The flag allows the global read the
+    # convertor performs; fixed upstream in vllm PR #51757. Must stay inside the
+    # hf-overrides JSON (a # inside the >- cmd block is literal, not a comment).
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-gemma-4-31b
@@ -66,6 +71,7 @@ models:
       --reasoning-parser gemma4
       --tool-call-parser gemma4
       --enable-auto-tool-choice
+      --hf-overrides {"text_config": {"allow_global_per_layer_attribute_access": true}}
     cmdStop: docker stop --time 90 vllm-gemma-4-31b
 
   "qwen3.8-27b":
@@ -144,6 +150,11 @@ models:
     macros:
       checkpoint: "unsloth/gemma-4-26B-A4B-it-NVFP4"
     proxy: http://vllm-gemma-4-26b:8000
+    # vLLM v0.27.1 + transformers 5.15 crash at startup on gemma-4's head_dim
+    # (AmbiguousGlobalPerLayerAttributeError) even though this checkpoint's
+    # head_dim is a flat, homogeneous 256. The flag allows the global read the
+    # convertor performs; fixed upstream in vllm PR #51757. Must stay inside the
+    # hf-overrides JSON (a # inside the >- cmd block is literal, not a comment).
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-gemma-4-26b
@@ -155,6 +166,7 @@ models:
       --reasoning-parser gemma4
       --tool-call-parser gemma4
       --enable-auto-tool-choice
+      --hf-overrides {"text_config": {"allow_global_per_layer_attribute_access": true}}
     cmdStop: docker stop --time 90 vllm-gemma-4-26b
 
 routing:
