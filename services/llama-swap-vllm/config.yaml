@@ -71,7 +71,7 @@ models:
       --reasoning-parser gemma4
       --tool-call-parser gemma4
       --enable-auto-tool-choice
-      --hf-overrides {"text_config": {"allow_global_per_layer_attribute_access": true}}
+      --hf-overrides '{"text_config": {"allow_global_per_layer_attribute_access": true}}'
     cmdStop: docker stop --time 90 vllm-gemma-4-31b
 
   "qwen3.8-27b":
@@ -166,7 +166,7 @@ models:
       --reasoning-parser gemma4
       --tool-call-parser gemma4
       --enable-auto-tool-choice
-      --hf-overrides {"text_config": {"allow_global_per_layer_attribute_access": true}}
+      --hf-overrides '{"text_config": {"allow_global_per_layer_attribute_access": true}}'
     cmdStop: docker stop --time 90 vllm-gemma-4-26b
 
 routing:
