@@ -6,6 +6,14 @@ unloadTimeout: 120
 apiKeys:
   - "${env.LLAMA_SWAP_API_KEY}"
 
+# hooks: event-driven actions
+# Preload qwen3.8-27b on startup so it's warm and ready when the router
+# comes online. Single-model preload; no group needed (see llama-swap docs).
+hooks:
+  on_startup:
+    preload:
+      - "qwen3.8-27b"
+
 macros:
   VLLM_IMAGE: "vllm/vllm-openai:v0.27.1@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967"
   checkpoint: "${MODEL_ID}"
@@ -125,7 +133,7 @@ models:
       --enable-auto-tool-choice
     cmdStop: docker stop --time 90 vllm-nemotron-3-5
 
-  "ornith-1.5-35b":
+  "ornith-1.5-35b-a3b":
     name: Ornith 1.5 35B-A3B NVFP4
     description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
     macros:
@@ -183,5 +191,4 @@ routing:
           exclusive: false
           members:
             - nemotron-3.5-lightning
-            - ornith-1.5-35b
-            - gemma-4-26b-a4b
+            - ornith-1.5-35b-a3b
