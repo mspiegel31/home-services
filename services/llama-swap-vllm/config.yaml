@@ -110,7 +110,7 @@ models:
     name: Qwen3.8 27B NVFP4
     description: Qwen3.8 27B with auto-fit context (native 262,144 when served alone)
     capabilities:
-      in: ["text", "image", "video"]
+      in: ["text", "image"]
       out: ["text"]
       tools: true
       context: 262144
@@ -180,7 +180,7 @@ models:
     name: Ornith 1.5 35B-A3B NVFP4
     description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
     capabilities:
-      in: ["text", "image", "video"]
+      in: ["text", "image"]
       out: ["text"]
       tools: true
       context: 262144
