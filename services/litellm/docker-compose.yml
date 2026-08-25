@@ -76,6 +76,7 @@ services:
       LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?Set LITELLM_SALT_KEY in Portainer}
       DATABASE_URL: postgresql://litellm:${LITELLM_POSTGRES_PASSWORD}@postgres:5432/litellm
       STORE_MODEL_IN_DB: "True"
+      LLAMA_SWAP_API_KEY: ${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
     command: >
       --config /config/config.yaml
     volumes:

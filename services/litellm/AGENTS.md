@@ -9,6 +9,17 @@ LiteLLM AI Gateway deployed via Docker Compose with Postgres backend.
 - Postgres data lives on big NVMe at `/mnt/models/litellm/postgres`.
 - Admin UI at `http://<host>:4000/ui` — login with `LITELLM_MASTER_KEY`.
 
+## Upstream routing
+
+LiteLLM is the auth, routing, and subscription layer. Every `model_list` entry's
+`api_base` points at the llama-swap router (default `http://192.168.1.98:11437`), which
+selects the GPU backend; LiteLLM presents `LLAMA_SWAP_API_KEY` for each such call.
+Client model names match the llama-swap served model ids.
+
+Model capability + reasoning/thinking metadata is authored in `model_info` and surfaced
+through LiteLLM discovery endpoints, so Oh My Pi (and any OpenAI client) learns context,
+the reasoning-effort ladder, and vision flags without per-workstation overrides.
+
 ## Config management
 
 LiteLLM supports multiple config sources:
@@ -28,6 +39,7 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
   - `LITELLM_SALT_KEY` — encryption salt for provider keys
   - `LITELLM_POSTGRES_PASSWORD` — Postgres password
   - Provider API keys as needed (e.g., `OPENAI_API_KEY`)
+  - `LLAMA_SWAP_API_KEY` — API key presented to the llama-swap router (matches the value configured in the llama-swap-vllm stack)
 
 ## Production hardening
 
