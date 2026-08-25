@@ -106,6 +106,7 @@ model_list:
     model_info:
       context_window: 262144      # HF: 262,144 native (YaRN -> ~1M)
       reasoning: true
+      vision: true
       supported_parameters:
         - temperature
         - top_p

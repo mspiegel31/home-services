@@ -179,13 +179,14 @@ models:
     name: Ornith 1.5 35B-A3B NVFP4
     description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
     capabilities:
-      in: ["text"]
+      in: ["text", "image", "video"]
       out: ["text"]
       tools: true
       context: 262144
     metadata:
       reasoning: true
       thinking: true
+      vision: true
     macros:
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
     proxy: http://vllm-ornith-1-5:8000
