@@ -119,6 +119,7 @@ models:
     description: Nemotron 3.5 Lightning with auto-fit context (native 1,048,576 when served alone)
     macros:
       checkpoint: "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4"
+      MAX_NUM_SEQS: "64"
     proxy: http://vllm-nemotron-3-5:8000
     cmd: >-
       ${DOCKER_PREFIX}
@@ -142,6 +143,7 @@ models:
     name: Ornith 1.5 35B-A3B NVFP4
     description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
     macros:
+      MAX_NUM_SEQS: "64"
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
     proxy: http://vllm-ornith-1-5:8000
     cmd: >-
@@ -163,6 +165,7 @@ models:
     macros:
       VLLM_IMAGE: "vllm/vllm-openai:nightly@sha256:95bed119f39e2414973cf7224df31c9a3ed213566138722346d7bd360edf842b"
       checkpoint: "unsloth/gemma-4-26B-A4B-it-NVFP4"
+      MAX_NUM_SEQS: "64"
     proxy: http://vllm-gemma-4-26b:8000
     # Gemma 4 models have heterogeneous per-layer head_dim (256 sliding, 512
     # global attention). v0.27.1 + transformers ≥5.15 crash with
