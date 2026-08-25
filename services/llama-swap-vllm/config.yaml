@@ -40,6 +40,16 @@ models:
   "muse-glimmer-30b":
     name: Muse Glimmer 30B NVFP4
     description: Muse Glimmer 30B with auto-fit context (native 131,072 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 131072
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, high, xhigh]
     macros:
       VLLM_IMAGE: "vllm/vllm-openai:muse-glimmer@sha256:413c8fbecb1204a218117c77a4ea4b3a211d5686ff99c31d82ba6dd0cec8c5a6"
       checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
@@ -65,6 +75,15 @@ models:
   "gemma-4-31b":
     name: Google Gemma 4 31B NVFP4
     description: Gemma 4 31B dense with auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
     macros:
       VLLM_IMAGE: "vllm/vllm-openai:nightly@sha256:95bed119f39e2414973cf7224df31c9a3ed213566138722346d7bd360edf842b"
       checkpoint: "unsloth/gemma-4-31B-it-NVFP4"
@@ -90,6 +109,16 @@ models:
   "qwen3.8-27b":
     name: Qwen3.8 27B NVFP4
     description: Qwen3.8 27B with auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image", "video"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
     macros:
       checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
     # MTP: starting at 1 draft token. Accuracy bug with prefix caching
@@ -117,6 +146,14 @@ models:
   "nemotron-3.5-lightning":
     name: NVIDIA Nemotron 3.5 Lightning 30B-A3B NVFP4
     description: Nemotron 3.5 Lightning with auto-fit context (native 1,048,576 when served alone)
+    capabilities:
+      in: ["text"]
+      out: ["text"]
+      tools: true
+      context: 1048576
+    metadata:
+      reasoning: true
+      thinking: true
     macros:
       checkpoint: "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4"
       MAX_NUM_SEQS: "64"
@@ -142,6 +179,15 @@ models:
   "ornith-1.5-35b-a3b":
     name: Ornith 1.5 35B-A3B NVFP4
     description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image", "video"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
     macros:
       MAX_NUM_SEQS: "64"
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
@@ -162,6 +208,15 @@ models:
   "gemma-4-26b-a4b":
     name: Google Gemma 4 26B-A4B NVFP4
     description: Gemma 4 26B-A4B MoE (128 experts, top-8) with auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
     macros:
       VLLM_IMAGE: "vllm/vllm-openai:nightly@sha256:95bed119f39e2414973cf7224df31c9a3ed213566138722346d7bd360edf842b"
       checkpoint: "unsloth/gemma-4-26B-A4B-it-NVFP4"
@@ -188,6 +243,15 @@ models:
   "deepseek-v4-flash":
     name: DeepSeek V4 Flash
     description: DeepSeek-V4-Flash 290B MoE served by FreeToken (experts page in from SSD, hot experts LRU-cached on GPU)
+    capabilities:
+      in: ["text"]
+      out: ["text"]
+      tools: true
+      context: 1048576
+    metadata:
+      reasoning: true
+      thinking: true
+      reasoning_effort: [low, high, max]
     macros:
       FREETOKEN_IMAGE: "ghcr.io/mspiegel31/freetoken:latest"
       checkpoint: "/models/huggingface/models/deepseek-ai/DeepSeek-V4-Flash-0731"
