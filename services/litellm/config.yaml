@@ -1,0 +1,28 @@
+# LiteLLM Proxy Config
+# Managed via git-sync from services/litellm/config.yaml
+# Edit in repo, push, git-sync pulls within 30s.
+# Changes require a restart of the litellm container to take effect
+# (LiteLLM does not hot-reload config by default in production).
+
+model_list:
+  # Example model entry. Add real providers here.
+  # Secrets are resolved via os.environ/ syntax to avoid committing keys.
+  # - model_name: openai/gpt-4o-mini
+  #   litellm_params:
+  #     model: openai/gpt-4o-mini
+  #     api_key: os.environ/OPENAI_API_KEY
+
+general_settings:
+  # Master key for Admin UI
+  # Set via LITELLM_MASTER_KEY env var
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # Store model configs in DB for UI management
+  store_model_in_db: true
+
+litellm_settings:
+  # Drop unsupported params instead of erroring
+  drop_params: true
+  # Optional router settings
+  # router_strategy: simple-shuffle
+
+# See https://docs.litellm.ai/docs/proxy/configs for full schema.

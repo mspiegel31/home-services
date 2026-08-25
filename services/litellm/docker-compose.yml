@@ -1,0 +1,93 @@
+# LiteLLM Proxy Gateway
+#
+# Standard home app pattern: git-sync sidecar pulls repo, config mounted via bind mount.
+# Config lives in repo at services/litellm/config/config.yaml and is synced via git-sync.
+# Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
+# ref main, path services/litellm/docker-compose.yml, poll 5 min.
+#
+# Config paths:
+# - Git-sync target: /home/cloud/litellm-config  (cloud user homedir, per request)
+# - Postgres data: /mnt/models/litellm/postgres  (big NVMe)
+#
+# Secrets via Portainer UI (never commit):
+#   LITELLM_MASTER_KEY, LITELLM_SALT_KEY, LITELLM_POSTGRES_PASSWORD, provider API keys
+#
+# LiteLLM supports native config loading from S3/GCS via LITELLM_CONFIG_BUCKET_*.
+# Git-sync is used here for consistency with home-services pattern.
+
+name: litellm
+
+networks:
+  litellm:
+    name: litellm
+
+services:
+  git-sync:
+    container_name: litellm-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
+    restart: unless-stopped
+    command: [
+      "git-sync",
+      "--repo=https://github.com/mspiegel31/home-services.git",
+      "--ref=main",
+      "--root=/git",
+      "--link=current",
+      "--period=30s",
+      "--http-bind=:1234",
+    ]
+    volumes:
+      - /home/cloud/litellm-config:/git
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/litellm/config.yaml && curl -fsS http://127.0.0.1:1234/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  postgres:
+    container_name: litellm-postgres
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${LITELLM_POSTGRES_PASSWORD:?Set LITELLM_POSTGRES_PASSWORD in Portainer}
+      POSTGRES_DB: litellm
+    volumes:
+      - /mnt/models/litellm/postgres:/var/lib/postgresql/data
+    networks:
+      - litellm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  litellm:
+    container_name: litellm
+    image: docker.litellm.ai/berriai/litellm:main-stable
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    networks:
+      - litellm
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in Portainer}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?Set LITELLM_SALT_KEY in Portainer}
+      DATABASE_URL: postgresql://litellm:${LITELLM_POSTGRES_PASSWORD}@postgres:5432/litellm
+      STORE_MODEL_IN_DB: "True"
+    command: >
+      --config /config/config.yaml
+    volumes:
+      - /home/cloud/litellm-config:/config:ro
+    depends_on:
+      git-sync:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4000/health/liveliness"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s

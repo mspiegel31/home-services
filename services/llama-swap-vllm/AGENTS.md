@@ -40,3 +40,7 @@ garbled output on wake was caused by vLLM bugs — FP8 KV cache scale factors
 not reinitialized on wake (vllm#25800, PR #28783) and prefix cache not
 resetting (vllm#16234) — not by containerization. Re-enable when our pinned
 vLLM image includes both fixes.
+
+
+## Configuration tips
+1. it's always worth checking https://recipes.vllm.ai/ to see if there are tips and tricks if we're using vllm as the engine
