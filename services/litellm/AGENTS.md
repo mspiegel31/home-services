@@ -4,7 +4,7 @@ LiteLLM AI Gateway deployed via Docker Compose with Postgres backend.
 
 ## Stack pattern
 
-- `git-sync` sidecar pulls `services/litellm` from repo into host path `/home/cloud/litellm-config`.
+- `git-sync` sidecar pulls `services/litellm` into the Docker-managed `litellm-config` volume.
 - Config is mounted from the synced repo at `/config/config.yaml`.
 - Postgres data lives on big NVMe at `/mnt/models/litellm/postgres`.
 - Admin UI at `http://<host>:4000/ui` — login with `LITELLM_MASTER_KEY`.
