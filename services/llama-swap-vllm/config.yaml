@@ -119,7 +119,7 @@ models:
       in: ["text", "image"]
       out: ["text"]
       tools: true
-    context: 262144
+      context: 262144
     metadata:
       reasoning: true
       thinking: true
@@ -209,7 +209,8 @@ models:
       --gpu-memory-utilization 0.40
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
-      --tool-call-parser qwen3_xml --enable-auto-tool-choice
+      --tool-call-parser qwen3_xml
+      --enable-auto-tool-choice
     cmdStop: docker stop --time 90 vllm-ornith-1-5
 
   "ornith-1.5-9b-nvfp4":
