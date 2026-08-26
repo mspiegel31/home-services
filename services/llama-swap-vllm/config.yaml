@@ -119,7 +119,7 @@ models:
       in: ["text", "image"]
       out: ["text"]
       tools: true
-      context: 262144
+    context: 262144
     metadata:
       reasoning: true
       thinking: true
@@ -209,9 +209,38 @@ models:
       --gpu-memory-utilization 0.40
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
+      --tool-call-parser qwen3_xml --enable-auto-tool-choice
+    cmdStop: docker stop --time 90 vllm-ornith-1-5
+
+  "ornith-1.5-9b-nvfp4":
+    name: Ornith 1.5 9B NVFP4
+    description: Ornith 1.5 9B (dense hybrid linear-attention, vision) with auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+    macros:
+      VLLM_IMAGE: "${VLLM_FASTOKENS_IMAGE}"
+      MAX_NUM_SEQS: "64"
+      checkpoint: "ornith-ai/Ornith-1.5-9B-NVFP4"
+    proxy: http://vllm-ornith-1-5-9b:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-ornith-1-5-9b
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --gpu-memory-utilization 0.30
+      --kv-cache-dtype fp8
+      --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
-    cmdStop: docker stop --time 90 vllm-ornith-1-5
+    cmdStop: docker stop --time 90 vllm-ornith-1-5-9b
 
   "gemma-4-26b-a4b":
     name: Google Gemma 4 26B-A4B NVFP4
@@ -293,4 +322,5 @@ routing:
           members:
             - nemotron-3.5-lightning
             - ornith-1.5-35b-a3b
+            - ornith-1.5-9b-nvfp4
             - gemma-4-26b-a4b
