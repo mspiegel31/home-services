@@ -7,6 +7,7 @@ LiteLLM AI Gateway deployed via Docker Compose with Postgres backend.
 - `git-sync` sidecar pulls `services/litellm` into the Docker-managed `litellm-config` volume.
 - LiteLLM reads the synced config at `/config/current/services/litellm/config.yaml`.
 - Postgres data lives on big NVMe at `/mnt/models/litellm/postgres`.
+- Valkey (Redis-compatible) data lives on big NVMe at `/mnt/models/litellm/valkey`.
 - Admin UI at `http://<host>:4000/ui` — login with `LITELLM_MASTER_KEY`.
 
 ## Upstream routing
@@ -44,6 +45,6 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 ## Production hardening
 
 - Pin image tag instead of `main-stable` for production.
-- Add Redis for multi-replica deployments (`REDIS_URL`).
+- Valkey is the Redis-compatible cache/router-state backend (`REDIS_URL`); the stack wires it in via the `valkey` service.
 - Enable TLS termination at reverse proxy.
 - See LiteLLM Production Deployment guide for Helm/K8s recommendations.

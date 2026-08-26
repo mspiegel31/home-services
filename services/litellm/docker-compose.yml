@@ -8,6 +8,7 @@
 # Persistent paths:
 # - Git-sync target: Docker volume litellm-config, mounted at /git and /config
 # - Postgres data: /mnt/models/litellm/postgres  (big NVMe)
+# - Valkey data: /mnt/models/litellm/valkey    (big NVMe)
 #
 # Secrets via Portainer UI (never commit):
 #   LITELLM_MASTER_KEY, LITELLM_SALT_KEY, LITELLM_POSTGRES_PASSWORD, provider API keys
@@ -67,6 +68,21 @@ services:
       timeout: 5s
       retries: 10
 
+  valkey:
+    container_name: litellm-valkey
+    image: valkey/valkey:8.1
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - /mnt/models/litellm/valkey:/data
+    networks:
+      - litellm
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   litellm:
     container_name: litellm
     image: docker.litellm.ai/berriai/litellm:main-stable
@@ -82,6 +98,7 @@ services:
       DATABASE_URL: postgresql://litellm:${LITELLM_POSTGRES_PASSWORD}@postgres:5432/litellm
       STORE_MODEL_IN_DB: "True"
       LLAMA_SWAP_API_KEY: ${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
+      REDIS_URL: redis://valkey:6379
     command: >
       --config /config/current/services/litellm/config.yaml
     volumes:
@@ -90,6 +107,8 @@ services:
       git-sync:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      valkey:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness').read()"]
