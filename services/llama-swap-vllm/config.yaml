@@ -16,12 +16,11 @@ hooks:
 
 macros:
   VLLM_IMAGE: "vllm/vllm-openai:v0.27.1@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967"
-  # fastokens (Rust BPE tokenizer backend) for models with HF fast
-  # tokenizers. vLLM selects it at tokenizer load when VLLM_USE_FASTOKENS=1
-  # AND the fastokens package is importable (vLLM ≥ v0.23.0; ours is 0.27.1).
-  # The stock vllm/vllm-openai image does NOT ship fastokens (vllm#47855 —
-  # no pip extra, no docker build arg); the derived image below adds it.
-  VLLM_FASTOKENS_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+  # fastokens image: ghcr.io/mspiegel31/vllm-fastokens:latest — derived from
+  # the pinned vllm/vllm-openai above; stock images don't ship fastokens
+  # (vllm#47855 — no pip extra, no build arg). Inlined per-model below:
+  # model-level macros can't reference global macros in llama-swap's
+  # expansion pass ("unknown macro" at load).
   checkpoint: "${MODEL_ID}"
   DOCKER_PREFIX: >-
     docker run --init --rm --gpus all --ipc host
@@ -126,7 +125,8 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      VLLM_IMAGE: "${VLLM_FASTOKENS_IMAGE}"
+      # ghcr.io/mspiegel31/vllm-fastokens:latest — see global macros note.
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
     # MTP: 3 draft tokens. Previously 1 due to accuracy bug with prefix
     # caching (vllm#43559, closed in PR #43650/#47861); bumping now.
@@ -196,7 +196,7 @@ models:
       thinking: true
       vision: true
     macros:
-      VLLM_IMAGE: "${VLLM_FASTOKENS_IMAGE}"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       MAX_NUM_SEQS: "64"
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
     proxy: http://vllm-ornith-1-5:8000
@@ -226,7 +226,7 @@ models:
       thinking: true
       vision: true
     macros:
-      VLLM_IMAGE: "${VLLM_FASTOKENS_IMAGE}"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       MAX_NUM_SEQS: "64"
       checkpoint: "ornith-ai/Ornith-1.5-9B-NVFP4"
     proxy: http://vllm-ornith-1-5-9b:8000
