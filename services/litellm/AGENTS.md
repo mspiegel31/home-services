@@ -5,7 +5,7 @@ LiteLLM AI Gateway deployed via Docker Compose with Postgres backend.
 ## Stack pattern
 
 - `git-sync` sidecar pulls `services/litellm` into the Docker-managed `litellm-config` volume.
-- Config is mounted from the synced repo at `/config/config.yaml`.
+- LiteLLM reads the synced config at `/config/current/services/litellm/config.yaml`.
 - Postgres data lives on big NVMe at `/mnt/models/litellm/postgres`.
 - Admin UI at `http://<host>:4000/ui` — login with `LITELLM_MASTER_KEY`.
 
@@ -23,7 +23,7 @@ the reasoning-effort ladder, and vision flags without per-workstation overrides.
 ## Config management
 
 LiteLLM supports multiple config sources:
-1. Config file (highest priority): mounted via git-sync at `/config/config.yaml`.
+1. Config file (highest priority): mounted from git-sync at `/config/current/services/litellm/config.yaml`.
 2. Environment variables override via `os.environ/` syntax in YAML.
 3. Native S3/GCS config loading: set `LITELLM_CONFIG_BUCKET_TYPE/NAME/OBJECT_KEY` env vars to load config from a bucket. This is the Litellm-provided alternative to git-sync and is preferred for large-scale deployments.
 

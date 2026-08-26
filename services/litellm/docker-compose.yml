@@ -83,7 +83,7 @@ services:
       STORE_MODEL_IN_DB: "True"
       LLAMA_SWAP_API_KEY: ${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
     command: >
-      --config /config/config.yaml
+      --config /config/current/services/litellm/config.yaml
     volumes:
       - litellm-config:/config:ro
     depends_on:
@@ -92,7 +92,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4000/health/liveliness"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness').read()"]
       interval: 30s
       timeout: 5s
       retries: 5
