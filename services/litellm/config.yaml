@@ -22,8 +22,9 @@ model_list:
   - model_name: muse-glimmer-30b
     litellm_params:
       model: muse-glimmer-30b
-      api_base: http://192.168.1.98:11437
+      api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: openai
     model_info:
       context_window: 131072      # HF: 131,072+ (meta-models/Muse-Glimmer-30B)
       reasoning: true
@@ -43,8 +44,9 @@ model_list:
   - model_name: gemma-4-31b
     litellm_params:
       model: gemma-4-31b
-      api_base: http://192.168.1.98:11437
+      api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: openai
     model_info:
       context_window: 262144      # HF: 256K (google/gemma-4-31B-it)
       reasoning: true
@@ -62,8 +64,9 @@ model_list:
   - model_name: qwen3.8-27b
     litellm_params:
       model: qwen3.8-27b
-      api_base: http://192.168.1.98:11437
+      api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: openai
     model_info:
       context_window: 262144      # HF: 262,144 native (extensible to 1M)
       reasoning: true
@@ -83,8 +86,9 @@ model_list:
   - model_name: nemotron-3.5-lightning
     litellm_params:
       model: nemotron-3.5-lightning
-      api_base: http://192.168.1.98:11437
+      api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: openai
     model_info:
       context_window: 1048576     # HF: 1M (NVIDIA-Nemotron-3.5-Lightning-30B-A3B)
       reasoning: true
@@ -101,8 +105,9 @@ model_list:
   - model_name: ornith-1.5-35b-a3b
     litellm_params:
       model: ornith-1.5-35b-a3b
-      api_base: http://192.168.1.98:11437
+      api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: openai
     model_info:
       context_window: 262144      # HF: 262,144 native (YaRN -> ~1M)
       reasoning: true
@@ -120,8 +125,9 @@ model_list:
   - model_name: gemma-4-26b-a4b
     litellm_params:
       model: gemma-4-26b-a4b
-      api_base: http://192.168.1.98:11437
+      api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: openai
     model_info:
       context_window: 262144      # HF: 256K (google/gemma-4-26B-A4B-it)
       reasoning: true
@@ -139,8 +145,9 @@ model_list:
   - model_name: deepseek-v4-flash
     litellm_params:
       model: deepseek-v4-flash
-      api_base: http://192.168.1.98:11437
+      api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: openai
     model_info:
       context_window: 1048576     # config.json: max_position_embeddings 1048576
       reasoning: true
@@ -159,6 +166,10 @@ model_list:
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   store_model_in_db: true
+  # Cross-worker rate limits, spend tracking, pod lock + shared health checks;
+  # standalone Redis, independent of any response-cache backend.
+  coordination_redis:
+    url: redis://valkey:6379
 
 litellm_settings:
   drop_params: true

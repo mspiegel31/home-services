@@ -13,9 +13,18 @@ LiteLLM AI Gateway deployed via Docker Compose with Postgres backend.
 ## Upstream routing
 
 LiteLLM is the auth, routing, and subscription layer. Every `model_list` entry's
-`api_base` points at the llama-swap router (default `http://192.168.1.98:11437`), which
+`api_base` points at the llama-swap router (`http://192.168.1.98:11437/v1`), which
 selects the GPU backend; LiteLLM presents `LLAMA_SWAP_API_KEY` for each such call.
 Client model names match the llama-swap served model ids.
+
+Gotchas that break routing silently:
+- `api_base` must keep the `/v1` suffix — llama-swap serves the OpenAI API only
+  under `/v1` (root `/chat/completions` 404s), and LiteLLM appends `chat/completions`
+  to `api_base` verbatim.
+- Each entry needs `custom_llm_provider: openai` — the bare llama-swap model ids
+  carry no provider prefix, so LiteLLM's router cannot create a deployment
+  without an explicit provider (symptom: "LLM Provider NOT provided" at startup,
+  "no healthy deployments" at request time, gateway otherwise looks healthy).
 
 Model capability + reasoning/thinking metadata is authored in `model_info` and surfaced
 through LiteLLM discovery endpoints, so Oh My Pi (and any OpenAI client) learns context,
@@ -45,6 +54,9 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 ## Production hardening
 
 - Pin image tag instead of `main-stable` for production.
-- Valkey is the Redis-compatible cache/router-state backend (`REDIS_URL`); the stack wires it in via the `valkey` service.
+- Valkey backs cross-worker rate limits, spend tracking, and coordination via
+  `general_settings.coordination_redis` in the config. A bare `REDIS_URL` env var
+  alone does NOT enable it — that env fallback only runs when
+  `litellm_settings.cache: true`, which would also turn on response caching.
 - Enable TLS termination at reverse proxy.
 - See LiteLLM Production Deployment guide for Helm/K8s recommendations.
