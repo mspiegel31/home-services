@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "docker:enableMajor", ":pinDigests"],
+  "packageRules": [
+    {
+      "description": "vLLM base images: digest updates weekly, majors need manual review (engine flag compatibility)",
+      "matchDatasources": ["docker"],
+      "matchFileNames": ["images/**"],
+      "schedule": ["before 6am on monday"],
+      "major": { "enabled": false }
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Digest-pinned backend images in llama-swap config.yaml",
+      "fileMatch": ["^services/llama-swap-vllm/config\\.yaml$"],
+      "matchStrings": ["(?:VLLM_IMAGE|VLLM_FASTOKENS_IMAGE): \"(?<depName>.*?):(?<currentValue>[^@]+)@(?<currentDigest>sha256:[a-f0-9]+)\""],
+      "datasourceTemplate": "docker",
+      "autoReplaceStringTemplate": "{{#if depName}}{{{depName}}}{{/if}}:{{#if newValue}}{{{newValue}}}{{/if}}@{{{newDigest}}}"
+    }
+  ]
+}
