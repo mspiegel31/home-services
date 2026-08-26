@@ -173,3 +173,7 @@ general_settings:
 
 litellm_settings:
   drop_params: true
+  cache: true
+  cache_params:
+    type: redis
+    url: redis://valkey:6379
