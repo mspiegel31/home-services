@@ -30,7 +30,7 @@ macros:
   # Docs: https://docs.vllm.ai/en/stable/configuration/engine_args/
   #
   # --max-num-seqs: max concurrent sequences. vLLM default = 1024 (≥70GB GPU).
-  #   Co-residency on 72GB: at 0.42 util, ~241 linear-attention blocks available
+  #   Co-residency on 72GB: at 0.35 util, ~241 linear-attention blocks available
   #   for hybrid SSM models → 128 is a safe shared cap. Solo models can go higher.
   #   Override per-model by setting MAX_NUM_SEQS in the model's macros.
   MAX_NUM_SEQS: "128"
@@ -140,6 +140,7 @@ models:
       --reasoning-parser qwen3
       --tool-call-parser qwen3_coder
       --enable-auto-tool-choice
+      --performance-mode throughput
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b
 
   "nemotron-3.5-lightning":
@@ -163,7 +164,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.42
+      --gpu-memory-utilization 0.35
       --kv-cache-dtype fp8
       --max-num-batched-tokens 16384
       --mamba-backend flashinfer
@@ -197,7 +198,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.42
+      --gpu-memory-utilization 0.35
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
@@ -232,7 +233,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.42
+      --gpu-memory-utilization 0.35
       --kv-cache-dtype fp8
       --reasoning-parser gemma4
       --tool-call-parser gemma4
