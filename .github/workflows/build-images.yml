@@ -33,6 +33,16 @@ jobs:
             const globber = await glob.create('images/*/Dockerfile');
             const all = [...new Set((await globber.glob()).map(f => f.split('/').at(-2)))].sort();
 
+            // Per-image build policy. GHA cache is capped at 10 GB per repo, so
+            // images whose base is tens of GB must not export layers to it —
+            // the export alone can run 15+ min and evicts every other image's
+            // cache while almost nothing is actually retained. Same reasoning
+            // for arm64: no arm hosts consume these images.
+            const policy = {
+              'vllm-fastokens': { platforms: 'linux/amd64', cacheTo: '' },
+            };
+            const defaults = { platforms: 'linux/amd64,linux/arm64', cacheTo: 'type=gha,mode=max' };
+
             const inputImage = context.payload.inputs?.image || '';
             let changed;
 
@@ -65,7 +75,9 @@ jobs:
             core.info(`Discovered images: ${all.join(', ') || '<none>'}`);
             core.info(`Building: ${changed.length ? changed.join(', ') : '<none>'}`);
             core.setOutput('count', changed.length);
-            core.setOutput('matrix', JSON.stringify({ image: changed }));
+            core.setOutput('matrix', JSON.stringify({
+              include: changed.map(image => ({ image, ...defaults, ...(policy[image] || {}) })),
+            }));
 
   build:
     needs: changes
@@ -104,10 +116,10 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: images/${{ matrix.image }}
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platforms }}
           # Only main publishes; PR/branch builds validate without pushing.
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          cache-from: ${{ matrix.cacheTo && format('type=gha,scope={0}', matrix.image) || '' }}
+          cache-to: ${{ matrix.cacheTo && format('{0},scope={1}', matrix.cacheTo, matrix.image) || '' }}
