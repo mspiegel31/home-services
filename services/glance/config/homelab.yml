@@ -38,10 +38,6 @@
                 - title: Basic Infrastructure
                   icon: auto-invert sh:portainer
                   url: https://192.168.1.51:9443/
-
-                - title: Home Assistant
-                  icon: auto-invert sh:home-assistant
-                  url: http://192.168.1.72:8123
                 - title: llama-swap
                   icon: auto-invert mdi:swap-horizontal
                   url: http://192.168.1.98:11437/ui
