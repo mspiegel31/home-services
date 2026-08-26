@@ -6,6 +6,7 @@ unloadTimeout: 120
 apiKeys:
   - "${env.LLAMA_SWAP_API_KEY}"
 
+
 # hooks: event-driven actions
 # Preload qwen3.8-27b on startup so it's warm and ready when the router
 # comes online. Single-model preload; no group needed (see llama-swap docs).
@@ -16,17 +17,22 @@ hooks:
 
 macros:
   VLLM_IMAGE: "vllm/vllm-openai:v0.27.1@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967"
-  # fastokens image: ghcr.io/mspiegel31/vllm-fastokens:latest — derived from
-  # the pinned vllm/vllm-openai above; stock images don't ship fastokens
-  # (vllm#47855 — no pip extra, no build arg). Inlined per-model below:
-  # model-level macros can't reference global macros in llama-swap's
-  # expansion pass ("unknown macro" at load).
+# fastokens image: ghcr.io/mspiegel31/vllm-fastokens:latest — derived from
+# the pinned vllm/vllm-openai above; stock images don't ship fastokens
+# (vllm#47855 — no pip extra, no build arg). Inlined per-model below:
+# model-level macros can't reference global macros in llama-swap's
+# expansion pass ("unknown macro" at load).
+#
+# VLLM_USE_FASTOKENS=1 requires the fastokens pip package in the image, so
+# it's opt-in per model: set USE_FASTOKENS: "1" AND use the fastokens image.
+# Otherwise vLLM crashes at startup (ImportError in apply_fastokens_patch).
+  USE_FASTOKENS: "0"
   checkpoint: "${MODEL_ID}"
   DOCKER_PREFIX: >-
     docker run --init --rm --gpus all --ipc host
     --network llama-swap-vllm-backend
     --env HF_TOKEN --env HF_HOME=/models/huggingface
-    --env VLLM_CACHE_ROOT=/models/vllm --env VLLM_USE_FASTOKENS=1
+    --env VLLM_CACHE_ROOT=/models/vllm --env VLLM_USE_FASTOKENS=${USE_FASTOKENS}
     --env PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
     --volume /mnt/models:/models
     --label io.mspiegel.llama-swap.managed=true
@@ -126,6 +132,7 @@ models:
       reasoning_effort: [low, medium, xhigh]
     macros:
       # ghcr.io/mspiegel31/vllm-fastokens:latest — see global macros note.
+      USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
     # MTP: 3 draft tokens. Previously 1 due to accuracy bug with prefix
@@ -196,6 +203,7 @@ models:
       thinking: true
       vision: true
     macros:
+      USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       MAX_NUM_SEQS: "64"
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
@@ -226,6 +234,7 @@ models:
       thinking: true
       vision: true
     macros:
+      USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       MAX_NUM_SEQS: "64"
       checkpoint: "ornith-ai/Ornith-1.5-9B-NVFP4"
