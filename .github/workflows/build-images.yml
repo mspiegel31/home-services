@@ -41,6 +41,8 @@ jobs:
             // arm64 is still built for local debugging on Apple Silicon.
             const policy = {
               'vllm-fastokens': { platforms: 'linux/amd64,linux/arm64', cacheTo: '' },
+              // PyPI wheels are manylinux x86_64 only.
+              'freetoken': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
             };
             const defaults = { platforms: 'linux/amd64,linux/arm64', cacheTo: 'type=gha,mode=max' };
 

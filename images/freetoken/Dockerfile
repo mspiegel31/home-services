@@ -6,13 +6,10 @@
 # see services/llama-swap-vllm/config.yaml.
 #
 # linux/amd64 only: the PyPI wheels are manylinux x86_64 and JIT kernel
-# compilation needs nvcc (CUDA 13). The shared build pipeline builds both
-# platforms in one buildx build, so the arm64 target builds a valid stub
-# that fails fast at runtime — without it the amd64 push would fail too.
+# compilation needs nvcc (CUDA 13). build-images.yml pins this image to
+# amd64 in the per-image policy.
 ARG CUDA_TAG=13.0.1-devel-ubuntu24.04
-FROM --platform=$TARGETPLATFORM nvidia/cuda:${CUDA_TAG}
-
-ARG TARGETPLATFORM
+FROM nvidia/cuda:${CUDA_TAG}
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/opt/ft/bin:$PATH
@@ -22,14 +19,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.12 /usr/local/bin/python3
 
-RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-        python3 -m venv /opt/ft \
-        && /opt/ft/bin/pip install --no-cache-dir -U pip uv \
-        && /opt/ft/bin/uv pip install --python /opt/ft/bin/python "freetoken[accel]" \
-        && /opt/ft/bin/ft --version; \
-    else \
-        echo "freetoken is only available for linux/amd64"; \
-    fi
+RUN python3 -m venv /opt/ft \
+    && /opt/ft/bin/pip install --no-cache-dir -U pip uv \
+    && /opt/ft/bin/uv pip install --python /opt/ft/bin/python "freetoken[accel]" \
+    && /opt/ft/bin/ft --version
 
 ENTRYPOINT ["ft"]
 CMD ["--help"]
