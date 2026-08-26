@@ -228,3 +228,6 @@ __marimo__/
 
 # Node.js (PnP doesn't use node_modules, but keep as safety net)
 node_modules/
+
+# Local deepwork progress state
+.slim/deepwork/

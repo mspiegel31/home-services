@@ -134,7 +134,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.65
+      --gpu-memory-utilization 0.52
       --kv-cache-dtype fp8
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       --reasoning-parser qwen3
