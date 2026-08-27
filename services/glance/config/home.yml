@@ -16,6 +16,9 @@
               - *openwebui
               - *karakeep
               - *dzcCalendar
+              - title: Hugging Face Downloader
+                icon: auto-invert si:huggingface
+                url: http://192.168.1.98:11436/
 
 
           - title: Work - Infrastructure Apps
