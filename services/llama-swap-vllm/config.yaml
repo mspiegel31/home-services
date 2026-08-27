@@ -239,7 +239,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.40
+      --gpu-memory-utilization 0.95
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
