@@ -102,9 +102,9 @@ model_list:
       input_cost_per_token: 0.0
       output_cost_per_token: 0.0
 
-  - model_name: ornith-1.5-35b-a3b
+  - model_name: ornith-1.5-35b-a3b-fp8
     litellm_params:
-      model: ornith-1.5-35b-a3b
+      model: ornith-1.5-35b-a3b-fp8
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
       custom_llm_provider: openai

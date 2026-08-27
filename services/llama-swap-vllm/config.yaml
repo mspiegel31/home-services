@@ -215,7 +215,7 @@ models:
       --enable-auto-tool-choice
     cmdStop: docker stop --time 90 vllm-nemotron-3-5
 
-  "ornith-1.5-35b-a3b-FP8":
+  "ornith-1.5-35b-a3b-fp8":
     name: Ornith 1.5 35B-A3B FP8
     description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
     capabilities:
@@ -231,7 +231,7 @@ models:
       USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       MAX_NUM_SEQS: "64"
-      checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-FP8"
+      checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-fp8"
     proxy: http://vllm-ornith-1-5-fp8:8000
     cmd: >-
       ${DOCKER_PREFIX}
