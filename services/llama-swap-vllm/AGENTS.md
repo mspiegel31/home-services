@@ -35,3 +35,6 @@ by Portainer — never commit them.
 
 ## Configuration tips
 1. it's always worth checking https://recipes.vllm.ai/ to see if there are tips and tricks if we're using vllm as the engine
+
+## Amazing prior art
+1. for vllm, recipes and tips for models can be found in https://recipes.vllm.ai/
