@@ -109,7 +109,7 @@ models:
       --enable-auto-tool-choice
     cmdStop: docker stop --time 90 vllm-gemma-4-31b
 
-  "qwen3.8-27b":
+  "qwen3.8-27b-nvfp4":
     name: Qwen3.8 27B NVFP4
     description: Qwen3.8 27B with auto-fit context (native 262,144 when served alone)
     capabilities:
@@ -133,6 +133,39 @@ models:
     # scale factors not reinitialized (vllm#25800, fixed in PR #28783) and
     # prefix-cache not resetting (vllm#16234). Container vs native was not
     # the cause; re-enable when our vLLM image includes both fixes.
+    proxy: http://vllm-qwen3-8-27b-nvfp4:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-qwen3-8-27b-nvfp4
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --gpu-memory-utilization 0.8
+      --kv-cache-dtype fp8
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_coder
+      --enable-auto-tool-choice
+      --performance-mode throughput
+    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4
+
+  "qwen3.8-27b":
+    name: Qwen3.8 27B BF16
+    description: Qwen3.8 27B BF16 with auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "Qwen/Qwen3.8-27B"
     proxy: http://vllm-qwen3-8-27b:8000
     cmd: >-
       ${DOCKER_PREFIX}
@@ -140,7 +173,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.94
+      --gpu-memory-utilization 0.95
       --kv-cache-dtype fp8
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       --reasoning-parser qwen3
@@ -182,7 +215,7 @@ models:
       --enable-auto-tool-choice
     cmdStop: docker stop --time 90 vllm-nemotron-3-5
 
-  "ornith-1.5-35b-a3b":
+  "ornith-1.5-35b-a3b-nvfp4":
     name: Ornith 1.5 35B-A3B NVFP4
     description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
     capabilities:
@@ -199,6 +232,37 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       MAX_NUM_SEQS: "64"
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
+    proxy: http://vllm-ornith-1-5-nvfp4:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-ornith-1-5-nvfp4
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --gpu-memory-utilization 0.40
+      --kv-cache-dtype fp8
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_xml
+      --enable-auto-tool-choice
+    cmdStop: docker stop --time 90 vllm-ornith-1-5-nvfp4
+
+  "ornith-1.5-35b-a3b":
+    name: Ornith 1.5 35B-A3B BF16
+    description: Ornith 1.5 35B-A3B BF16 with auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      MAX_NUM_SEQS: "64"
+      checkpoint: "ornith-ai/Ornith-1.5-35B-A3B"
     proxy: http://vllm-ornith-1-5:8000
     cmd: >-
       ${DOCKER_PREFIX}
@@ -206,7 +270,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.40
+      --gpu-memory-utilization 0.95
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
@@ -319,10 +383,12 @@ routing:
             - muse-glimmer-30b
             - gemma-4-31b
             - qwen3.8-27b
+            - qwen3.8-27b-nvfp4
         moe:
           exclusive: false
           members:
             - nemotron-3.5-lightning
             - ornith-1.5-35b-a3b
+            - ornith-1.5-35b-a3b-nvfp4
             - ornith-1.5-9b-nvfp4
             - gemma-4-26b-a4b
