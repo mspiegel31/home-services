@@ -121,7 +121,8 @@ models:
       reasoning: true
       thinking: true
       vision: true
-      reasoning_effort: [low, medium, xhigh]
+      reasoning_effort: [low]
+      # reasoning_effort: [low, medium, xhigh]
     macros:
       # ghcr.io/mspiegel31/vllm-fastokens:latest — see global macros note.
       USE_FASTOKENS: "1"
@@ -161,7 +162,8 @@ models:
       reasoning: true
       thinking: true
       vision: true
-      reasoning_effort: [low, medium, xhigh]
+      # reasoning_effort: [low, medium, xhigh]
+      reasoning_effort: [low]
     macros:
       USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
