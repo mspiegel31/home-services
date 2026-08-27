@@ -227,6 +227,7 @@ models:
       reasoning: true
       thinking: true
       vision: true
+      reasoning_effort: [low, medium, high, xhigh]
     macros:
       USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
@@ -258,6 +259,7 @@ models:
       reasoning: true
       thinking: true
       vision: true
+      reasoning_effort: [low, medium, high, xhigh]
     macros:
       USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
@@ -289,6 +291,7 @@ models:
       reasoning: true
       thinking: true
       vision: true
+      reasoning_effort: [low, medium, high, xhigh]
     macros:
       USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
@@ -320,6 +323,7 @@ models:
       reasoning: true
       thinking: true
       vision: true
+      reasoning_effort: [minimal, low, medium, high]
     macros:
       VLLM_IMAGE: "vllm/vllm-openai:nightly@sha256:95bed119f39e2414973cf7224df31c9a3ed213566138722346d7bd360edf842b"
       checkpoint: "unsloth/gemma-4-26B-A4B-it-NVFP4"
