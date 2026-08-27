@@ -22,10 +22,12 @@ macros:
   checkpoint: "${MODEL_ID}"
   DOCKER_PREFIX: >-
     docker run --init --rm --gpus all --ipc host
+    --shm-size=16g --ulimit memlock=-1 --ulimit stack=67108864
     --network llama-swap-vllm-backend
     --env HF_TOKEN --env HF_HOME=/models/huggingface
+    --env SAFETENSORS_FAST_GPU=1
     --env VLLM_CACHE_ROOT=/models/vllm --env VLLM_USE_FASTOKENS=${USE_FASTOKENS}
-    --env PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    --env PYTORCH_CUDA_ALLOC_CONF=expandable_segments:False
     --volume /mnt/models:/models
     --label io.mspiegel.llama-swap.managed=true
     --label io.mspiegel.llama-swap.model=${MODEL_ID}
@@ -175,7 +177,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.95
+      --gpu-memory-utilization 0.85
       --kv-cache-dtype fp8
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       --reasoning-parser qwen3
@@ -183,6 +185,40 @@ models:
       --enable-auto-tool-choice
       --performance-mode throughput
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b
+
+  "qwen3.8-27b-fp8":
+    name: Qwen3.8 27B FP8
+    description: Qwen3.8 27B FP8 with auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      # reasoning_effort: [low, medium, xhigh]
+      reasoning_effort: [low]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "Qwen/Qwen3.8-27B-FP8"
+    proxy: http://vllm-qwen3-8-27b-fp8:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-qwen3-8-27b-fp8
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --gpu-memory-utilization 0.90
+      --kv-cache-dtype fp8
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_coder
+      --enable-auto-tool-choice
+      --performance-mode throughput
+    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-fp8
 
   "nemotron-3.5-lightning":
     name: NVIDIA Nemotron 3.5 Lightning 30B-A3B NVFP4
