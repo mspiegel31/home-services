@@ -51,6 +51,26 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
   - Provider API keys as needed (e.g., `OPENAI_API_KEY`)
   - `LLAMA_SWAP_API_KEY` — API key presented to the llama-swap router (matches the value configured in the llama-swap-vllm stack)
 
+## Qwen3.8 thinking policy
+
+`custom_callbacks.py` translates public thinking controls for the
+Froggeric-served `qwen3.8-27b` route before LiteLLM forwards requests:
+
+- `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
+- `minimal`/`low` -> `enable_thinking=true`, `reasoning_effort=low`
+- `medium` -> `enable_thinking=true`, `reasoning_effort=medium`
+- `high`/`xhigh`/`max` -> `enable_thinking=true`, `reasoning_effort=xhigh`
+- zero `thinking_token_budget` -> `enable_thinking=false`
+- positive `thinking_token_budget` -> `enable_thinking=true`
+- explicit `enable_thinking` wins over effort
+- requests with no explicit thinking controls leave the template default
+
+The callback is registered in `litellm_settings.callbacks` as
+`custom_callbacks.qwen38_thinking_policy` and lives beside `config.yaml`,
+so git-sync already delivers it to `/config/current/services/litellm/`.
+
+After a policy update, restart the `litellm` service to reload the module.
+
 ## Production hardening
 
 - Pin image tag instead of `main-stable` for production.
