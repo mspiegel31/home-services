@@ -40,6 +40,7 @@ macros:
   #   Override per-model by setting MAX_NUM_SEQS in the model's macros.
   MAX_NUM_SEQS: "128"
   VLLM_COMMON: "--model ${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching --max-num-seqs ${MAX_NUM_SEQS}"
+  QWEN38_COMMON: "--reasoning-parser qwen3 --tool-call-parser qwen3_xml --enable-auto-tool-choice --performance-mode throughput"
 
 models:
   "muse-glimmer-30b":
@@ -148,10 +149,7 @@ models:
       --gpu-memory-utilization 0.8
       --kv-cache-dtype fp8
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
-      --reasoning-parser qwen3
-      --tool-call-parser qwen3_coder
-      --enable-auto-tool-choice
-      --performance-mode throughput
+      ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4
 
   "qwen3.8-27b-bf16":
@@ -182,10 +180,7 @@ models:
       --gpu-memory-utilization 0.85
       --kv-cache-dtype fp8
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
-      --reasoning-parser qwen3
-      --tool-call-parser qwen3_coder
-      --enable-auto-tool-choice
-      --performance-mode throughput
+      ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b
 
   "qwen3.8-27b-fp8":
@@ -216,10 +211,7 @@ models:
       --gpu-memory-utilization 0.90
       --kv-cache-dtype fp8
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
-      --reasoning-parser qwen3
-      --tool-call-parser qwen3_coder
-      --enable-auto-tool-choice
-      --performance-mode throughput
+      ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-fp8
 
   "nemotron-3.5-lightning":
