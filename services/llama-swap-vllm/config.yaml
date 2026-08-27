@@ -152,7 +152,7 @@ models:
       --performance-mode throughput
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4
 
-  "qwen3.8-27b":
+  "qwen3.8-27b-bf16":
     name: Qwen3.8 27B BF16
     description: Qwen3.8 27B BF16 with auto-fit context (native 262,144 when served alone)
     capabilities:
@@ -424,7 +424,7 @@ routing:
           members:
             - muse-glimmer-30b
             - gemma-4-31b
-            - qwen3.8-27b
+            - qwen3.8-27b-bf16
             - qwen3.8-27b-nvfp4
             - ornith-1.5-35b-a3b-fp8
         moe:
