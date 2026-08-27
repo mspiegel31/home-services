@@ -64,10 +64,15 @@ Froggeric-served `qwen3.8-27b` route before LiteLLM forwards requests:
 - positive `thinking_token_budget` -> `enable_thinking=true`
 - explicit `enable_thinking` wins over effort
 - requests with no explicit thinking controls leave the template default
+- when the resolved state is thinking-off, any top-level `reasoning_effort` is
+  stripped so vLLM's effort->thinking auto-injection cannot re-arm it
 
 The callback is registered in `litellm_settings.callbacks` as
 `custom_callbacks.qwen38_thinking_policy` and lives beside `config.yaml`,
 so git-sync already delivers it to `/config/current/services/litellm/`.
+
+`test_custom_callbacks.py` is a stdlib-only smoke suite (no pytest, no
+LiteLLM needed — it stubs the import): `python3 test_custom_callbacks.py`.
 
 After a policy update, restart the `litellm` service to reload the module.
 

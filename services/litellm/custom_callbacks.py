@@ -11,6 +11,10 @@ Precedence for Qwen3.8:
 3. ``thinking_token_budget`` (zero disables thinking, otherwise enables it)
 4. ``reasoning_effort``
 
+When the resolved state is thinking-off, a stale top-level
+``reasoning_effort`` is stripped so vLLM's effort-to-thinking auto-injection
+has nothing to act on.
+
 The Froggeric template defaults to medium thinking when none of those controls
 is present, so this module deliberately does not invent a default.
 """
@@ -144,6 +148,16 @@ class Qwen38ThinkingPolicy(CustomLogger):
                     changed = True
             elif kwargs.get("enable_thinking") is not True:
                 kwargs["enable_thinking"] = True
+                changed = True
+
+        # vLLM auto-injects enable_thinking from the request's top-level
+        # reasoning_effort unless chat_template_kwargs says otherwise
+        # (docs/features/reasoning_outputs). A stale effort left on the wire
+        # is an ambiguity we do not want to hand to the next vLLM version.
+        if kwargs.get("enable_thinking") is False and effort_raw is not None:
+            if data.pop("reasoning_effort", None) is not None:
+                changed = True
+            if kwargs.pop("reasoning_effort", None) is not None:
                 changed = True
 
         if not changed:
