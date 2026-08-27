@@ -384,11 +384,11 @@ routing:
             - gemma-4-31b
             - qwen3.8-27b
             - qwen3.8-27b-nvfp4
+            - ornith-1.5-35b-a3b-fp8
         moe:
           exclusive: false
           members:
             - nemotron-3.5-lightning
-            - ornith-1.5-35b-a3b
             - ornith-1.5-35b-a3b-nvfp4
             - ornith-1.5-9b-nvfp4
             - gemma-4-26b-a4b
