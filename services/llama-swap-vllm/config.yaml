@@ -140,7 +140,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.9
+      --gpu-memory-utilization 0.8
       --kv-cache-dtype fp8
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       --reasoning-parser qwen3
@@ -237,7 +237,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.30
+      --gpu-memory-utilization 0.15
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
