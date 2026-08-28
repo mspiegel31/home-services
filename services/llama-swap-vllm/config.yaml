@@ -277,6 +277,7 @@ models:
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
+      --performance-mode throughput
     cmdStop: docker stop --time 90 vllm-ornith-1-5-fp8
   
   "ornith-1.5-35b-a3b-nvfp4":
@@ -297,6 +298,13 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       MAX_NUM_SEQS: "64"
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
+    # MTP spec-decode trial: the checkpoint ships a 1-layer MTP head
+    # (mtp_num_hidden_layers=1, quantized in with the weights), and vLLM
+    # v0.28.0 maps qwen3_5/qwen3_5_moe to the qwen3_5_mtp method natively.
+    # No external draft model (the DFlash2 draft is Qwen3.8-specific).
+    # Trial on this block first: at util 0.40 (moe co-residency group) the
+    # MTP layer's VRAM is the most absorbable; check spec_decode acceptance
+    # and KV headroom before rolling it out to the other Ornith blocks.
     proxy: http://vllm-ornith-1-5-nvfp4:8000
     cmd: >-
       ${DOCKER_PREFIX}
@@ -309,6 +317,8 @@ models:
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
+      --performance-mode throughput
+      --speculative-config '{"method":"qwen3_5_mtp","num_speculative_tokens":1}'
     cmdStop: docker stop --time 90 vllm-ornith-1-5-nvfp4
 
   "ornith-1.5-9b-nvfp4":
@@ -341,6 +351,7 @@ models:
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
+      --performance-mode throughput
     cmdStop: docker stop --time 90 vllm-ornith-1-5-9b
 
   "gemma-4-26b-a4b":
