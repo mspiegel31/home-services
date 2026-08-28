@@ -173,6 +173,11 @@ general_settings:
 
 litellm_settings:
   drop_params: true
+  # Central translation for Qwen3.8's Froggeric chat-template controls.
+  # The callback is loaded from the LiteLLM config's directory, so the
+  # git-synced custom_callbacks.py sits beside this file.
+  callbacks:
+    - custom_callbacks.qwen38_thinking_policy
   cache: true
   cache_params:
     type: redis

@@ -1,0 +1,195 @@
+"""LiteLLM request policies for locally served models.
+
+The policy is intentionally narrow: it normalizes public thinking controls into
+the Qwen3.8/Froggeric chat-template contract before LiteLLM forwards the request
+to llama-swap/vLLM. Other models pass through unchanged.
+
+Precedence for Qwen3.8:
+
+1. an explicit boolean ``chat_template_kwargs.enable_thinking``
+2. an explicit boolean top-level ``enable_thinking``
+3. ``thinking_token_budget`` (zero disables thinking, otherwise enables it)
+4. ``reasoning_effort``
+
+When the resolved state is thinking-off, a stale top-level
+``reasoning_effort`` is stripped so vLLM's effort-to-thinking auto-injection
+has nothing to act on.
+
+The Froggeric template defaults to medium thinking when none of those controls
+is present, so this module deliberately does not invent a default.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Final, Literal
+
+from litellm.integrations.custom_logger import CustomLogger
+
+logger = logging.getLogger(__name__)
+
+QWEN38_MODELS: Final[frozenset[str]] = frozenset({"qwen3.8-27b"})
+
+_OFF_ALIASES: Final[frozenset[str]] = frozenset(
+    {"off", "none", "disabled", "false", "0"}
+)
+
+_LOW_ALIASES: Final[frozenset[str]] = frozenset({"low", "minimal"})
+_MEDIUM_ALIASES: Final[frozenset[str]] = frozenset({"medium", "moderate"})
+_XHIGH_ALIASES: Final[frozenset[str]] = frozenset(
+    {"high", "xhigh", "max", "maximum", "extra-high", "x-high"}
+)
+
+
+def _normalize(value: Any) -> str:
+    return str(value).strip().lower()
+
+
+def _is_off_effort(value: Any) -> bool:
+    return _normalize(value) in _OFF_ALIASES
+
+
+def _canonical_effort(value: Any) -> str | None:
+    """Map public effort vocabularies onto Froggeric's three tiers."""
+    normalized = _normalize(value)
+
+    if normalized in _LOW_ALIASES:
+        return "low"
+    if normalized in _MEDIUM_ALIASES:
+        return "medium"
+    if normalized in _XHIGH_ALIASES:
+        return "xhigh"
+
+    logger.warning(
+        "qwen3.8 thinking policy: leaving unknown reasoning_effort %r untouched",
+        value,
+    )
+    return None
+
+
+def _explicit_enable_thinking(data: dict[str, Any]) -> bool | None:
+    """Read a direct thinking toggle, with the kwargs layer as authoritative."""
+    kwargs = data.get("chat_template_kwargs")
+    if isinstance(kwargs, dict):
+        value = kwargs.get("enable_thinking")
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)) and value in (0, 1):
+            return bool(value)
+
+    value = data.get("enable_thinking")
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+
+    return None
+
+
+def _budget_disables_thinking(data: dict[str, Any]) -> bool:
+    try:
+        budget = float(data.get("thinking_token_budget"))
+    except (TypeError, ValueError):
+        return False
+    return budget <= 0
+
+
+class Qwen38ThinkingPolicy(CustomLogger):
+    """Translate generic thinking controls for the locally served Qwen3.8 model."""
+
+    def _transform(self, data: dict[str, Any], call_type: Any) -> dict[str, Any] | None:
+        if call_type != "completion":
+            return None
+
+        model = data.get("model")
+        if not isinstance(model, str) or model not in QWEN38_MODELS:
+            return None
+
+        effort_raw = data.get("reasoning_effort")
+        kwargs_in = data.get("chat_template_kwargs")
+        explicit_enable = _explicit_enable_thinking(data)
+        budget_present = data.get("thinking_token_budget") is not None
+
+        # With no explicit control, leave the template's native medium default
+        # in place. This preserves behavior for clients that do not speak a
+        # thinking dialect.
+        if (
+            effort_raw is None
+            and explicit_enable is None
+            and budget_present is False
+            and (not isinstance(kwargs_in, dict) or "enable_thinking" not in kwargs_in)
+        ):
+            return None
+
+        kwargs = dict(kwargs_in) if isinstance(kwargs_in, dict) else {}
+        changed = False
+
+        if explicit_enable is not None and "enable_thinking" not in kwargs:
+            kwargs["enable_thinking"] = explicit_enable
+            changed = True
+
+        if effort_raw is not None and kwargs.get("enable_thinking") is not False:
+            if _is_off_effort(effort_raw):
+                if kwargs.get("enable_thinking") is not False:
+                    kwargs["enable_thinking"] = False
+                    changed = True
+            else:
+                effort = _canonical_effort(effort_raw)
+                if effort is not None:
+                    kwargs["enable_thinking"] = True
+                    if kwargs.get("reasoning_effort") != effort:
+                        kwargs["reasoning_effort"] = effort
+                        changed = True
+
+        if budget_present:
+            if _budget_disables_thinking(data):
+                if kwargs.get("enable_thinking") is not False:
+                    kwargs["enable_thinking"] = False
+                    changed = True
+            elif kwargs.get("enable_thinking") is not True:
+                kwargs["enable_thinking"] = True
+                changed = True
+
+        # vLLM auto-injects enable_thinking from the request's top-level
+        # reasoning_effort unless chat_template_kwargs says otherwise
+        # (docs/features/reasoning_outputs). A stale effort left on the wire
+        # is an ambiguity we do not want to hand to the next vLLM version.
+        if kwargs.get("enable_thinking") is False and effort_raw is not None:
+            if data.pop("reasoning_effort", None) is not None:
+                changed = True
+            if kwargs.pop("reasoning_effort", None) is not None:
+                changed = True
+
+        if not changed:
+            return None
+
+        data["chat_template_kwargs"] = kwargs
+        return data
+
+    async def async_pre_call_hook(
+        self,
+        user_api_key_dict: Any,
+        cache: Any,
+        data: dict[str, Any],
+        call_type: Literal[
+            "completion",
+            "text_completion",
+            "embeddings",
+            "image_generation",
+            "moderation",
+            "audio_transcription",
+        ],
+    ) -> dict[str, Any] | None:
+        try:
+            return self._transform(dict(data), call_type)
+        except Exception:
+            # A policy bug must never take the gateway down or clobber the
+            # original request. Returning None leaves the unmodified data in
+            # place.
+            logger.exception(
+                "qwen3.8 thinking policy failed; passing request through unchanged"
+            )
+            return None
+
+
+qwen38_thinking_policy = Qwen38ThinkingPolicy()
