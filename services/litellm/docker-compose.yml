@@ -86,6 +86,7 @@ services:
   litellm:
     container_name: litellm
     image: docker.litellm.ai/berriai/litellm:main-stable
+    init: true
     pull_policy: always
     restart: unless-stopped
     ports:
