@@ -27,6 +27,7 @@ model_list:
       custom_llm_provider: openai
     model_info:
       context_window: 131072      # HF: 131,072+ (meta-models/Muse-Glimmer-30B)
+      max_input_tokens: 131072
       reasoning: true
       vision: true
       reasoning_effort: [low, medium, high, xhigh]   # HF: low/medium/high/xhigh
@@ -49,6 +50,7 @@ model_list:
       custom_llm_provider: openai
     model_info:
       context_window: 262144      # HF: 256K (google/gemma-4-31B-it)
+      max_input_tokens: 262144
       reasoning: true
       vision: true
       supported_parameters:
@@ -72,6 +74,7 @@ model_list:
       custom_llm_provider: openai
     model_info: &qwen38_model_info
       context_window: 262144      # HF: 262,144 native (extensible to 1M)
+      max_input_tokens: 262144
       reasoning: true
       supports_reasoning: true
       vision: true
@@ -111,6 +114,7 @@ model_list:
       custom_llm_provider: openai
     model_info:
       context_window: 262144
+      max_input_tokens: 262144
       reasoning: true
       supports_reasoning: true
       vision: true
@@ -134,6 +138,7 @@ model_list:
       custom_llm_provider: openai
     model_info:
       context_window: 262144
+      max_input_tokens: 262144
       reasoning: true
       supports_reasoning: true
       reasoning_effort: [low, medium, high, xhigh]
@@ -149,6 +154,7 @@ model_list:
       custom_llm_provider: openai
     model_info: &ornith_model_info
       context_window: 262144
+      max_input_tokens: 262144
       reasoning: true
       supports_reasoning: true
       vision: true
@@ -181,6 +187,7 @@ model_list:
       custom_llm_provider: openai
     model_info:
       context_window: 1048576     # HF: 1M (NVIDIA-Nemotron-3.5-Lightning-30B-A3B)
+      max_input_tokens: 1048576
       reasoning: true
       supported_parameters:
         - temperature
@@ -200,8 +207,10 @@ model_list:
       custom_llm_provider: openai
     model_info:
       context_window: 262144      # HF: 262,144 native (YaRN -> ~1M)
+      max_input_tokens: 262144
       reasoning: true
       vision: true
+      supports_reasoning: true
       supported_parameters:
         - temperature
         - top_p
@@ -209,6 +218,7 @@ model_list:
         - repetition_penalty
         - max_tokens
         - stream
+        - reasoning_effort
       input_cost_per_token: 0.0
       output_cost_per_token: 0.0
 
@@ -220,6 +230,7 @@ model_list:
       custom_llm_provider: openai
     model_info:
       context_window: 262144      # HF: 256K (google/gemma-4-26B-A4B-it)
+      max_input_tokens: 262144
       reasoning: true
       vision: true
       supported_parameters:
@@ -240,6 +251,7 @@ model_list:
       custom_llm_provider: openai
     model_info:
       context_window: 1048576     # config.json: max_position_embeddings 1048576
+      max_input_tokens: 1048576
       reasoning: true
       reasoning_effort: [low, high, max]   # HF card: three levels
       supported_parameters:
