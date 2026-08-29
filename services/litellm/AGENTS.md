@@ -57,6 +57,11 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 Froggeric-served Qwen3.8 variants (`qwen3.8-27b-bf16`, `-fp8`, `-nvfp4`)
 before LiteLLM forwards requests:
 
+Its scope is payload-derived: a chat request (a `messages` list) addressed at one
+of those model names. Route type is deliberately not consulted — the proxy
+dispatches chat completions as `acompletion`, and a route-type whitelist once
+made the whole policy a silent no-op on every live request.
+
 - `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
 - `minimal`/`low` -> `enable_thinking=true`, `reasoning_effort=low`
 - `medium` -> `enable_thinking=true`, `reasoning_effort=medium`
