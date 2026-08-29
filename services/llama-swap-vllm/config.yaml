@@ -70,7 +70,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.9
+      --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
       --reasoning-parser muse_glimmer
       --tool-call-parser muse_glimmer
@@ -104,7 +104,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.48
+      --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
       --reasoning-parser gemma4
       --tool-call-parser gemma4
@@ -146,7 +146,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.8
+      --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
@@ -177,7 +177,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.85
+      --gpu-memory-utilization 0.95
       --kv-cache-dtype fp8
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
@@ -208,7 +208,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.90
+      --gpu-memory-utilization 0.95
       --kv-cache-dtype fp8
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
@@ -239,7 +239,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.85
+      --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       --reasoning-parser qwen3
@@ -271,7 +271,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.40
+      --gpu-memory-utilization 0.95
       --kv-cache-dtype fp8
       --reasoning-parser cohere_command4
       --tool-call-parser cohere_command4
@@ -330,7 +330,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.40
+      --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
       --max-num-batched-tokens 16384
       --mamba-backend flashinfer
@@ -407,7 +407,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.40
+      --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
@@ -441,7 +441,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.15
+      --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
@@ -477,7 +477,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.40
+      --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
       --reasoning-parser gemma4
       --tool-call-parser gemma4
@@ -518,22 +518,22 @@ routing:
   router:
     settings:
       groups:
-        dense:
+        small:
           exclusive: false
           members:
             - muse-glimmer-30b
             - gemma-4-31b
-            - thinkingcap-qwen3.6-27b
-            - ornith-1.5-35b-a3b
-            - qwen3.8-27b-fp8
-            - ornith-1.5-35b-a3b-fp8
-            - qwen3.8-27b-bf16
             - qwen3.8-27b-nvfp4
-        moe:
-          exclusive: false
-          members:
+            - thinkingcap-qwen3.6-27b
             - nemotron-3.5-lightning
-            - north-mini-code-1.0-fp8
             - ornith-1.5-35b-a3b-nvfp4
             - ornith-1.5-9b-nvfp4
             - gemma-4-26b-a4b
+        large:
+          exclusive: false
+          members:
+            - qwen3.8-27b-bf16
+            - qwen3.8-27b-fp8
+            - north-mini-code-1.0-fp8
+            - ornith-1.5-35b-a3b
+            - ornith-1.5-35b-a3b-fp8
