@@ -4,6 +4,11 @@ The policy is intentionally narrow: it normalizes public thinking controls into
 the Qwen3.8/Froggeric chat-template contract before LiteLLM forwards the request
 to llama-swap/vLLM. Other models pass through unchanged.
 
+Its scope is payload-derived: a chat request (a ``messages`` list) addressed at
+a Qwen3.8 model name. Which route spelling the proxy dispatches it under
+(currently "acompletion" for chat completions, with sync variants and future
+spellings) is deliberately not part of the decision.
+
 Precedence for Qwen3.8:
 
 1. an explicit boolean ``chat_template_kwargs.enable_thinking``
@@ -22,7 +27,7 @@ is present, so this module deliberately does not invent a default.
 from __future__ import annotations
 
 import logging
-from typing import Any, Final, Literal
+from typing import Any, Final
 
 from litellm.integrations.custom_logger import CustomLogger
 
@@ -32,12 +37,6 @@ QWEN38_MODELS: Final[frozenset[str]] = frozenset(
     {"qwen3.8-27b-bf16", "qwen3.8-27b-fp8", "qwen3.8-27b-nvfp4"}
 )
 
-# The proxy dispatches the pre-call hook with the async route type
-# ("acompletion" for /v1/chat/completions), not the sync one — accepting
-# only "completion" made the policy a silent no-op on every request.
-_COMPLETION_CALL_TYPES: Final[frozenset[str]] = frozenset(
-    {"completion", "acompletion"}
-)
 
 _OFF_ALIASES: Final[frozenset[str]] = frozenset(
     {"off", "none", "disabled", "false", "0"}
@@ -104,12 +103,16 @@ def _budget_disables_thinking(data: dict[str, Any]) -> bool:
 
 
 class Qwen38ThinkingPolicy(CustomLogger):
-    def _transform(self, data: dict[str, Any], call_type: Any) -> dict[str, Any] | None:
-        if call_type not in _COMPLETION_CALL_TYPES:
-            return None
-
+    def _transform(self, data: dict[str, Any]) -> dict[str, Any] | None:
         model = data.get("model")
         if not isinstance(model, str) or model not in QWEN38_MODELS:
+            return None
+
+        # A request talks to the model only if it is a chat conversation;
+        # embeddings, moderation, and the like carry no messages and pass
+        # through. This keys off the payload, so no route-type spelling can
+        # silently opt a chat request out of the policy.
+        if not isinstance(data.get("messages"), list):
             return None
 
         effort_raw = data.get("reasoning_effort")
@@ -178,18 +181,13 @@ class Qwen38ThinkingPolicy(CustomLogger):
         user_api_key_dict: Any,
         cache: Any,
         data: dict[str, Any],
-        call_type: Literal[
-            "completion",
-            "acompletion",
-            "text_completion",
-            "embeddings",
-            "image_generation",
-            "moderation",
-            "audio_transcription",
-        ],
+        call_type: Any,
     ) -> dict[str, Any] | None:
+        # call_type is part of the hook interface but deliberately unused:
+        # the policy's scope is defined by the payload (model + chat shape),
+        # so no route-type spelling can change its behavior.
         try:
-            return self._transform(dict(data), call_type)
+            return self._transform(dict(data))
         except Exception:
             # A policy bug must never take the gateway down or clobber the
             # original request. Returning None leaves the unmodified data in
