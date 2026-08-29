@@ -124,6 +124,15 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
                     {"enable_thinking": True, "reasoning_effort": "xhigh"},
                 )
 
+    def test_ornith_high_effort_is_not_condensed(self):
+        result = call_hook(
+            chat({"model": "ornith-1.5-35b-a3b", "reasoning_effort": "high"})
+        )
+        self.assertEqual(
+            result["chat_template_kwargs"],
+            {"enable_thinking": True, "reasoning_effort": "high"},
+        )
+
     def test_non_qwen_family_model_passes_through(self):
         # Models on a different reasoning-parser family are untouched.
         for model in ("nemotron-3.5-lightning", "north-mini-code-1.0-fp8"):

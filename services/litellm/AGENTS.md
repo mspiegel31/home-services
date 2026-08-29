@@ -67,7 +67,8 @@ made the whole policy a silent no-op on every live request.
 - `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
 - `minimal`/`low` -> `enable_thinking=true`, `reasoning_effort=low`
 - `medium` -> `enable_thinking=true`, `reasoning_effort=medium`
-- `high`/`xhigh`/`max` -> `enable_thinking=true`, `reasoning_effort=xhigh`
+- Qwen3.8 `high`/`xhigh`/`max` -> `enable_thinking=true`, `reasoning_effort=xhigh`
+- other qwen models preserve their requested effort tier
 - zero `thinking_token_budget` -> `enable_thinking=false`
 - positive `thinking_token_budget` -> `enable_thinking=true`
 - explicit `enable_thinking` wins over effort

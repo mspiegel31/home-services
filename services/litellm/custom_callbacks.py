@@ -35,10 +35,8 @@ logger = logging.getLogger(__name__)
 
 QWEN_MODELS: Final[frozenset[str]] = frozenset(
     {
-        # qwen3 reasoning-parser family: Qwen3.8, ThinkingCap Qwen3.6, and
-        # the Ornith checkpoints all ship with --reasoning-parser qwen3, so
-        # the chat_template_kwargs (enable_thinking + reasoning_effort) the
-        # backend expects share one translation path.
+        # All models using vLLM's qwen3 reasoning parser share the
+        # chat_template_kwargs compatibility contract.
         "qwen3.8-27b-bf16",
         "qwen3.8-27b-fp8",
         "qwen3.8-27b-nvfp4",
@@ -47,6 +45,17 @@ QWEN_MODELS: Final[frozenset[str]] = frozenset(
         "ornith-1.5-35b-a3b-fp8",
         "ornith-1.5-35b-a3b-nvfp4",
         "ornith-1.5-9b-nvfp4",
+    }
+)
+
+# Qwen3.8 exposes a three-tier effort vocabulary to clients. The other qwen
+# models retain their public effort values, including Ornith's distinct high
+# tier.
+QWEN38_MODELS: Final[frozenset[str]] = frozenset(
+    {
+        "qwen3.8-27b-bf16",
+        "qwen3.8-27b-fp8",
+        "qwen3.8-27b-nvfp4",
     }
 )
 
@@ -157,7 +166,11 @@ class QwenThinkingPolicy(CustomLogger):
                     kwargs["enable_thinking"] = False
                     changed = True
             else:
-                effort = _canonical_effort(effort_raw)
+                effort = (
+                    _canonical_effort(effort_raw)
+                    if model in QWEN38_MODELS
+                    else effort_raw
+                )
                 if effort is not None:
                     kwargs["enable_thinking"] = True
                     if kwargs.get("reasoning_effort") != effort:
