@@ -55,63 +55,73 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
             {"model": "muse-glimmer-30b", "reasoning_effort": "low"},
             {"model": "deepseek-v4-flash", "reasoning_effort": "max"},
             {"model": "qwen3.9-27b", "reasoning_effort": "low"},
+            {"model": "qwen3.8-27b", "reasoning_effort": "low"},
         ):
             with self.subTest(data=data):
                 self.assertIsNone(call_hook(data))
 
     def test_non_completion_route_passes_through(self):
         self.assertIsNone(
-            call_hook({"model": "qwen3.8-27b", "reasoning_effort": "low"}, "embeddings")
+            call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"}, "embeddings")
         )
 
     def test_no_controls_leaves_template_default(self):
-        self.assertIsNone(call_hook({"model": "qwen3.8-27b", "max_tokens": 16}))
+        self.assertIsNone(call_hook({"model": "qwen3.8-27b-fp8", "max_tokens": 16}))
 
     def test_unknown_effort_passes_through(self):
-        self.assertIsNone(call_hook({"model": "qwen3.8-27b", "reasoning_effort": "turbo"}))
+        self.assertIsNone(call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "turbo"}))
+
+    def test_all_quantized_variants_are_targets(self):
+        for model in ("qwen3.8-27b-bf16", "qwen3.8-27b-fp8", "qwen3.8-27b-nvfp4"):
+            with self.subTest(model=model):
+                result = call_hook({"model": model, "reasoning_effort": "low"})
+                self.assertEqual(
+                    result["chat_template_kwargs"],
+                    {"enable_thinking": True, "reasoning_effort": "low"},
+                )
 
     # ---- reasoning_effort mapping ----------------------------------------
 
     def test_effort_none_disables_thinking(self):
-        result = call_hook({"model": "qwen3.8-27b", "reasoning_effort": "none"})
+        result = call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "none"})
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
         self.assertNotIn("reasoning_effort", result)
 
     def test_effort_off_disables_thinking(self):
-        result = call_hook({"model": "qwen3.8-27b", "reasoning_effort": "off"})
+        result = call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "off"})
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
         self.assertNotIn("reasoning_effort", result)
 
     def test_effort_low(self):
-        result = call_hook({"model": "qwen3.8-27b", "reasoning_effort": "low"})
+        result = call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"})
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "low"},
         )
 
     def test_effort_medium(self):
-        result = call_hook({"model": "qwen3.8-27b", "reasoning_effort": "medium"})
+        result = call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "medium"})
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "medium"},
         )
 
     def test_effort_high_maps_to_xhigh(self):
-        result = call_hook({"model": "qwen3.8-27b", "reasoning_effort": "high"})
+        result = call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "high"})
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "xhigh"},
         )
 
     def test_effort_max_maps_to_xhigh(self):
-        result = call_hook({"model": "qwen3.8-27b", "reasoning_effort": "max"})
+        result = call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "max"})
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "xhigh"},
         )
 
     def test_effort_xhigh(self):
-        result = call_hook({"model": "qwen3.8-27b", "reasoning_effort": "xhigh"})
+        result = call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "xhigh"})
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "xhigh"},
@@ -120,17 +130,17 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
     # ---- token budget ------------------------------------------------------
 
     def test_zero_token_budget_disables_thinking(self):
-        result = call_hook({"model": "qwen3.8-27b", "thinking_token_budget": 0})
+        result = call_hook({"model": "qwen3.8-27b-fp8", "thinking_token_budget": 0})
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
 
     def test_positive_token_budget_enables_thinking(self):
-        result = call_hook({"model": "qwen3.8-27b", "thinking_token_budget": 4096})
+        result = call_hook({"model": "qwen3.8-27b-fp8", "thinking_token_budget": 4096})
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
 
     def test_zero_budget_wins_over_high_effort(self):
         result = call_hook(
             {
-                "model": "qwen3.8-27b",
+                "model": "qwen3.8-27b-fp8",
                 "reasoning_effort": "high",
                 "thinking_token_budget": 0,
             }
@@ -143,7 +153,7 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
     def test_explicit_kwargs_false_wins_over_effort(self):
         result = call_hook(
             {
-                "model": "qwen3.8-27b",
+                "model": "qwen3.8-27b-fp8",
                 "reasoning_effort": "xhigh",
                 "chat_template_kwargs": {"enable_thinking": False},
             }
@@ -153,7 +163,7 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
     def test_explicit_top_level_false_wins_over_effort(self):
         result = call_hook(
             {
-                "model": "qwen3.8-27b",
+                "model": "qwen3.8-27b-fp8",
                 "reasoning_effort": "medium",
                 "enable_thinking": False,
             }
@@ -163,7 +173,7 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
     def test_explicit_true_with_effort_selects_tier(self):
         result = call_hook(
             {
-                "model": "qwen3.8-27b",
+                "model": "qwen3.8-27b-fp8",
                 "reasoning_effort": "low",
                 "enable_thinking": True,
             }
@@ -178,7 +188,7 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
     def test_existing_template_kwargs_preserved(self):
         result = call_hook(
             {
-                "model": "qwen3.8-27b",
+                "model": "qwen3.8-27b-fp8",
                 "reasoning_effort": "medium",
                 "chat_template_kwargs": {"image_count": 0, "video_count": 0},
             }
@@ -194,7 +204,7 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
         )
 
     def test_input_not_mutated(self):
-        original = {"model": "qwen3.8-27b", "reasoning_effort": "low"}
+        original = {"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"}
         snapshot = dict(original)
         result = call_hook(original)
         self.assertEqual(original, snapshot)
@@ -206,7 +216,7 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
             lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom"))
         )
         try:
-            result = call_hook({"model": "qwen3.8-27b", "reasoning_effort": "low"})
+            result = call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"})
         finally:
             qwen38_thinking_policy._transform = original
         self.assertIsNone(result)

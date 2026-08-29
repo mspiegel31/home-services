@@ -54,7 +54,8 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 ## Qwen3.8 thinking policy
 
 `custom_callbacks.py` translates public thinking controls for the
-Froggeric-served `qwen3.8-27b` route before LiteLLM forwards requests:
+Froggeric-served Qwen3.8 variants (`qwen3.8-27b-bf16`, `-fp8`, `-nvfp4`)
+before LiteLLM forwards requests:
 
 - `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
 - `minimal`/`low` -> `enable_thinking=true`, `reasoning_effort=low`

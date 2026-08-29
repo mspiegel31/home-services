@@ -5,6 +5,16 @@
 # Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
 # ref main, path services/litellm/docker-compose.yml, poll 5 min.
 #
+# Access (Pangolin; see litellm-tunnel-privacy-plan.md at repo root):
+# - Public: client -> llm.electricgarage.net -> Pangolin node (DO VPS: TLS + auth)
+#   -> WireGuard -> Newt (services/pangolin-newt/) -> litellm:4000 on the
+#   `litellm` network below. No inbound ports on the home box for this path.
+# - The `litellm` network is load-bearing: services/pangolin-newt/ joins it as
+#   external. Do not rename or remove.
+# - The host `4000:4000` publish (see litellm service) is a migration bridge for
+#   the legacy cloudflared llm hostname and local clients. Remove at the Pangolin
+#   cutover so Newt is the only path into this container.
+#
 # Persistent paths:
 # - Git-sync target: Docker volume litellm-config, mounted at /git and /config
 # - Postgres data: /mnt/models/litellm/postgres  (big NVMe)
@@ -90,6 +100,8 @@ services:
     pull_policy: always
     restart: unless-stopped
     ports:
+      # Migration bridge: legacy cloudflared llm hostname + local clients.
+      # Remove at Pangolin cutover (plan step 14) - then only Newt reaches here.
       - "4000:4000"
     networks:
       - litellm

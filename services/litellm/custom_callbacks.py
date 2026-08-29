@@ -28,7 +28,9 @@ from litellm.integrations.custom_logger import CustomLogger
 
 logger = logging.getLogger(__name__)
 
-QWEN38_MODELS: Final[frozenset[str]] = frozenset({"qwen3.8-27b"})
+QWEN38_MODELS: Final[frozenset[str]] = frozenset(
+    {"qwen3.8-27b-bf16", "qwen3.8-27b-fp8", "qwen3.8-27b-nvfp4"}
+)
 
 _OFF_ALIASES: Final[frozenset[str]] = frozenset(
     {"off", "none", "disabled", "false", "0"}
