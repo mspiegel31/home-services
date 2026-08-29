@@ -65,6 +65,15 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
             call_hook({"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"}, "embeddings")
         )
 
+    def test_proxy_route_type_translates(self):
+        # The proxy dispatches route_type="acompletion" to the pre-call hook;
+        # a guard accepting only "completion" silently no-ops every live request.
+        result = call_hook(
+            {"model": "qwen3.8-27b-fp8", "reasoning_effort": "none"}, "acompletion"
+        )
+        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
+        self.assertNotIn("reasoning_effort", result)
+
     def test_no_controls_leaves_template_default(self):
         self.assertIsNone(call_hook({"model": "qwen3.8-27b-fp8", "max_tokens": 16}))
 

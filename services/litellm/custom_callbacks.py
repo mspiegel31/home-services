@@ -32,6 +32,13 @@ QWEN38_MODELS: Final[frozenset[str]] = frozenset(
     {"qwen3.8-27b-bf16", "qwen3.8-27b-fp8", "qwen3.8-27b-nvfp4"}
 )
 
+# The proxy dispatches the pre-call hook with the async route type
+# ("acompletion" for /v1/chat/completions), not the sync one — accepting
+# only "completion" made the policy a silent no-op on every request.
+_COMPLETION_CALL_TYPES: Final[frozenset[str]] = frozenset(
+    {"completion", "acompletion"}
+)
+
 _OFF_ALIASES: Final[frozenset[str]] = frozenset(
     {"off", "none", "disabled", "false", "0"}
 )
@@ -97,10 +104,8 @@ def _budget_disables_thinking(data: dict[str, Any]) -> bool:
 
 
 class Qwen38ThinkingPolicy(CustomLogger):
-    """Translate generic thinking controls for the locally served Qwen3.8 model."""
-
     def _transform(self, data: dict[str, Any], call_type: Any) -> dict[str, Any] | None:
-        if call_type != "completion":
+        if call_type not in _COMPLETION_CALL_TYPES:
             return None
 
         model = data.get("model")
@@ -175,6 +180,7 @@ class Qwen38ThinkingPolicy(CustomLogger):
         data: dict[str, Any],
         call_type: Literal[
             "completion",
+            "acompletion",
             "text_completion",
             "embeddings",
             "image_generation",
