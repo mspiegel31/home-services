@@ -214,6 +214,101 @@ models:
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-fp8
 
+  "thinkingcap-qwen3.6-27b":
+    name: ThinkingCap Qwen3.6 27B NVFP4
+    description: ThinkingCap Qwen3.6 27B NVFP4 with auto-fit context
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, high, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      MAX_NUM_SEQS: "64"
+      checkpoint: "bottlecapai/ThinkingCap-Qwen3.6-27B-NVFP4"
+    proxy: http://vllm-thinkingcap-qwen3-6-27b:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-thinkingcap-qwen3-6-27b
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --gpu-memory-utilization 0.85
+      --kv-cache-dtype fp8
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_xml
+      --enable-auto-tool-choice
+    cmdStop: docker stop --time 90 vllm-thinkingcap-qwen3-6-27b
+
+  "north-mini-code-1.0-fp8":
+    name: Cohere North Mini Code 1.0 FP8
+    description: North Mini Code 30B-A3B FP8 with auto-fit context
+    capabilities:
+      in: ["text"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      reasoning_effort: [low, medium, high, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      MAX_NUM_SEQS: "64"
+      checkpoint: "CohereLabs/North-Mini-Code-1.0-fp8"
+    proxy: http://vllm-north-mini-code:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-north-mini-code
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --gpu-memory-utilization 0.40
+      --kv-cache-dtype fp8
+      --reasoning-parser cohere_command4
+      --tool-call-parser cohere_command4
+      --enable-auto-tool-choice
+      --moe-backend triton
+    cmdStop: docker stop --time 90 vllm-north-mini-code
+
+  "ornith-1.5-35b-a3b":
+    name: Ornith 1.5 35B-A3B BF16
+    description: Ornith 1.5 35B-A3B BF16 with auto-fit context
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, high, xhigh]
+    macros:
+      MAX_NUM_SEQS: "64"
+      checkpoint: "ornith-ai/Ornith-1.5-35B-A3B"
+    proxy: http://vllm-ornith-1-5:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-ornith-1-5
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --gpu-memory-utilization 0.95
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_xml
+      --enable-auto-tool-choice
+      --performance-mode throughput
+    cmdStop: docker stop --time 90 vllm-ornith-1-5
+
   "nemotron-3.5-lightning":
     name: NVIDIA Nemotron 3.5 Lightning 30B-A3B NVFP4
     description: Nemotron 3.5 Lightning with auto-fit context (native 1,048,576 when served alone)
@@ -428,13 +523,17 @@ routing:
           members:
             - muse-glimmer-30b
             - gemma-4-31b
+            - thinkingcap-qwen3.6-27b
+            - ornith-1.5-35b-a3b
+            - qwen3.8-27b-fp8
+            - ornith-1.5-35b-a3b-fp8
             - qwen3.8-27b-bf16
             - qwen3.8-27b-nvfp4
-            - ornith-1.5-35b-a3b-fp8
         moe:
           exclusive: false
           members:
             - nemotron-3.5-lightning
+            - north-mini-code-1.0-fp8
             - ornith-1.5-35b-a3b-nvfp4
             - ornith-1.5-9b-nvfp4
             - gemma-4-26b-a4b
