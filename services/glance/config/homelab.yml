@@ -41,6 +41,12 @@
                 - title: llama-swap
                   icon: auto-invert mdi:swap-horizontal
                   url: http://192.168.1.98:11437/ui
+                - title: LiteLLM
+                  icon: auto-invert si:litellm
+                  url: http://192.168.1.98:4000/ui
+                - title: Hugging Face Downloader
+                  icon: auto-invert si:huggingface
+                  url: http://192.168.1.98:11436/
 
             - title: Hosts
               links:
