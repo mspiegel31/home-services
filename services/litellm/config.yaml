@@ -73,6 +73,7 @@ model_list:
     model_info: &qwen38_model_info
       context_window: 262144      # HF: 262,144 native (extensible to 1M)
       reasoning: true
+      supports_reasoning: true
       vision: true
       reasoning_effort: [low, medium, xhigh]   # per OMP manual override
       supported_parameters:
