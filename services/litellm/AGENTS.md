@@ -51,21 +51,24 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
   - Provider API keys as needed (e.g., `OPENAI_API_KEY`)
   - `LLAMA_SWAP_API_KEY` — API key presented to the llama-swap router (matches the value configured in the llama-swap-vllm stack)
 
-## Qwen3.8 thinking policy
+## Qwen3 thinking policy
 
-`custom_callbacks.py` translates public thinking controls for the
-Froggeric-served Qwen3.8 variants (`qwen3.8-27b-bf16`, `-fp8`, `-nvfp4`)
-before LiteLLM forwards requests:
+`custom_callbacks.py` translates public thinking controls for the whole
+qwen3 reasoning-parser family the Froggeric/vLLM stack serves before
+LiteLLM forwards requests — Qwen3.8 (`qwen3.8-27b-bf16`, `-fp8`, `-nvfp4`),
+ThinkingCap Qwen3.6 (`thinkingcap-qwen3.6-27b`), and the Ornith checkpoints
+(`ornith-1.5-35b-a3b`, `-a3b-fp8`, `-a3b-nvfp4`, `-9b-nvfp4`).
 
 Its scope is payload-derived: a chat request (a `messages` list) addressed at one
-of those model names. Route type is deliberately not consulted — the proxy
+of those qwen3 models. Route type is deliberately not consulted — the proxy
 dispatches chat completions as `acompletion`, and a route-type whitelist once
 made the whole policy a silent no-op on every live request.
 
 - `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
 - `minimal`/`low` -> `enable_thinking=true`, `reasoning_effort=low`
 - `medium` -> `enable_thinking=true`, `reasoning_effort=medium`
-- `high`/`xhigh`/`max` -> `enable_thinking=true`, `reasoning_effort=xhigh`
+- Qwen3.8 `high`/`xhigh`/`max` -> `enable_thinking=true`, `reasoning_effort=xhigh`
+- other qwen models preserve their requested effort tier
 - zero `thinking_token_budget` -> `enable_thinking=false`
 - positive `thinking_token_budget` -> `enable_thinking=true`
 - explicit `enable_thinking` wins over effort
@@ -74,7 +77,7 @@ made the whole policy a silent no-op on every live request.
   stripped so vLLM's effort->thinking auto-injection cannot re-arm it
 
 The callback is registered in `litellm_settings.callbacks` as
-`custom_callbacks.qwen38_thinking_policy` and lives beside `config.yaml`,
+`custom_callbacks.qwen_thinking_policy` and lives beside `config.yaml`,
 so git-sync already delivers it to `/config/current/services/litellm/`.
 
 `test_custom_callbacks.py` is a stdlib-only smoke suite (no pytest, no

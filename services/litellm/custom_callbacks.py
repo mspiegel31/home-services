@@ -1,15 +1,15 @@
 """LiteLLM request policies for locally served models.
 
 The policy is intentionally narrow: it normalizes public thinking controls into
-the Qwen3.8/Froggeric chat-template contract before LiteLLM forwards the request
+ the qwen3/Froggeric chat-template contract before LiteLLM forwards the request
 to llama-swap/vLLM. Other models pass through unchanged.
 
 Its scope is payload-derived: a chat request (a ``messages`` list) addressed at
-a Qwen3.8 model name. Which route spelling the proxy dispatches it under
+a qwen-family model name. Which route spelling the proxy dispatches it under
 (currently "acompletion" for chat completions, with sync variants and future
 spellings) is deliberately not part of the decision.
 
-Precedence for Qwen3.8:
+ Precedence for the qwen models:
 
 1. an explicit boolean ``chat_template_kwargs.enable_thinking``
 2. an explicit boolean top-level ``enable_thinking``
@@ -33,8 +33,30 @@ from litellm.integrations.custom_logger import CustomLogger
 
 logger = logging.getLogger(__name__)
 
+QWEN_MODELS: Final[frozenset[str]] = frozenset(
+    {
+        # All models using vLLM's qwen3 reasoning parser share the
+        # chat_template_kwargs compatibility contract.
+        "qwen3.8-27b-bf16",
+        "qwen3.8-27b-fp8",
+        "qwen3.8-27b-nvfp4",
+        "thinkingcap-qwen3.6-27b",
+        "ornith-1.5-35b-a3b",
+        "ornith-1.5-35b-a3b-fp8",
+        "ornith-1.5-35b-a3b-nvfp4",
+        "ornith-1.5-9b-nvfp4",
+    }
+)
+
+# Qwen3.8 exposes a three-tier effort vocabulary to clients. The other qwen
+# models retain their public effort values, including Ornith's distinct high
+# tier.
 QWEN38_MODELS: Final[frozenset[str]] = frozenset(
-    {"qwen3.8-27b-bf16", "qwen3.8-27b-fp8", "qwen3.8-27b-nvfp4"}
+    {
+        "qwen3.8-27b-bf16",
+        "qwen3.8-27b-fp8",
+        "qwen3.8-27b-nvfp4",
+    }
 )
 
 
@@ -69,7 +91,7 @@ def _canonical_effort(value: Any) -> str | None:
         return "xhigh"
 
     logger.warning(
-        "qwen3.8 thinking policy: leaving unknown reasoning_effort %r untouched",
+        "qwen thinking policy: leaving unknown reasoning_effort %r untouched",
         value,
     )
     return None
@@ -102,10 +124,10 @@ def _budget_disables_thinking(data: dict[str, Any]) -> bool:
     return budget <= 0
 
 
-class Qwen38ThinkingPolicy(CustomLogger):
+class QwenThinkingPolicy(CustomLogger):
     def _transform(self, data: dict[str, Any]) -> dict[str, Any] | None:
         model = data.get("model")
-        if not isinstance(model, str) or model not in QWEN38_MODELS:
+        if not isinstance(model, str) or model not in QWEN_MODELS:
             return None
 
         # A request talks to the model only if it is a chat conversation;
@@ -144,7 +166,11 @@ class Qwen38ThinkingPolicy(CustomLogger):
                     kwargs["enable_thinking"] = False
                     changed = True
             else:
-                effort = _canonical_effort(effort_raw)
+                effort = (
+                    _canonical_effort(effort_raw)
+                    if model in QWEN38_MODELS
+                    else effort_raw
+                )
                 if effort is not None:
                     kwargs["enable_thinking"] = True
                     if kwargs.get("reasoning_effort") != effort:
@@ -193,9 +219,9 @@ class Qwen38ThinkingPolicy(CustomLogger):
             # original request. Returning None leaves the unmodified data in
             # place.
             logger.exception(
-                "qwen3.8 thinking policy failed; passing request through unchanged"
+                "qwen thinking policy failed; passing request through unchanged"
             )
             return None
 
 
-qwen38_thinking_policy = Qwen38ThinkingPolicy()
+qwen_thinking_policy = QwenThinkingPolicy()

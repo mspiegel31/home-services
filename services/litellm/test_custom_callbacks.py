@@ -1,4 +1,4 @@
-"""Basic smoke tests for the Qwen3.8 thinking policy.
+"""Basic smoke tests for the qwen thinking policy.
 
 Vanilla Python only (stdlib, no pytest, no LiteLLM required). Run from this
 directory:
@@ -14,7 +14,7 @@ import types
 import unittest
 
 try:
-    from custom_callbacks import qwen38_thinking_policy
+    from custom_callbacks import qwen_thinking_policy
 except ImportError:
     # Vanilla-Python fallback: stub the LiteLLM import so the policy module
     # loads without the LiteLLM dependency installed.
@@ -32,13 +32,13 @@ except ImportError:
     sys.modules["litellm.integrations"] = _integrations
     sys.modules["litellm.integrations.custom_logger"] = _custom_logger
 
-    from custom_callbacks import qwen38_thinking_policy
+    from custom_callbacks import qwen_thinking_policy
 
 
 def call_hook(data: dict, call_type: str = "completion") -> dict | None:
     """Invoke the public LiteLLM hook entry point with a copy of ``data``."""
     return asyncio.run(
-        qwen38_thinking_policy.async_pre_call_hook(
+        qwen_thinking_policy.async_pre_call_hook(
             user_api_key_dict=None,
             cache=None,
             data=dict(data),
@@ -52,7 +52,7 @@ def chat(controls: dict) -> dict:
     return {"messages": [{"role": "user", "content": "hi"}], **controls}
 
 
-class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
+class QwenThinkingPolicySmokeTests(unittest.TestCase):
     # ---- pass-through ----------------------------------------------------
 
     def test_other_models_pass_through(self):
@@ -104,6 +104,41 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
                 self.assertEqual(
                     result["chat_template_kwargs"],
                     {"enable_thinking": True, "reasoning_effort": "low"},
+                )
+
+    def test_ornith_and_thinkingcap_are_targets(self):
+        # The policy spans the whole qwen3 reasoning-parser family, not just
+        # the Qwen3.8 line: Ornith (the current chat target) and ThinkingCap
+        # Qwen3.6 share one chat_template_kwargs contract.
+        for model in (
+            "ornith-1.5-35b-a3b",
+            "ornith-1.5-35b-a3b-nvfp4",
+            "ornith-1.5-35b-a3b-fp8",
+            "ornith-1.5-9b-nvfp4",
+            "thinkingcap-qwen3.6-27b",
+        ):
+            with self.subTest(model=model):
+                result = call_hook(chat({"model": model, "reasoning_effort": "xhigh"}))
+                self.assertEqual(
+                    result["chat_template_kwargs"],
+                    {"enable_thinking": True, "reasoning_effort": "xhigh"},
+                )
+
+    def test_ornith_high_effort_is_not_condensed(self):
+        result = call_hook(
+            chat({"model": "ornith-1.5-35b-a3b", "reasoning_effort": "high"})
+        )
+        self.assertEqual(
+            result["chat_template_kwargs"],
+            {"enable_thinking": True, "reasoning_effort": "high"},
+        )
+
+    def test_non_qwen_family_model_passes_through(self):
+        # Models on a different reasoning-parser family are untouched.
+        for model in ("nemotron-3.5-lightning", "north-mini-code-1.0-fp8"):
+            with self.subTest(model=model):
+                self.assertIsNone(
+                    call_hook(chat({"model": model, "reasoning_effort": "low"}))
                 )
 
     # ---- reasoning_effort mapping ----------------------------------------
@@ -227,14 +262,14 @@ class Qwen38ThinkingPolicySmokeTests(unittest.TestCase):
         self.assertEqual(result["chat_template_kwargs"]["reasoning_effort"], "low")
 
     def test_policy_failure_does_not_break_hook(self):
-        original = qwen38_thinking_policy._transform
-        qwen38_thinking_policy._transform = (  # type: ignore[method-assign]
+        original = qwen_thinking_policy._transform
+        qwen_thinking_policy._transform = (  # type: ignore[method-assign]
             lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom"))
         )
         try:
             result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"}))
         finally:
-            qwen38_thinking_policy._transform = original
+            qwen_thinking_policy._transform = original
         self.assertIsNone(result)
 
 
