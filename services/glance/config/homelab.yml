@@ -42,7 +42,7 @@
                   icon: auto-invert mdi:swap-horizontal
                   url: http://192.168.1.98:11437/ui
                 - title: LiteLLM
-                  icon: auto-invert si:litellm
+                  icon: auto-invert sh:litellm
                   url: http://192.168.1.98:4000/ui
                 - title: Hugging Face Downloader
                   icon: auto-invert si:huggingface
