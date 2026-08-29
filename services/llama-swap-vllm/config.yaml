@@ -177,7 +177,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.95
+      --gpu-memory-utilization 0.93
       --kv-cache-dtype fp8
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
@@ -208,7 +208,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.95
+      --gpu-memory-utilization 0.93
       --kv-cache-dtype fp8
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
@@ -271,7 +271,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.95
+      --gpu-memory-utilization 0.93
       --kv-cache-dtype fp8
       --reasoning-parser cohere_command4
       --tool-call-parser cohere_command4
@@ -302,7 +302,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.95
+      --gpu-memory-utilization 0.93
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
@@ -367,7 +367,7 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --gpu-memory-utilization 0.95
+      --gpu-memory-utilization 0.93
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
