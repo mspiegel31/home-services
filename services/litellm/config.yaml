@@ -158,7 +158,6 @@ model_list:
       reasoning: true
       supports_reasoning: true
       vision: true
-      supports_vision: true
       reasoning_effort: [low, medium, high, xhigh]
       supported_parameters: *reasoning_parameters
       input_cost_per_token: 0.0
@@ -211,7 +210,7 @@ model_list:
       max_input_tokens: 262144
       reasoning: true
       vision: true
-      supports_vision: true
+      supports_reasoning: true
       reasoning_effort: [low, medium, high, xhigh]
       supported_parameters:
         - temperature
