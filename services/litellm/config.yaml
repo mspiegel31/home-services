@@ -211,6 +211,7 @@ model_list:
       reasoning: true
       vision: true
       supports_reasoning: true
+      reasoning_effort: [low, medium, high, xhigh]
       supported_parameters:
         - temperature
         - top_p
