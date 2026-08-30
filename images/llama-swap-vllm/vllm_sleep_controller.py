@@ -59,28 +59,6 @@ def sleep_model(container: str, level: int) -> None:
     request(container, "POST", f"/sleep?level={level}")
 
 
-def follow_logs(container: str, tail: str) -> subprocess.Popen[str]:
-    return subprocess.Popen(
-        ["docker", "logs", "--follow", f"--tail={tail}", container],
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-        text=True,
-    )
-
-
-def stop_log_follower(log_follower: subprocess.Popen[str]) -> None:
-    if log_follower.poll() is not None:
-        return
-    log_follower.terminate()
-    try:
-        log_follower.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        log_follower.kill()
-        log_follower.wait()
-
-
-
-
 def wait_for_health(
     container: str, timeout: int, stop_event: threading.Event
 ) -> None:
@@ -117,7 +95,6 @@ def serve(args: argparse.Namespace) -> None:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGUSR1, stop)
 
-    started = False
     if is_running(args.container):
         if not is_healthy(args.container):
             request(args.container, "POST", "/wake_up")
@@ -125,27 +102,17 @@ def serve(args: argparse.Namespace) -> None:
         run_docker(["rm", "--force", args.container], check=False)
         if not start_command:
             raise ValueError("serve requires a Docker run command after --")
-        subprocess.run(
-            start_command,
-            check=True,
-            text=True,
-            stdout=subprocess.DEVNULL,
-        )
-        started = True
+        subprocess.run(start_command, check=True, text=True)
 
-    log_follower = follow_logs(args.container, "all" if started else "0")
-    try:
-        wait_for_health(args.container, args.timeout, stop_event)
-        if not stop_event.is_set():
-            stop_event.wait()
+    wait_for_health(args.container, args.timeout, stop_event)
+    if not stop_event.is_set():
+        stop_event.wait()
 
-        if sleep_on_stop:
-            try:
-                sleep_model(args.container, args.sleep_level)
-            except subprocess.CalledProcessError:
-                pass
-    finally:
-        stop_log_follower(log_follower)
+    if sleep_on_stop:
+        try:
+            sleep_model(args.container, args.sleep_level)
+        except subprocess.CalledProcessError:
+            pass
 
 
 def sleep(args: argparse.Namespace) -> None:
