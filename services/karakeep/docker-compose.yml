@@ -20,6 +20,7 @@ services:
     environment:
       MEILI_ADDR: http://meilisearch:7700
       BROWSER_WEB_URL: http://chrome:9222
+      NODE_OPTIONS: --dns-result-order=ipv4first
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
