@@ -203,7 +203,10 @@ models:
       checkpoint: "Qwen/Qwen3.8-27B-FP8"
     proxy: http://vllm-qwen3-8-27b-fp8:8000
     cmd: >-
+      python3 /usr/local/bin/vllm_sleep_controller.py serve
+      --container vllm-qwen3-8-27b-fp8 --timeout 3600 --sleep-level 1 --
       ${DOCKER_PREFIX}
+      --detach --env VLLM_SERVER_DEV_MODE=1
       --name vllm-qwen3-8-27b-fp8
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
@@ -212,7 +215,10 @@ models:
       --kv-cache-dtype fp8
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
-    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-fp8
+      --enable-sleep-mode
+    cmdStop: >-
+      python3 /usr/local/bin/vllm_sleep_controller.py sleep
+      --container vllm-qwen3-8-27b-fp8 --sleep-level 1 --stop-pid ${PID}
 
   "thinkingcap-qwen3.6-27b":
     name: ThinkingCap Qwen3.6 27B NVFP4
@@ -362,7 +368,10 @@ models:
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-fp8"
     proxy: http://vllm-ornith-1-5-fp8:8000
     cmd: >-
+      python3 /usr/local/bin/vllm_sleep_controller.py serve
+      --container vllm-ornith-1-5-fp8 --timeout 3600 --sleep-level 1 --
       ${DOCKER_PREFIX}
+      --detach --env VLLM_SERVER_DEV_MODE=1
       --name vllm-ornith-1-5-fp8
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
@@ -373,7 +382,10 @@ models:
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
       --performance-mode throughput
-    cmdStop: docker stop --time 90 vllm-ornith-1-5-fp8
+      --enable-sleep-mode
+    cmdStop: >-
+      python3 /usr/local/bin/vllm_sleep_controller.py sleep
+      --container vllm-ornith-1-5-fp8 --sleep-level 1 --stop-pid ${PID}
   
   "ornith-1.5-35b-a3b-nvfp4":
     name: Ornith 1.5 35B-A3B NVFP4
