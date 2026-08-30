@@ -10,9 +10,8 @@ by Portainer — never commit them.
   router can spawn backend containers via the Docker socket. The base tag is
   a moving nightly from llama-swap main HEAD; rebuild via CI to pick up base
   updates. Check `/versions.txt` inside the container for bundled revisions.
-- `vllm_sleep_controller.py` manages level-1 sleeping for the Qwen3.8 FP8 and
-  Ornith A3B FP8 trials. It invokes the in-container API with `docker exec`,
-  retains direct backend DNS proxies, and expands only after lifecycle checks.
+- The base image bundles `vllm-wrapper` (vLLM sleep/wake support). Currently
+  unused — sleep/wake is disabled in `config.yaml` pending upstream vLLM fixes.
 - We do not run the image's own llama.cpp/whisper/sd tooling: all backends are
   vLLM containers spawned through the socket. The image's CUDA runtime is
   12.9.1; that only matters if we ever load a model into the router image
