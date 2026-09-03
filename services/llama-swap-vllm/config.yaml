@@ -139,6 +139,12 @@ models:
     # prefix-cache not resetting (vllm#16234). Container vs native was not
     # the cause; re-enable when our vLLM image includes both fixes.
     proxy: http://vllm-qwen3-8-27b-nvfp4:8000
+    # #54623 (open; fix PR #54624 pending): the qwen3_5 loader drops this
+    # checkpoint's calibrated FP8 KV scales, so --kv-cache-dtype fp8 serves
+    # uncalibrated at scale 1.0. Issue-measured GSM8K: 92.3 uncalibrated fp8
+    # KV, 93.7 calibrated fp8 KV, 94.5 bf16 KV. auto (bf16) is the best
+    # config reachable via args; restore --kv-cache-dtype fp8 when #54624
+    # ships (calibrated scales + ~2x KV token capacity).
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b-nvfp4
@@ -146,7 +152,7 @@ models:
       ${VLLM_COMMON}
       --max-model-len auto
       --gpu-memory-utilization 0.9
-      --kv-cache-dtype fp8
+      --kv-cache-dtype auto
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4
