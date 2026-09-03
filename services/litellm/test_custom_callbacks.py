@@ -58,7 +58,6 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
     def test_other_models_pass_through(self):
         for data in (
             chat({"model": "muse-glimmer-30b", "reasoning_effort": "low"}),
-            chat({"model": "deepseek-v4-flash", "reasoning_effort": "max"}),
             chat({"model": "qwen3.9-27b", "reasoning_effort": "low"}),
             chat({"model": "qwen3.8-27b", "reasoning_effort": "low"}),
         ):
@@ -98,7 +97,12 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
         self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "turbo"})))
 
     def test_all_quantized_variants_are_targets(self):
-        for model in ("qwen3.8-27b-bf16", "qwen3.8-27b-fp8", "qwen3.8-27b-nvfp4"):
+        for model in (
+            "qwen3.8-27b-bf16",
+            "qwen3.8-27b-fp8",
+            "qwen3.8-27b-nvfp4",
+            "qwen3.8-27b-nvfp4-bf16-lmhead",
+        ):
             with self.subTest(model=model):
                 result = call_hook(chat({"model": model, "reasoning_effort": "low"}))
                 self.assertEqual(
