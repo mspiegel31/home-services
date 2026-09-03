@@ -157,6 +157,44 @@ models:
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4
 
+  "qwen3.8-27b-nvfp4-bf16-lmhead":
+    name: Qwen3.8 27B NVFP4 BF16 LM Head
+    description: Qwen3.8 27B mixed-precision (NVFP4 MLP, FP8 attention, BF16 embeddings/lm_head) with auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      # ghcr.io/mspiegel31/vllm-fastokens:latest — see global macros note.
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead"
+    proxy: http://vllm-qwen3-8-27b-nvfp4-bf16:8000
+    # #54623 (open; fix PR #54624 pending): the qwen3_5 loader never routes
+    # checkpoint-shipped KV scales. This checkpoint ships none at all, so
+    # --kv-cache-dtype fp8 would run at the uncalibrated unit scale anyway
+    # (init_fp8_kv_scales TODO: "scale is 1.0 if user uses on-the-fly fp8
+    # kvcache quant"); auto (bf16) is the best quality reachable via args,
+    # same rationale as the unsloth NVFP4 sibling above.
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-qwen3-8-27b-nvfp4-bf16
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --gpu-memory-utilization 0.9
+      --kv-cache-dtype auto
+      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4-bf16
+
+
   "qwen3.8-27b-bf16":
     name: Qwen3.8 27B BF16
     description: Qwen3.8 27B BF16 with auto-fit context (native 262,144 when served alone)
