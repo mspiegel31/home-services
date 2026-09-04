@@ -221,7 +221,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      SGLANG_IMAGE: "lmsysorg/sglang@sha256:9e148f5ac788e856a06166bd6347a831831eb9fcfab4d1770874823a7c29a1a1"
+      SGLANG_IMAGE: "lmsysorg/sglang@sha256:eb090e39434085f713d39421cb2e5b6d342424aa95c3d9ecdfe8cadd4289e99b"
       checkpoint: "RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead"
     proxy: http://sglang-qwen3-8-27b-nvfp4-bf16:8000
     # Feature parity with the vLLM block above, SGLang-side implementation:
