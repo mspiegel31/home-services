@@ -1,14 +1,10 @@
 """LiteLLM request policies for locally served models.
 
-The policy is intentionally narrow: it normalizes public thinking controls into
- the qwen3/Froggeric chat-template contract before LiteLLM forwards the request
-to llama-swap/vLLM. Other models pass through unchanged.
+The policy normalizes public thinking controls into the qwen3/Froggeric
+chat-template contract before LiteLLM forwards Chat Completions requests to
+llama-swap. Other models and API shapes pass through unchanged.
 
-Scope comes from the request payload. Chat Completions requests carry
-``messages``. Responses API requests carry ``input`` and use the ``aresponses``
-hook type because embedding requests also carry ``input``.
-
- Precedence for the qwen models:
+Precedence for the qwen models:
 
 1. an explicit boolean ``chat_template_kwargs.enable_thinking``
 2. an explicit boolean top-level ``enable_thinking``
@@ -126,64 +122,31 @@ def _budget_disables_thinking(data: dict[str, Any]) -> bool:
         return False
     return budget <= 0
 
-def _reasoning_effort(data: dict[str, Any]) -> Any:
-    effort = data.get("reasoning_effort")
-    if effort is not None:
-        return effort
-
-    reasoning = data.get("reasoning")
-    if isinstance(reasoning, dict):
-        return reasoning.get("effort")
-
-    return None
-
-
-def _template_kwargs(
-    data: dict[str, Any], *, is_responses: bool
-) -> dict[str, Any] | None:
-    container = data.get("extra_body") if is_responses else data
-    if not isinstance(container, dict):
-        return None
-
-    kwargs = container.get("chat_template_kwargs")
-    return kwargs if isinstance(kwargs, dict) else None
-
 
 class QwenThinkingPolicy(CustomLogger):
-    def _transform(
-        self, data: dict[str, Any], call_type: Any
-    ) -> dict[str, Any] | None:
+    def _transform(self, data: dict[str, Any]) -> dict[str, Any] | None:
         model = data.get("model")
         if not isinstance(model, str) or model not in QWEN_MODELS:
             return None
 
-        is_chat = isinstance(data.get("messages"), list)
-        is_responses = call_type == "aresponses" and "input" in data
-        if not is_chat and not is_responses:
+        if not isinstance(data.get("messages"), list):
             return None
 
-        effort_raw = _reasoning_effort(data)
-        kwargs_in = _template_kwargs(data, is_responses=is_responses)
-        explicit_data = dict(data)
-        if kwargs_in is not None:
-            explicit_data["chat_template_kwargs"] = kwargs_in
-        explicit_enable = _explicit_enable_thinking(explicit_data)
+        effort_raw = data.get("reasoning_effort")
+        kwargs_in = data.get("chat_template_kwargs")
+        explicit_enable = _explicit_enable_thinking(data)
         budget_present = data.get("thinking_token_budget") is not None
 
         no_controls = (
             effort_raw is None
             and explicit_enable is None
             and budget_present is False
-            and (not isinstance(kwargs_in, dict) or "enable_thinking" not in kwargs_in)
         )
-        if no_controls and not is_responses:
+        if no_controls:
             return None
 
         kwargs = dict(kwargs_in) if isinstance(kwargs_in, dict) else {}
         changed = False
-        if no_controls:
-            kwargs["enable_thinking"] = False
-            changed = True
 
         if explicit_enable is not None and "enable_thinking" not in kwargs:
             kwargs["enable_thinking"] = explicit_enable
@@ -223,32 +186,10 @@ class QwenThinkingPolicy(CustomLogger):
             if kwargs.pop("reasoning_effort", None) is not None:
                 changed = True
 
-        if is_responses and effort_raw is not None:
-            response_effort = (
-                "none"
-                if kwargs.get("enable_thinking") is False
-                else kwargs.get("reasoning_effort")
-            )
-            reasoning = data.get("reasoning")
-            if response_effort is not None and isinstance(reasoning, dict):
-                if reasoning.get("effort") != response_effort:
-                    data["reasoning"] = {**reasoning, "effort": response_effort}
-                    changed = True
-            elif response_effort is not None and "reasoning_effort" in data:
-                if data["reasoning_effort"] != response_effort:
-                    data["reasoning_effort"] = response_effort
-                    changed = True
-
         if not changed:
             return None
 
-        if is_responses:
-            extra_body_in = data.get("extra_body")
-            extra_body = dict(extra_body_in) if isinstance(extra_body_in, dict) else {}
-            extra_body["chat_template_kwargs"] = kwargs
-            data["extra_body"] = extra_body
-        else:
-            data["chat_template_kwargs"] = kwargs
+        data["chat_template_kwargs"] = kwargs
         return data
 
     async def async_pre_call_hook(
@@ -259,7 +200,7 @@ class QwenThinkingPolicy(CustomLogger):
         call_type: Any,
     ) -> dict[str, Any] | None:
         try:
-            return self._transform(dict(data), call_type)
+            return self._transform(dict(data))
         except Exception:
             logger.exception(
                 "qwen thinking policy failed; passing request through unchanged"

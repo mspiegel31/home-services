@@ -60,11 +60,10 @@ LiteLLM forwards requests. Qwen3.8 includes `qwen3.8-27b-bf16`, `-fp8`,
 (`thinkingcap-qwen3.6-27b`) and the Ornith checkpoints
 (`ornith-1.5-35b-a3b`, `-a3b-fp8`, `-a3b-nvfp4`, `-9b-nvfp4`).
 
-Chat Completions scope comes from a `messages` list. Responses API scope uses
-the `aresponses` hook type plus an `input` field, which avoids treating an
-embedding request as chat. LiteLLM passes Responses controls as
-`reasoning.effort`; the callback forwards the canonical Qwen tier through
-`extra_body.chat_template_kwargs`.
+The SGLang Qwen3.8 deployment declares `custom_llm_provider: hosted_vllm`.
+LiteLLM discovery therefore directs OMP to Chat Completions, where explicit
+thinking toggles and effort tiers remain available to this callback. No
+client-side transport or compatibility override is required.
 
 - `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
 - `minimal`/`low` -> `enable_thinking=true`, `reasoning_effort=low`
@@ -77,9 +76,6 @@ embedding request as chat. LiteLLM passes Responses controls as
 - Chat Completions requests with no explicit controls leave the template default
 - when the resolved state is thinking-off, any top-level `reasoning_effort` is
   stripped so vLLM's effort->thinking auto-injection cannot re-arm it
-- Responses API `reasoning.effort` uses the same tier mapping and precedence
-- Responses API requests with no `reasoning` control disable thinking because OMP
-  represents its `off` level by omitting that object
 
 The callback is registered in `litellm_settings.callbacks` as
 `custom_callbacks.qwen_thinking_policy` and lives beside `config.yaml`,
