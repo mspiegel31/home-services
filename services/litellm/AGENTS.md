@@ -55,14 +55,16 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 
 `custom_callbacks.py` translates public thinking controls for the whole
 qwen3 reasoning-parser family the Froggeric/vLLM stack serves before
-LiteLLM forwards requests — Qwen3.8 (`qwen3.8-27b-bf16`, `-fp8`, `-nvfp4`),
-ThinkingCap Qwen3.6 (`thinkingcap-qwen3.6-27b`), and the Ornith checkpoints
+LiteLLM forwards requests. Qwen3.8 includes `qwen3.8-27b-bf16`, `-fp8`,
+`-nvfp4`, and `-nvfp4-bf16-lmhead`. The policy also covers ThinkingCap Qwen3.6
+(`thinkingcap-qwen3.6-27b`) and the Ornith checkpoints
 (`ornith-1.5-35b-a3b`, `-a3b-fp8`, `-a3b-nvfp4`, `-9b-nvfp4`).
 
-Its scope is payload-derived: a chat request (a `messages` list) addressed at one
-of those qwen3 models. Route type is deliberately not consulted — the proxy
-dispatches chat completions as `acompletion`, and a route-type whitelist once
-made the whole policy a silent no-op on every live request.
+Chat Completions scope comes from a `messages` list. Responses API scope uses
+the `aresponses` hook type plus an `input` field, which avoids treating an
+embedding request as chat. LiteLLM passes Responses controls as
+`reasoning.effort`; the callback forwards the canonical Qwen tier through
+`extra_body.chat_template_kwargs`.
 
 - `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
 - `minimal`/`low` -> `enable_thinking=true`, `reasoning_effort=low`
@@ -75,6 +77,7 @@ made the whole policy a silent no-op on every live request.
 - requests with no explicit thinking controls leave the template default
 - when the resolved state is thinking-off, any top-level `reasoning_effort` is
   stripped so vLLM's effort->thinking auto-injection cannot re-arm it
+- Responses API `reasoning.effort` uses the same tier mapping and precedence
 
 The callback is registered in `litellm_settings.callbacks` as
 `custom_callbacks.qwen_thinking_policy` and lives beside `config.yaml`,
