@@ -31,6 +31,18 @@ macros:
     --volume /mnt/models:/models
     --label io.mspiegel.llama-swap.managed=true
     --label io.mspiegel.llama-swap.model=${MODEL_ID}
+  # SGLang backends. No VLLM_*/PYTORCH_CUDA_ALLOC_CONF (vLLM-only knobs);
+  # the shared /mnt/models HF cache is what lets SGLang pick up the same
+  # patched chat_template.jinja snapshots the vLLM backends use.
+  SGLANG_PREFIX: >-
+    docker run --init --rm --gpus all --ipc host
+    --shm-size=16g --ulimit memlock=-1 --ulimit stack=67108864
+    --network llama-swap-vllm-backend
+    --env HF_TOKEN --env HF_HOME=/models/huggingface
+    --env SAFETENSORS_FAST_GPU=1
+    --volume /mnt/models:/models
+    --label io.mspiegel.llama-swap.managed=true
+    --label io.mspiegel.llama-swap.model=${MODEL_ID}
   # ── vLLM engine flags ──────────────────────────────────────────
   # Docs: https://docs.vllm.ai/en/stable/configuration/engine_args/
   #
@@ -194,6 +206,65 @@ models:
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4-bf16
 
+
+  "qwen3.8-27b-nvfp4-bf16-lmhead-sglang":
+    name: Qwen3.8 27B NVFP4 BF16 LM Head (SGLang)
+    description: Qwen3.8 27B mixed-precision (NVFP4 MLP, FP8 attention, BF16 embeddings/lm_head) served by SGLang with DFlash2 spec decode
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      SGLANG_IMAGE: "lmsysorg/sglang@sha256:9e148f5ac788e856a06166bd6347a831831eb9fcfab4d1770874823a7c29a1a1"
+      checkpoint: "RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead"
+    proxy: http://sglang-qwen3-8-27b-nvfp4-bf16:8000
+    # Feature parity with the vLLM block above, SGLang-side implementation:
+    #   prefix caching  -> radix cache (on by default); GDN states cached via
+    #                      --mamba-radix-cache-strategy (extra_buffer_lazy, S=4)
+    #   throughput mode -> high-throughput serving strategy (lazy strategy) +
+    #                      --max-running-requests 128 (vLLM MAX_NUM_SEQS parity)
+    #   large context   -> --context-length 262144; admission still bounded by
+    #                      the KV pool like vLLM --max-model-len auto
+    #   chat template   -> same HF cache snapshot (patched chat_template.jinja);
+    #                      --tool-call-parser qwen3_coder is SGLang's name for
+    #                      the Qwen3 XML tool payload (vLLM: qwen3_xml)
+    #   spec decode     -> DFlash2 draft; 8 draft tokens (SGLang block size,
+    #                      vLLM runs 7)
+    # --mamba-full-memory-ratio 6.88 balances GDN state pool vs FP8 KV pool
+    # for ~8192-token average requests at S=4, D=8, fp32 state
+    # ((S+D) x 153.9MB / (8192 x 32.8KB)); re-derive if average request length
+    # moves far from 8K.
+    cmd: >-
+      ${SGLANG_PREFIX}
+      --name sglang-qwen3-8-27b-nvfp4-bf16
+      ${SGLANG_IMAGE}
+      sglang serve
+      --model-path ${checkpoint}
+      --served-model-name ${MODEL_ID}
+      --host 0.0.0.0
+      --port 8000
+      --kv-cache-dtype fp8_e4m3
+      --mem-fraction-static 0.9
+      --attention-backend flashinfer
+      --chunked-prefill-size 2048
+      --context-length 262144
+      --max-running-requests 128
+      --mamba-radix-cache-strategy extra_buffer_lazy
+      --mamba-ssm-dtype float32
+      --mamba-full-memory-ratio 6.88
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_coder
+      --enable-cache-report
+      --speculative-algorithm DFLASH
+      --speculative-draft-model-path incoai/Qwen3.8-27B-DFlash2
+      --speculative-num-draft-tokens 8
+    cmdStop: docker stop --time 90 sglang-qwen3-8-27b-nvfp4-bf16
 
   "qwen3.8-27b-bf16":
     name: Qwen3.8 27B BF16
