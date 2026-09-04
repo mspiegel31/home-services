@@ -110,6 +110,44 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
                     {"enable_thinking": True, "reasoning_effort": "low"},
                 )
 
+
+    def test_lmhead_responses_api_efforts_are_translated(self):
+        for requested, expected, template_kwargs in (
+            ("none", "none", {"enable_thinking": False}),
+            (
+                "minimal",
+                "low",
+                {"enable_thinking": True, "reasoning_effort": "low"},
+            ),
+            (
+                "medium",
+                "medium",
+                {"enable_thinking": True, "reasoning_effort": "medium"},
+            ),
+            (
+                "high",
+                "xhigh",
+                {"enable_thinking": True, "reasoning_effort": "xhigh"},
+            ),
+        ):
+            with self.subTest(requested=requested):
+                result = call_hook(
+                    {
+                        "model": "qwen3.8-27b-nvfp4-bf16-lmhead",
+                        "input": [{"role": "user", "content": "hi"}],
+                        "reasoning": {"effort": requested, "summary": "auto"},
+                    },
+                    "aresponses",
+                )
+                self.assertEqual(
+                    result["reasoning"],
+                    {"effort": expected, "summary": "auto"},
+                )
+                self.assertEqual(
+                    result["extra_body"],
+                    {"chat_template_kwargs": template_kwargs},
+                )
+
     def test_ornith_and_thinkingcap_are_targets(self):
         # The policy spans the whole qwen3 reasoning-parser family, not just
         # the Qwen3.8 line: Ornith (the current chat target) and ThinkingCap

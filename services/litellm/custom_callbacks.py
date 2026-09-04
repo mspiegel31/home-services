@@ -4,10 +4,9 @@ The policy is intentionally narrow: it normalizes public thinking controls into
  the qwen3/Froggeric chat-template contract before LiteLLM forwards the request
 to llama-swap/vLLM. Other models pass through unchanged.
 
-Its scope is payload-derived: a chat request (a ``messages`` list) addressed at
-a qwen-family model name. Which route spelling the proxy dispatches it under
-(currently "acompletion" for chat completions, with sync variants and future
-spellings) is deliberately not part of the decision.
+Scope comes from the request payload. Chat Completions requests carry
+``messages``. Responses API requests carry ``input`` and use the ``aresponses``
+hook type because embedding requests also carry ``input``.
 
  Precedence for the qwen models:
 
@@ -125,28 +124,50 @@ def _budget_disables_thinking(data: dict[str, Any]) -> bool:
         return False
     return budget <= 0
 
+def _reasoning_effort(data: dict[str, Any]) -> Any:
+    effort = data.get("reasoning_effort")
+    if effort is not None:
+        return effort
+
+    reasoning = data.get("reasoning")
+    if isinstance(reasoning, dict):
+        return reasoning.get("effort")
+
+    return None
+
+
+def _template_kwargs(
+    data: dict[str, Any], *, is_responses: bool
+) -> dict[str, Any] | None:
+    container = data.get("extra_body") if is_responses else data
+    if not isinstance(container, dict):
+        return None
+
+    kwargs = container.get("chat_template_kwargs")
+    return kwargs if isinstance(kwargs, dict) else None
+
 
 class QwenThinkingPolicy(CustomLogger):
-    def _transform(self, data: dict[str, Any]) -> dict[str, Any] | None:
+    def _transform(
+        self, data: dict[str, Any], call_type: Any
+    ) -> dict[str, Any] | None:
         model = data.get("model")
         if not isinstance(model, str) or model not in QWEN_MODELS:
             return None
 
-        # A request talks to the model only if it is a chat conversation;
-        # embeddings, moderation, and the like carry no messages and pass
-        # through. This keys off the payload, so no route-type spelling can
-        # silently opt a chat request out of the policy.
-        if not isinstance(data.get("messages"), list):
+        is_chat = isinstance(data.get("messages"), list)
+        is_responses = call_type == "aresponses" and "input" in data
+        if not is_chat and not is_responses:
             return None
 
-        effort_raw = data.get("reasoning_effort")
-        kwargs_in = data.get("chat_template_kwargs")
-        explicit_enable = _explicit_enable_thinking(data)
+        effort_raw = _reasoning_effort(data)
+        kwargs_in = _template_kwargs(data, is_responses=is_responses)
+        explicit_data = dict(data)
+        if kwargs_in is not None:
+            explicit_data["chat_template_kwargs"] = kwargs_in
+        explicit_enable = _explicit_enable_thinking(explicit_data)
         budget_present = data.get("thinking_token_budget") is not None
 
-        # With no explicit control, leave the template's native medium default
-        # in place. This preserves behavior for clients that do not speak a
-        # thinking dialect.
         if (
             effort_raw is None
             and explicit_enable is None
@@ -174,7 +195,9 @@ class QwenThinkingPolicy(CustomLogger):
                     else effort_raw
                 )
                 if effort is not None:
-                    kwargs["enable_thinking"] = True
+                    if kwargs.get("enable_thinking") is not True:
+                        kwargs["enable_thinking"] = True
+                        changed = True
                     if kwargs.get("reasoning_effort") != effort:
                         kwargs["reasoning_effort"] = effort
                         changed = True
@@ -188,20 +211,38 @@ class QwenThinkingPolicy(CustomLogger):
                 kwargs["enable_thinking"] = True
                 changed = True
 
-        # vLLM auto-injects enable_thinking from the request's top-level
-        # reasoning_effort unless chat_template_kwargs says otherwise
-        # (docs/features/reasoning_outputs). A stale effort left on the wire
-        # is an ambiguity we do not want to hand to the next vLLM version.
         if kwargs.get("enable_thinking") is False and effort_raw is not None:
             if data.pop("reasoning_effort", None) is not None:
                 changed = True
             if kwargs.pop("reasoning_effort", None) is not None:
                 changed = True
 
+        if is_responses and effort_raw is not None:
+            response_effort = (
+                "none"
+                if kwargs.get("enable_thinking") is False
+                else kwargs.get("reasoning_effort")
+            )
+            reasoning = data.get("reasoning")
+            if response_effort is not None and isinstance(reasoning, dict):
+                if reasoning.get("effort") != response_effort:
+                    data["reasoning"] = {**reasoning, "effort": response_effort}
+                    changed = True
+            elif response_effort is not None and "reasoning_effort" in data:
+                if data["reasoning_effort"] != response_effort:
+                    data["reasoning_effort"] = response_effort
+                    changed = True
+
         if not changed:
             return None
 
-        data["chat_template_kwargs"] = kwargs
+        if is_responses:
+            extra_body_in = data.get("extra_body")
+            extra_body = dict(extra_body_in) if isinstance(extra_body_in, dict) else {}
+            extra_body["chat_template_kwargs"] = kwargs
+            data["extra_body"] = extra_body
+        else:
+            data["chat_template_kwargs"] = kwargs
         return data
 
     async def async_pre_call_hook(
@@ -211,15 +252,9 @@ class QwenThinkingPolicy(CustomLogger):
         data: dict[str, Any],
         call_type: Any,
     ) -> dict[str, Any] | None:
-        # call_type is part of the hook interface but deliberately unused:
-        # the policy's scope is defined by the payload (model + chat shape),
-        # so no route-type spelling can change its behavior.
         try:
-            return self._transform(dict(data))
+            return self._transform(dict(data), call_type)
         except Exception:
-            # A policy bug must never take the gateway down or clobber the
-            # original request. Returning None leaves the unmodified data in
-            # place.
             logger.exception(
                 "qwen thinking policy failed; passing request through unchanged"
             )
