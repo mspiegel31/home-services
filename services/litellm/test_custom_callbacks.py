@@ -148,6 +148,20 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
                     {"chat_template_kwargs": template_kwargs},
                 )
 
+    def test_lmhead_responses_api_without_reasoning_disables_thinking(self):
+        result = call_hook(
+            {
+                "model": "qwen3.8-27b-nvfp4-bf16-lmhead",
+                "input": [{"role": "user", "content": "hi"}],
+            },
+            "aresponses",
+        )
+        self.assertNotIn("reasoning", result)
+        self.assertEqual(
+            result["extra_body"],
+            {"chat_template_kwargs": {"enable_thinking": False}},
+        )
+
     def test_ornith_and_thinkingcap_are_targets(self):
         # The policy spans the whole qwen3 reasoning-parser family, not just
         # the Qwen3.8 line: Ornith (the current chat target) and ThinkingCap

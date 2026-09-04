@@ -168,16 +168,20 @@ class QwenThinkingPolicy(CustomLogger):
         explicit_enable = _explicit_enable_thinking(explicit_data)
         budget_present = data.get("thinking_token_budget") is not None
 
-        if (
+        no_controls = (
             effort_raw is None
             and explicit_enable is None
             and budget_present is False
             and (not isinstance(kwargs_in, dict) or "enable_thinking" not in kwargs_in)
-        ):
+        )
+        if no_controls and not is_responses:
             return None
 
         kwargs = dict(kwargs_in) if isinstance(kwargs_in, dict) else {}
         changed = False
+        if no_controls:
+            kwargs["enable_thinking"] = False
+            changed = True
 
         if explicit_enable is not None and "enable_thinking" not in kwargs:
             kwargs["enable_thinking"] = explicit_enable
