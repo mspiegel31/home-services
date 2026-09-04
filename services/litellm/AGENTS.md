@@ -74,10 +74,12 @@ embedding request as chat. LiteLLM passes Responses controls as
 - zero `thinking_token_budget` -> `enable_thinking=false`
 - positive `thinking_token_budget` -> `enable_thinking=true`
 - explicit `enable_thinking` wins over effort
-- requests with no explicit thinking controls leave the template default
+- Chat Completions requests with no explicit controls leave the template default
 - when the resolved state is thinking-off, any top-level `reasoning_effort` is
   stripped so vLLM's effort->thinking auto-injection cannot re-arm it
 - Responses API `reasoning.effort` uses the same tier mapping and precedence
+- Responses API requests with no `reasoning` control disable thinking because OMP
+  represents its `off` level by omitting that object
 
 The callback is registered in `litellm_settings.callbacks` as
 `custom_callbacks.qwen_thinking_policy` and lives beside `config.yaml`,
