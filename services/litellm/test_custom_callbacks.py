@@ -102,6 +102,7 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-fp8",
             "qwen3.8-27b-nvfp4",
             "qwen3.8-27b-nvfp4-bf16-lmhead",
+            "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
         ):
             with self.subTest(model=model):
                 result = call_hook(chat({"model": model, "reasoning_effort": "low"}))

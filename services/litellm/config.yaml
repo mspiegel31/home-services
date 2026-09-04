@@ -114,6 +114,14 @@ model_list:
       custom_llm_provider: openai
     model_info: *qwen38_model_info
 
+  - model_name: qwen3.8-27b-nvfp4-bf16-lmhead-sglang
+    litellm_params:
+      model: qwen3.8-27b-nvfp4-bf16-lmhead-sglang
+      api_base: http://192.168.1.98:11437/v1
+      api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: openai
+    model_info: *qwen38_model_info
+
   - model_name: thinkingcap-qwen3.6-27b
     litellm_params:
       model: thinkingcap-qwen3.6-27b
