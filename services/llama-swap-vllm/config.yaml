@@ -123,52 +123,6 @@ models:
       --enable-auto-tool-choice
     cmdStop: docker stop --time 90 vllm-gemma-4-31b
 
-  "qwen3.8-27b-nvfp4":
-    name: Qwen3.8 27B NVFP4
-    description: Qwen3.8 27B with auto-fit context (native 262,144 when served alone)
-    capabilities:
-      in: ["text", "image"]
-      out: ["text"]
-      tools: true
-      context: 262144
-    metadata:
-      reasoning: true
-      thinking: true
-      vision: true
-      reasoning_effort: [low, medium, xhigh]
-    macros:
-      # ghcr.io/mspiegel31/vllm-fastokens:latest — see global macros note.
-      USE_FASTOKENS: "1"
-      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
-      checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
-    # Spec decode: DFlash2 (vllm#52816) — grouped dynamic depthwise conv +
-    # candidate selector. Requires the #53435 load fix (decoder_layer_cls
-    # indirection), both of which shipped in v0.28.0. 7 draft tokens/verify.
-    # (Was MTP x3 — previously 1 due to an accuracy bug with prefix caching,
-    # vllm#43559, closed in PR #43650/#47861.)
-    # Sleep/wake disabled: garbled output on wake was caused by FP8 KV cache
-    # scale factors not reinitialized (vllm#25800, fixed in PR #28783) and
-    # prefix-cache not resetting (vllm#16234). Container vs native was not
-    # the cause; re-enable when our vLLM image includes both fixes.
-    proxy: http://vllm-qwen3-8-27b-nvfp4:8000
-    # #54623 (open; fix PR #54624 pending): the qwen3_5 loader drops this
-    # checkpoint's calibrated FP8 KV scales, so --kv-cache-dtype fp8 serves
-    # uncalibrated at scale 1.0. Issue-measured GSM8K: 92.3 uncalibrated fp8
-    # KV, 93.7 calibrated fp8 KV, 94.5 bf16 KV. auto (bf16) is the best
-    # config reachable via args; restore --kv-cache-dtype fp8 when #54624
-    # ships (calibrated scales + ~2x KV token capacity).
-    cmd: >-
-      ${DOCKER_PREFIX}
-      --name vllm-qwen3-8-27b-nvfp4
-      ${VLLM_IMAGE}
-      ${VLLM_COMMON}
-      --max-model-len auto
-      --gpu-memory-utilization 0.9
-      --kv-cache-dtype auto
-      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
-      ${QWEN38_COMMON}
-    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4
-
   "qwen3.8-27b-nvfp4-bf16-lmhead":
     name: Qwen3.8 27B NVFP4 BF16 LM Head
     description: Qwen3.8 27B mixed-precision (NVFP4 MLP, FP8 attention, BF16 embeddings/lm_head) with auto-fit context (native 262,144 when served alone)
@@ -266,37 +220,6 @@ models:
       --speculative-num-draft-tokens 8
     cmdStop: docker stop --time 90 sglang-qwen3-8-27b-nvfp4-bf16
 
-  "qwen3.8-27b-bf16":
-    name: Qwen3.8 27B BF16
-    description: Qwen3.8 27B BF16 with auto-fit context (native 262,144 when served alone)
-    capabilities:
-      in: ["text", "image"]
-      out: ["text"]
-      tools: true
-      context: 262144
-    metadata:
-      reasoning: true
-      thinking: true
-      vision: true
-      # reasoning_effort: [low, medium, xhigh]
-      reasoning_effort: [low]
-    macros:
-      USE_FASTOKENS: "1"
-      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
-      checkpoint: "Qwen/Qwen3.8-27B"
-    proxy: http://vllm-qwen3-8-27b:8000
-    cmd: >-
-      ${DOCKER_PREFIX}
-      --name vllm-qwen3-8-27b
-      ${VLLM_IMAGE}
-      ${VLLM_COMMON}
-      --max-model-len auto
-      --gpu-memory-utilization 0.93
-      --kv-cache-dtype fp8
-      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
-      ${QWEN38_COMMON}
-    cmdStop: docker stop --time 90 vllm-qwen3-8-27b
-
   "qwen3.8-27b-fp8":
     name: Qwen3.8 27B FP8
     description: Qwen3.8 27B FP8 with auto-fit context (native 262,144 when served alone)
@@ -327,102 +250,6 @@ models:
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-fp8
-
-  "thinkingcap-qwen3.6-27b":
-    name: ThinkingCap Qwen3.6 27B NVFP4
-    description: ThinkingCap Qwen3.6 27B NVFP4 with auto-fit context
-    capabilities:
-      in: ["text", "image"]
-      out: ["text"]
-      tools: true
-      context: 262144
-    metadata:
-      reasoning: true
-      thinking: true
-      vision: true
-      reasoning_effort: [low, medium, high, xhigh]
-    macros:
-      USE_FASTOKENS: "1"
-      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
-      MAX_NUM_SEQS: "64"
-      checkpoint: "bottlecapai/ThinkingCap-Qwen3.6-27B-NVFP4"
-    proxy: http://vllm-thinkingcap-qwen3-6-27b:8000
-    cmd: >-
-      ${DOCKER_PREFIX}
-      --name vllm-thinkingcap-qwen3-6-27b
-      ${VLLM_IMAGE}
-      ${VLLM_COMMON}
-      --max-model-len auto
-      --gpu-memory-utilization 0.4
-      --kv-cache-dtype fp8
-      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
-      --reasoning-parser qwen3
-      --tool-call-parser qwen3_xml
-      --enable-auto-tool-choice
-    cmdStop: docker stop --time 90 vllm-thinkingcap-qwen3-6-27b
-
-  "north-mini-code-1.0-fp8":
-    name: Cohere North Mini Code 1.0 FP8
-    description: North Mini Code 30B-A3B FP8 with auto-fit context
-    capabilities:
-      in: ["text"]
-      out: ["text"]
-      tools: true
-      context: 262144
-    metadata:
-      reasoning: true
-      thinking: true
-      reasoning_effort: [low, medium, high, xhigh]
-    macros:
-      USE_FASTOKENS: "1"
-      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
-      MAX_NUM_SEQS: "64"
-      checkpoint: "CohereLabs/North-Mini-Code-1.0-fp8"
-    proxy: http://vllm-north-mini-code:8000
-    cmd: >-
-      ${DOCKER_PREFIX}
-      --name vllm-north-mini-code
-      ${VLLM_IMAGE}
-      ${VLLM_COMMON}
-      --max-model-len auto
-      --gpu-memory-utilization 0.93
-      --kv-cache-dtype fp8
-      --reasoning-parser cohere_command4
-      --tool-call-parser cohere_command4
-      --enable-auto-tool-choice
-      --moe-backend triton
-    cmdStop: docker stop --time 90 vllm-north-mini-code
-
-  "ornith-1.5-35b-a3b":
-    name: Ornith 1.5 35B-A3B BF16
-    description: Ornith 1.5 35B-A3B BF16 with auto-fit context
-    capabilities:
-      in: ["text", "image"]
-      out: ["text"]
-      tools: true
-      context: 262144
-    metadata:
-      reasoning: true
-      thinking: true
-      vision: true
-      reasoning_effort: [low, medium, high, xhigh]
-    macros:
-      MAX_NUM_SEQS: "64"
-      checkpoint: "ornith-ai/Ornith-1.5-35B-A3B"
-    proxy: http://vllm-ornith-1-5:8000
-    cmd: >-
-      ${DOCKER_PREFIX}
-      --name vllm-ornith-1-5
-      ${VLLM_IMAGE}
-      ${VLLM_COMMON}
-      --max-model-len auto
-      --gpu-memory-utilization 0.93
-      --reasoning-parser qwen3
-      --tool-call-parser qwen3_xml
-      --enable-auto-tool-choice
-      --performance-mode throughput
-    cmdStop: docker stop --time 90 vllm-ornith-1-5
-
   "nemotron-3.5-lightning":
     name: NVIDIA Nemotron 3.5 Lightning 30B-A3B NVFP4
     description: Nemotron 3.5 Lightning with auto-fit context (native 1,048,576 when served alone)
@@ -455,81 +282,6 @@ models:
       --tool-call-parser qwen3_coder
       --enable-auto-tool-choice
     cmdStop: docker stop --time 90 vllm-nemotron-3-5
-
-  "ornith-1.5-35b-a3b-fp8":
-    name: Ornith 1.5 35B-A3B FP8
-    description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
-    capabilities:
-      in: ["text", "image"]
-      out: ["text"]
-      tools: true
-      context: 262144
-    metadata:
-      reasoning: true
-      thinking: true
-      vision: true
-      reasoning_effort: [low, medium, high, xhigh]
-    macros:
-      USE_FASTOKENS: "1"
-      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
-      MAX_NUM_SEQS: "64"
-      checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-fp8"
-    proxy: http://vllm-ornith-1-5-fp8:8000
-    cmd: >-
-      ${DOCKER_PREFIX}
-      --name vllm-ornith-1-5-fp8
-      ${VLLM_IMAGE}
-      ${VLLM_COMMON}
-      --max-model-len auto
-      --gpu-memory-utilization 0.93
-      --kv-cache-dtype fp8
-      --reasoning-parser qwen3
-      --tool-call-parser qwen3_xml
-      --enable-auto-tool-choice
-      --performance-mode throughput
-    cmdStop: docker stop --time 90 vllm-ornith-1-5-fp8
-  
-  "ornith-1.5-35b-a3b-nvfp4":
-    name: Ornith 1.5 35B-A3B NVFP4
-    description: Ornith 1.5 35B-A3B with auto-fit context (native 262,144 when served alone)
-    capabilities:
-      in: ["text", "image"]
-      out: ["text"]
-      tools: true
-      context: 262144
-    metadata:
-      reasoning: true
-      thinking: true
-      vision: true
-      reasoning_effort: [low, medium, high, xhigh]
-    macros:
-      USE_FASTOKENS: "1"
-      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
-      MAX_NUM_SEQS: "64"
-      checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
-    # MTP spec-decode trial: the checkpoint ships a 1-layer MTP head
-    # (mtp_num_hidden_layers=1, quantized in with the weights), and vLLM
-    # v0.28.0 maps qwen3_5/qwen3_5_moe to the qwen3_5_mtp method natively.
-    # No external draft model (the DFlash2 draft is Qwen3.8-specific).
-    # Trial on this block first: at util 0.40 (moe co-residency group) the
-    # MTP layer's VRAM is the most absorbable; check spec_decode acceptance
-    # and KV headroom before rolling it out to the other Ornith blocks.
-    proxy: http://vllm-ornith-1-5-nvfp4:8000
-    cmd: >-
-      ${DOCKER_PREFIX}
-      --name vllm-ornith-1-5-nvfp4
-      ${VLLM_IMAGE}
-      ${VLLM_COMMON}
-      --max-model-len auto
-      --gpu-memory-utilization 0.4
-      --kv-cache-dtype fp8
-      --reasoning-parser qwen3
-      --tool-call-parser qwen3_xml
-      --enable-auto-tool-choice
-      --performance-mode throughput
-      --speculative-config '{"method":"qwen3_5_mtp","num_speculative_tokens":1}'
-    cmdStop: docker stop --time 90 vllm-ornith-1-5-nvfp4
-
   "ornith-1.5-9b-nvfp4":
     name: Ornith 1.5 9B NVFP4
     description: Ornith 1.5 9B (dense hybrid linear-attention, vision) with auto-fit context (native 262,144 when served alone)
@@ -563,40 +315,6 @@ models:
       --performance-mode throughput
     cmdStop: docker stop --time 90 vllm-ornith-1-5-9b
 
-  "gemma-4-26b-a4b":
-    name: Google Gemma 4 26B-A4B NVFP4
-    description: Gemma 4 26B-A4B MoE (128 experts, top-8) with auto-fit context (native 262,144 when served alone)
-    capabilities:
-      in: ["text", "image"]
-      out: ["text"]
-      tools: true
-      context: 262144
-    metadata:
-      reasoning: true
-      thinking: true
-      vision: true
-      reasoning_effort: [minimal, low, medium, high]
-    macros:
-      checkpoint: "unsloth/gemma-4-26B-A4B-it-NVFP4"
-      MAX_NUM_SEQS: "64"
-    proxy: http://vllm-gemma-4-26b:8000
-    # Gemma 4 has heterogeneous per-layer head_dim (256 sliding, 512 global
-    # attention); v0.27.1 + transformers ≥5.15 crashed with
-    # AmbiguousGlobalPerLayerAttributeError. Fixed upstream in vllm PR #49797
-    # (merged 2026-08-10), which shipped in v0.28.0 — so this model now uses
-    # the global VLLM_IMAGE (v0.28.0) like the others.
-    cmd: >-
-      ${DOCKER_PREFIX}
-      --name vllm-gemma-4-26b
-      ${VLLM_IMAGE}
-      ${VLLM_COMMON}
-      --max-model-len auto
-      --gpu-memory-utilization 0.4
-      --kv-cache-dtype fp8
-      --reasoning-parser gemma4
-      --tool-call-parser gemma4
-      --enable-auto-tool-choice
-    cmdStop: docker stop --time 90 vllm-gemma-4-26b
 
 routing:
   router:
@@ -607,17 +325,11 @@ routing:
           members:
             - muse-glimmer-30b
             - gemma-4-31b
-            - qwen3.8-27b-nvfp4
-            - thinkingcap-qwen3.6-27b
             - nemotron-3.5-lightning
-            - ornith-1.5-35b-a3b-nvfp4
             - ornith-1.5-9b-nvfp4
-            - gemma-4-26b-a4b
         large:
           exclusive: false
           members:
-            - qwen3.8-27b-bf16
             - qwen3.8-27b-fp8
-            - north-mini-code-1.0-fp8
-            - ornith-1.5-35b-a3b
-            - ornith-1.5-35b-a3b-fp8
+            - qwen3.8-27b-nvfp4-bf16-lmhead
+            - qwen3.8-27b-nvfp4-bf16-lmhead-sglang

@@ -60,6 +60,7 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
             chat({"model": "muse-glimmer-30b", "reasoning_effort": "low"}),
             chat({"model": "qwen3.9-27b", "reasoning_effort": "low"}),
             chat({"model": "qwen3.8-27b", "reasoning_effort": "low"}),
+            chat({"model": "thinkingcap-qwen3.6-27b", "reasoning_effort": "low"}),
         ):
             with self.subTest(data=data):
                 self.assertIsNone(call_hook(data))
@@ -98,9 +99,7 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
 
     def test_all_quantized_variants_are_targets(self):
         for model in (
-            "qwen3.8-27b-bf16",
             "qwen3.8-27b-fp8",
-            "qwen3.8-27b-nvfp4",
             "qwen3.8-27b-nvfp4-bf16-lmhead",
             "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
         ):
@@ -111,28 +110,20 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
                     {"enable_thinking": True, "reasoning_effort": "low"},
                 )
 
-
-    def test_ornith_and_thinkingcap_are_targets(self):
+    def test_ornith_is_a_target(self):
         # The policy spans the whole qwen3 reasoning-parser family, not just
-        # the Qwen3.8 line: Ornith (the current chat target) and ThinkingCap
-        # Qwen3.6 share one chat_template_kwargs contract.
-        for model in (
-            "ornith-1.5-35b-a3b",
-            "ornith-1.5-35b-a3b-nvfp4",
-            "ornith-1.5-35b-a3b-fp8",
-            "ornith-1.5-9b-nvfp4",
-            "thinkingcap-qwen3.6-27b",
-        ):
-            with self.subTest(model=model):
-                result = call_hook(chat({"model": model, "reasoning_effort": "xhigh"}))
-                self.assertEqual(
-                    result["chat_template_kwargs"],
-                    {"enable_thinking": True, "reasoning_effort": "xhigh"},
-                )
+        # the Qwen3.8 line: Ornith shares the same chat_template_kwargs
+        # contract.
+        result = call_hook(chat({"model": "ornith-1.5-9b-nvfp4", "reasoning_effort": "xhigh"}))
+        self.assertEqual(
+            result["chat_template_kwargs"],
+            {"enable_thinking": True, "reasoning_effort": "xhigh"},
+        )
+
 
     def test_ornith_high_effort_is_not_condensed(self):
         result = call_hook(
-            chat({"model": "ornith-1.5-35b-a3b", "reasoning_effort": "high"})
+            chat({"model": "ornith-1.5-9b-nvfp4", "reasoning_effort": "high"})
         )
         self.assertEqual(
             result["chat_template_kwargs"],
