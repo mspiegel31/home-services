@@ -8,14 +8,23 @@
 # Rebuilding the derived image via CI picks up base updates; with
 # `pull_policy: always` Portainer re-pulls the derived image on deploy.
 #
-# git-sync sidecar pulls this repository into a named volume; the router
-# reads its config from the volume at startup. --watch-config is intentionally
-# omitted: git-sync's `current` symlink flips on every main commit, which would
-# restart llama-swap on every unrelated repo change.
+# git-sync sparsely checks out this stack's directory into a named volume. The
+# router reads config.yaml at startup. --watch-config is intentionally omitted;
+# configuration activation happens through a deliberate restart or redeploy.
 #
 # Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
 # ref main, path services/llama-swap-vllm/docker-compose.yml, poll 5 min,
 # re-pull image on, force redeployment off.
+
+configs:
+  git_sync_sparse_checkout:
+    content: |
+      /*
+      !/*/
+      /services/
+      !/services/*/
+      /services/llama-swap-vllm/
+
 
 name: llama-swap-vllm
 
@@ -32,15 +41,20 @@ services:
     image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
     restart: unless-stopped
     user: "0:0"
-    command: [
-      "git-sync",
-      "--repo=https://github.com/mspiegel31/home-services.git",
-      "--ref=main",
-      "--root=/git",
-      "--link=current",
-      "--period=30s",
-      "--http-bind=:1234",
-    ]
+    command:
+      - git-sync
+      - --repo=https://github.com/mspiegel31/home-services.git
+      - --ref=main
+      - --root=/git
+      - --link=current
+      - --depth=1
+      - --submodules=off
+      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
+      - --period=30s
+      - --http-bind=:1234
+    configs:
+      - source: git_sync_sparse_checkout
+        target: /etc/git-sync/sparse-checkout
     volumes:
       - llama-swap-config:/git
     healthcheck:
@@ -49,6 +63,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
+
 
   llama-swap:
     container_name: llama-swap-vllm
