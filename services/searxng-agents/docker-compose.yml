@@ -22,6 +22,7 @@ services:
         condition: service_healthy
     networks:
       - internal
+      - cloudflare_tunnel
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
       interval: 30s
