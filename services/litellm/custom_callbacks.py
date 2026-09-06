@@ -2,7 +2,8 @@
 
 The policy normalizes public thinking controls into the qwen3/Froggeric
 chat-template contract before LiteLLM forwards Chat Completions requests to
-llama-swap. Other models and API shapes pass through unchanged.
+llama-swap. It also removes unsupported OpenAI Responses compatibility hints
+from NInfer requests. Other models and API shapes pass through unchanged.
 
 Precedence for the qwen models:
 
@@ -17,6 +18,11 @@ has nothing to act on.
 
 The Froggeric template defaults to medium thinking when none of those controls
 is present, so this module deliberately does not invent a default.
+
+NInfer implements reasoning effort and raw reasoning output, but intentionally
+does not implement reasoning summaries or encrypted reasoning output. Responses
+clients commonly request both, so those optional hints are removed only for the
+NInfer route.
 """
 
 from __future__ import annotations
@@ -51,6 +57,9 @@ QWEN38_MODELS: Final[frozenset[str]] = frozenset(
         "qwen3.8-27b-ninfer",
     }
 )
+
+NINFER_MODEL: Final[str] = "qwen3.8-27b-ninfer"
+_NINFER_ENCRYPTED_REASONING_INCLUDE: Final[str] = "reasoning.encrypted_content"
 
 
 _OFF_ALIASES: Final[frozenset[str]] = frozenset(
@@ -116,12 +125,51 @@ def _budget_disables_thinking(data: dict[str, Any]) -> bool:
         return False
     return budget <= 0
 
+def _transform_ninfer_responses(data: dict[str, Any]) -> dict[str, Any] | None:
+    """Remove optional Responses features that NInfer cannot produce."""
+    if "input" not in data:
+        return None
+
+    changed = False
+    reasoning_in = data.get("reasoning")
+    if isinstance(reasoning_in, dict) and reasoning_in.get("summary") is not None:
+        reasoning = dict(reasoning_in)
+        reasoning.pop("summary")
+        if reasoning:
+            data["reasoning"] = reasoning
+        else:
+            data.pop("reasoning")
+        changed = True
+
+    include_in = data.get("include")
+    if (
+        isinstance(include_in, list)
+        and _NINFER_ENCRYPTED_REASONING_INCLUDE in include_in
+    ):
+        include = [
+            value
+            for value in include_in
+            if value != _NINFER_ENCRYPTED_REASONING_INCLUDE
+        ]
+        if include:
+            data["include"] = include
+        else:
+            data.pop("include")
+        changed = True
+
+    return data if changed else None
+
 
 class QwenThinkingPolicy(CustomLogger):
     def _transform(self, data: dict[str, Any]) -> dict[str, Any] | None:
         model = data.get("model")
         if not isinstance(model, str) or model not in QWEN_MODELS:
             return None
+
+        if model == NINFER_MODEL:
+            responses_result = _transform_ninfer_responses(data)
+            if responses_result is not None:
+                return responses_result
 
         if not isinstance(data.get("messages"), list):
             return None
@@ -161,7 +209,10 @@ class QwenThinkingPolicy(CustomLogger):
                     if kwargs.get("enable_thinking") is not True:
                         kwargs["enable_thinking"] = True
                         changed = True
-                    if kwargs.get("reasoning_effort") != effort:
+                    if (
+                        model != NINFER_MODEL
+                        and kwargs.get("reasoning_effort") != effort
+                    ):
                         kwargs["reasoning_effort"] = effort
                         changed = True
 

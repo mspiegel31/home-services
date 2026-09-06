@@ -79,6 +79,32 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
                 self.assertIsNone(result)
                 self.assertNotIn("chat_template_kwargs", data)
 
+    def test_ninfer_responses_drops_unsupported_reasoning_options(self):
+        original = {
+            "model": "qwen3.8-27b-ninfer",
+            "input": "hi",
+            "reasoning": {"effort": "xhigh", "summary": "auto"},
+            "include": ["reasoning.encrypted_content"],
+            "store": False,
+        }
+        result = call_hook(original, "responses")
+        self.assertEqual(result["reasoning"], {"effort": "xhigh"})
+        self.assertNotIn("include", result)
+        self.assertEqual(
+            original["reasoning"],
+            {"effort": "xhigh", "summary": "auto"},
+        )
+
+    def test_ninfer_chat_keeps_reasoning_effort_top_level(self):
+        result = call_hook(
+            chat({"model": "qwen3.8-27b-ninfer", "reasoning_effort": "low"})
+        )
+        self.assertEqual(result["reasoning_effort"], "low")
+        self.assertEqual(
+            result["chat_template_kwargs"],
+            {"enable_thinking": True},
+        )
+
     def test_route_type_does_not_change_behavior(self):
         # The proxy dispatches chat completions as "acompletion"; the policy
         # keys off the payload, so no route spelling can no-op a chat request.
