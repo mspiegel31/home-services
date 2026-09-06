@@ -54,10 +54,12 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 ## Qwen3 thinking policy
 
 `custom_callbacks.py` translates public thinking controls for the whole
-qwen3 reasoning-parser family the stack serves before LiteLLM forwards
-requests. The policy covers Qwen3.8 (`qwen3.8-27b-fp8`,
-`-nvfp4-bf16-lmhead`, `-nvfp4-bf16-lmhead-sglang`, `-ninfer`) and the
-Ornith checkpoint (`ornith-1.5-9b-nvfp4`).
+qwen3 reasoning-parser family before LiteLLM forwards requests. The policy
+covers Qwen3.8 (`qwen3.8-27b-fp8`, `-nvfp4-bf16-lmhead`,
+`-nvfp4-bf16-lmhead-sglang`, `-ninfer`) and the Ornith checkpoint
+(`ornith-1.5-9b-nvfp4`). NInfer has a separate wire-compatibility branch because
+it accepts top-level Chat Completions effort but not nested effort, and it
+intentionally omits Responses API summaries and encrypted reasoning output.
 
 The SGLang Qwen3.8 deployment declares `custom_llm_provider: hosted_vllm`.
 LiteLLM discovery therefore directs OMP to Chat Completions, where explicit
@@ -65,16 +67,21 @@ thinking toggles and effort tiers remain available to this callback. No
 client-side transport or compatibility override is required.
 
 - `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
-- `minimal`/`low` -> `enable_thinking=true`, `reasoning_effort=low`
-- `medium` -> `enable_thinking=true`, `reasoning_effort=medium`
-- Qwen3.8 `high`/`xhigh`/`max` -> `enable_thinking=true`, `reasoning_effort=xhigh`
+- vLLM/SGLang `minimal`/`low` -> `enable_thinking=true`, nested `reasoning_effort=low`
+- vLLM/SGLang `medium` -> `enable_thinking=true`, nested `reasoning_effort=medium`
+- vLLM/SGLang Qwen3.8 `high`/`xhigh`/`max` -> nested `reasoning_effort=xhigh`
+- NInfer Chat Completions keeps `reasoning_effort` top-level and adds only
+  `chat_template_kwargs.enable_thinking`
+- NInfer Responses requests drop `reasoning.summary` and
+  `include: ["reasoning.encrypted_content"]`; NInfer returns raw reasoning text
+  but cannot produce either requested representation
 - other qwen models preserve their requested effort tier
 - zero `thinking_token_budget` -> `enable_thinking=false`
 - positive `thinking_token_budget` -> `enable_thinking=true`
 - explicit `enable_thinking` wins over effort
 - Chat Completions requests with no explicit controls leave the template default
 - when the resolved state is thinking-off, any top-level `reasoning_effort` is
-  stripped so vLLM's effort->thinking auto-injection cannot re-arm it
+  stripped so the backend cannot re-arm it
 
 The callback is registered in `litellm_settings.callbacks` as
 `custom_callbacks.qwen_thinking_policy` and lives beside `config.yaml`,
