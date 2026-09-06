@@ -12,6 +12,7 @@ import asyncio
 import sys
 import types
 import unittest
+from typing import Any
 
 try:
     from custom_callbacks import qwen_thinking_policy
@@ -23,11 +24,12 @@ except ImportError:
     _custom_logger = types.ModuleType("litellm.integrations.custom_logger")
 
     class CustomLogger:
-        pass
+        def __init__(self, **kwargs: Any) -> None:
+            pass
 
-    _custom_logger.CustomLogger = CustomLogger
-    _litellm.integrations = _integrations
-    _integrations.custom_logger = _custom_logger
+    _custom_logger.CustomLogger = CustomLogger  # type: ignore[attr-defined]
+    _litellm.integrations = _integrations  # type: ignore[attr-defined]
+    _integrations.custom_logger = _custom_logger  # type: ignore[attr-defined]
     sys.modules["litellm"] = _litellm
     sys.modules["litellm.integrations"] = _integrations
     sys.modules["litellm.integrations.custom_logger"] = _custom_logger
@@ -35,7 +37,7 @@ except ImportError:
     from custom_callbacks import qwen_thinking_policy
 
 
-def call_hook(data: dict, call_type: str = "completion") -> dict | None:
+def call_hook(data: dict[str, Any], call_type: str = "completion") -> dict[str, Any] | None:
     """Invoke the public LiteLLM hook entry point with a copy of ``data``."""
     return asyncio.run(
         qwen_thinking_policy.async_pre_call_hook(
@@ -47,7 +49,7 @@ def call_hook(data: dict, call_type: str = "completion") -> dict | None:
     )
 
 
-def chat(controls: dict) -> dict:
+def chat(controls: dict[str, Any]) -> dict[str, Any]:
     """A minimal chat-completion payload carrying the given request controls."""
     return {"messages": [{"role": "user", "content": "hi"}], **controls}
 
@@ -219,6 +221,14 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
 
     def test_positive_token_budget_enables_thinking(self):
         result = call_hook(chat({"model": "qwen3.8-27b-fp8", "thinking_token_budget": 4096}))
+        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
+
+    def test_unparseable_token_budget_treated_as_positive(self):
+        # A budget that cannot be parsed is not zero, so it takes the
+        # positive-budget path and enables thinking.
+        result = call_hook(
+            chat({"model": "qwen3.8-27b-fp8", "thinking_token_budget": "abc"})
+        )
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
 
     def test_zero_budget_wins_over_high_effort(self):
