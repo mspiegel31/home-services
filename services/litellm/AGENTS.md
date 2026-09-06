@@ -61,6 +61,15 @@ covers Qwen3.8 (`qwen3.8-27b-fp8`, `-nvfp4-bf16-lmhead`,
 it accepts top-level Chat Completions effort but not nested effort, and it
 intentionally omits Responses API summaries and encrypted reasoning output.
 
+Module structure: `QwenRequestAdapter` (the registered `CustomLogger` pre-call
+hook) dispatches to `NInferResponsesPolicy` (Responses request sanitizing) and
+`QwenChatCompletionPolicy` (chat-template control translation). Recognized
+models are the `QwenModel` enum with per-model `ModelCapabilities`; client
+controls are parsed into a `ThinkingControls` dataclass before any mutation.
+The hook boundary uses LiteLLM's own types (`UserAPIKeyAuth`, `DualCache`,
+`CallTypesLiteral`) under `TYPE_CHECKING`; the only runtime LiteLLM import is
+`CustomLogger`, so the stdlib test stub still works.
+
 The vLLM and SGLang Qwen3.8 deployments declare
 `custom_llm_provider: hosted_vllm`. LiteLLM discovery therefore directs OMP to
 Chat Completions, where explicit thinking toggles and effort tiers remain
