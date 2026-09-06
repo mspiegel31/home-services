@@ -282,16 +282,20 @@ class QwenChatCompletionPolicy:
             kwargs[_KW_ENABLE_THINKING] = False
             return True
 
-        tier = _canonical_effort(effort) if caps.three_tier_effort else effort
-        if tier is None:
-            return False
+        if caps.three_tier_effort:
+            tier = _canonical_effort(effort)
+            if tier is None:
+                return False
+            wire_effort: Any = tier.value
+        else:
+            wire_effort = effort
 
         changed = False
         if kwargs.get(_KW_ENABLE_THINKING) is not True:
             kwargs[_KW_ENABLE_THINKING] = True
             changed = True
-        if caps.nested_effort and kwargs.get(_KW_REASONING_EFFORT) != tier:
-            kwargs[_KW_REASONING_EFFORT] = tier
+        if caps.nested_effort and kwargs.get(_KW_REASONING_EFFORT) != wire_effort:
+            kwargs[_KW_REASONING_EFFORT] = wire_effort
             changed = True
         return changed
 
