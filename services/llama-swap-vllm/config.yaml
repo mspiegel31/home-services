@@ -182,10 +182,9 @@ models:
     #   prefix caching  -> radix cache + lazy Mamba checkpoint donation
     #   prefill         -> LPM groups the shared agent prefix; 4K chunks double
     #                      baseline size while fitting captured-graph headroom
-    #   concurrency     -> 64 Mamba slots / 4 lazy-strategy slots per request
-    #   state memory    -> a four-token DFlash window matches the measured
-    #                      2.8-token acceptance length and halves per-request
-    #                      speculative recurrent-state scratch
+    #   concurrency     -> eight requests preserve the former K=4 verification
+    #                      state envelope while using DFlash's K=8 block size
+    #   state memory    -> 32 Mamba slots / 4 lazy-strategy slots per request
     #   context         -> the resulting KV pool must exceed the advertised
     #                      262,144-token per-request limit
     #   chat template   -> shared HF snapshot; qwen3_coder parses XML tools
@@ -205,8 +204,8 @@ models:
       --max-prefill-tokens 16384
       --schedule-policy lpm
       --context-length 262144
-      --max-running-requests 16
-      --max-mamba-cache-size 64
+      --max-running-requests 8
+      --max-mamba-cache-size 32
       --mamba-radix-cache-strategy extra_buffer_lazy
       --mamba-ssm-dtype float32
       --reasoning-parser qwen3
@@ -215,7 +214,7 @@ models:
       --speculative-algorithm DFLASH
       --speculative-draft-model-path incoai/Qwen3.8-27B-DFlash2
       --enable-metrics
-      --speculative-num-draft-tokens 4
+      --speculative-num-draft-tokens 8
     cmdStop: docker stop --time 90 sglang-qwen3-8-27b-nvfp4-bf16
 
   "qwen3.8-27b-ninfer":
