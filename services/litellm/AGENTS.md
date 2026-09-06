@@ -4,7 +4,7 @@ LiteLLM AI Gateway deployed via Docker Compose with Postgres backend.
 
 ## Stack pattern
 
-- `git-sync` sidecar pulls `services/litellm` into the Docker-managed `litellm-config` volume.
+- `git-sync` sparsely checks out `services/litellm` into the Docker-managed `litellm-config` volume.
 - LiteLLM reads the synced config at `/config/current/services/litellm/config.yaml`.
 - Postgres data lives on big NVMe at `/mnt/models/litellm/postgres`.
 - Valkey (Redis-compatible) data lives on big NVMe at `/mnt/models/litellm/valkey`.
@@ -54,11 +54,10 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 ## Qwen3 thinking policy
 
 `custom_callbacks.py` translates public thinking controls for the whole
-qwen3 reasoning-parser family the Froggeric/vLLM stack serves before
-LiteLLM forwards requests. Qwen3.8 includes `qwen3.8-27b-bf16`, `-fp8`,
-`-nvfp4`, and `-nvfp4-bf16-lmhead`. The policy also covers ThinkingCap Qwen3.6
-(`thinkingcap-qwen3.6-27b`) and the Ornith checkpoints
-(`ornith-1.5-35b-a3b`, `-a3b-fp8`, `-a3b-nvfp4`, `-9b-nvfp4`).
+qwen3 reasoning-parser family the stack serves before LiteLLM forwards
+requests. The policy covers Qwen3.8 (`qwen3.8-27b-fp8`,
+`-nvfp4-bf16-lmhead`, `-nvfp4-bf16-lmhead-sglang`) and the Ornith checkpoint
+(`ornith-1.5-9b-nvfp4`).
 
 The SGLang Qwen3.8 deployment declares `custom_llm_provider: hosted_vllm`.
 LiteLLM discovery therefore directs OMP to Chat Completions, where explicit

@@ -64,11 +64,12 @@ model_list:
       output_cost_per_token: 0.0
 
   # llama-swap serves the Qwen3.8 quantizations as distinct model ids
-  # (bf16/fp8/nvfp4); expose each as its own gateway model so clients can
-  # pick a variant. All three share one model_info (YAML anchor).
-  - model_name: qwen3.8-27b-bf16
+  # (fp8/nvfp4-bf16-lmhead); expose each as its own gateway model so clients
+  # can pick a variant. All share one model_info (YAML anchor).
+
+  - model_name: qwen3.8-27b-fp8
     litellm_params:
-      model: qwen3.8-27b-bf16
+      model: qwen3.8-27b-fp8
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
       custom_llm_provider: openai
@@ -90,21 +91,6 @@ model_list:
       input_cost_per_token: 0.0
       output_cost_per_token: 0.0
 
-  - model_name: qwen3.8-27b-fp8
-    litellm_params:
-      model: qwen3.8-27b-fp8
-      api_base: http://192.168.1.98:11437/v1
-      api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
-    model_info: *qwen38_model_info
-
-  - model_name: qwen3.8-27b-nvfp4
-    litellm_params:
-      model: qwen3.8-27b-nvfp4
-      api_base: http://192.168.1.98:11437/v1
-      api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
-    model_info: *qwen38_model_info
 
   - model_name: qwen3.8-27b-nvfp4-bf16-lmhead
     litellm_params:
@@ -122,49 +108,9 @@ model_list:
       custom_llm_provider: hosted_vllm
     model_info: *qwen38_model_info
 
-  - model_name: thinkingcap-qwen3.6-27b
+  - model_name: ornith-1.5-9b-nvfp4
     litellm_params:
-      model: thinkingcap-qwen3.6-27b
-      api_base: http://192.168.1.98:11437/v1
-      api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
-    model_info:
-      context_window: 262144
-      max_input_tokens: 262144
-      reasoning: true
-      supports_reasoning: true
-      vision: true
-      reasoning_effort: [low, medium, high, xhigh]
-      supported_parameters: &reasoning_parameters
-        - temperature
-        - top_p
-        - top_k
-        - repetition_penalty
-        - max_tokens
-        - stream
-        - reasoning_effort
-      input_cost_per_token: 0.0
-      output_cost_per_token: 0.0
-
-  - model_name: north-mini-code-1.0-fp8
-    litellm_params:
-      model: north-mini-code-1.0-fp8
-      api_base: http://192.168.1.98:11437/v1
-      api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
-    model_info:
-      context_window: 262144
-      max_input_tokens: 262144
-      reasoning: true
-      supports_reasoning: true
-      reasoning_effort: [low, medium, high, xhigh]
-      supported_parameters: *reasoning_parameters
-      input_cost_per_token: 0.0
-      output_cost_per_token: 0.0
-
-  - model_name: ornith-1.5-35b-a3b
-    litellm_params:
-      model: ornith-1.5-35b-a3b
+      model: ornith-1.5-9b-nvfp4
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
       custom_llm_provider: openai
@@ -176,25 +122,16 @@ model_list:
       vision: true
       supports_vision: true
       reasoning_effort: [low, medium, high, xhigh]
-      supported_parameters: *reasoning_parameters
+      supported_parameters:
+        - temperature
+        - top_p
+        - top_k
+        - repetition_penalty
+        - max_tokens
+        - stream
+        - reasoning_effort
       input_cost_per_token: 0.0
       output_cost_per_token: 0.0
-
-  - model_name: ornith-1.5-35b-a3b-nvfp4
-    litellm_params:
-      model: ornith-1.5-35b-a3b-nvfp4
-      api_base: http://192.168.1.98:11437/v1
-      api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
-    model_info: *ornith_model_info
-
-  - model_name: ornith-1.5-9b-nvfp4
-    litellm_params:
-      model: ornith-1.5-9b-nvfp4
-      api_base: http://192.168.1.98:11437/v1
-      api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
-    model_info: *ornith_model_info
 
   - model_name: nemotron-3.5-lightning
     litellm_params:
@@ -209,57 +146,12 @@ model_list:
       supported_parameters:
         - temperature
         - top_p
-        - top_k
         - repetition_penalty
-        - max_tokens
         - stream
       input_cost_per_token: 0.0
       output_cost_per_token: 0.0
 
-  - model_name: ornith-1.5-35b-a3b-fp8
-    litellm_params:
-      model: ornith-1.5-35b-a3b-fp8
-      api_base: http://192.168.1.98:11437/v1
-      api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
-    model_info:
-      context_window: 262144      # HF: 262,144 native (YaRN -> ~1M)
-      max_input_tokens: 262144
-      reasoning: true
-      vision: true
-      supports_vision: true
-      reasoning_effort: [low, medium, high, xhigh]
-      supported_parameters:
-        - temperature
-        - top_p
-        - top_k
-        - repetition_penalty
-        - max_tokens
-        - stream
-        - reasoning_effort
-      input_cost_per_token: 0.0
-      output_cost_per_token: 0.0
 
-  - model_name: gemma-4-26b-a4b
-    litellm_params:
-      model: gemma-4-26b-a4b
-      api_base: http://192.168.1.98:11437/v1
-      api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
-    model_info:
-      context_window: 262144      # HF: 256K (google/gemma-4-26B-A4B-it)
-      max_input_tokens: 262144
-      reasoning: true
-      vision: true
-      supported_parameters:
-        - temperature
-        - top_p
-        - top_k
-        - repetition_penalty
-        - max_tokens
-        - stream
-      input_cost_per_token: 0.0
-      output_cost_per_token: 0.0
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

@@ -217,17 +217,14 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Yarn Berry zero-install (commit cache, releases, and PnP files)
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-!.yarn/cache
 
-# Node.js (PnP doesn't use node_modules, but keep as safety net)
+# Node.js dependencies
 node_modules/
 
 # Local deepwork progress state
 .slim/deepwork/
+
+# BEGIN oh-my-opencode-slim worktrees
+.slim/worktrees/
+.slim/worktrees.json
+# END oh-my-opencode-slim worktrees

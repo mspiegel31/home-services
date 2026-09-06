@@ -1,6 +1,6 @@
-# Hermes Agent — agentic framework backed by Ollama (LAN IP 192.168.1.97)
-# Web dashboard on :9119 (basic auth gated), gateway API on :8642
-# Deployed on Proxmox VM 600 alongside ollama; reaches it via LAN, no shared Docker network
+# Hermes Agent retained as a stopped experiment.
+# Its persisted configuration targeted Ollama at 192.168.1.97. Restore the
+# archived Ollama stack or configure another provider before reactivating it.
 
 x-networks: &default-networks
   networks:

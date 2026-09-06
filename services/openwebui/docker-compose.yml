@@ -7,29 +7,6 @@ x-networks: &default-networks
 
 
 services:
-  searxng:
-    # NOT on cloudflare_tunnel: the name "searxng" collided with the
-    # searxng-agents stack's service alias and split-brained caddy's upstream
-    # (public hostname intermittently served by this legacy instance).
-    # openwebui reaches it via the openwebui network; tunnel access was unused.
-    networks:
-      - openwebui
-    container_name: searxng
-    image: searxng/searxng:latest
-    ports:
-      - "8081:8080"
-    volumes:
-      - /mnt/configs/searxng/searxng:/etc/searxng:rw
-    environment:
-      SEARXNG_HOSTNAME: "localhost:8080/"
-    restart: unless-stopped
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-      - DAC_OVERRIDE
   tika:
     <<: *default-networks
     image: apache/tika:latest-full
@@ -55,8 +32,7 @@ services:
       - RAG_WEB_SEARCH_ENGINE=${RAG_WEB_SEARCH_ENGINE}
       - RAG_WEB_SEARCH_RESULT_COUNT=${RAG_WEB_SEARCH_RESULT_COUNT}
       - RAG_WEB_SEARCH_CONCURRENT_REQUESTS=${RAG_WEB_SEARCH_CONCURRENT_REQUESTS}
-      - SEARXNG_QUERY_URL=${SEARXNG_QUERY_URL}
-      - SEARXNG_SECRET=${SEARXNG_SECRET}
+      - "SEARXNG_QUERY_URL=http://searxng-agents:8080/search?q=<query>&format=json"
       - CORS_ALLOW_ORIGIN=${CORS_ALLOW_ORIGIN}
     volumes:
       - data:/app/backend/data  # For persistence of conversations and settings

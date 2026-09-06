@@ -32,15 +32,9 @@ QWEN_MODELS: Final[frozenset[str]] = frozenset(
     {
         # All models using vLLM's qwen3 reasoning parser share the
         # chat_template_kwargs compatibility contract.
-        "qwen3.8-27b-bf16",
         "qwen3.8-27b-fp8",
-        "qwen3.8-27b-nvfp4",
         "qwen3.8-27b-nvfp4-bf16-lmhead",
         "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
-        "thinkingcap-qwen3.6-27b",
-        "ornith-1.5-35b-a3b",
-        "ornith-1.5-35b-a3b-fp8",
-        "ornith-1.5-35b-a3b-nvfp4",
         "ornith-1.5-9b-nvfp4",
     }
 )
@@ -50,9 +44,7 @@ QWEN_MODELS: Final[frozenset[str]] = frozenset(
 # tier.
 QWEN38_MODELS: Final[frozenset[str]] = frozenset(
     {
-        "qwen3.8-27b-bf16",
         "qwen3.8-27b-fp8",
-        "qwen3.8-27b-nvfp4",
         "qwen3.8-27b-nvfp4-bf16-lmhead",
         "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
     }

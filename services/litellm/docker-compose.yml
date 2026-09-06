@@ -1,7 +1,7 @@
 # LiteLLM Proxy Gateway
 #
-# Standard home app pattern: git-sync sidecar pulls the repo into a Docker-managed volume.
-# Config lives in repo at services/litellm/config.yaml and is synced via git-sync.
+# The git-sync sidecar sparsely checks out services/litellm into a Docker-managed volume.
+# LiteLLM reads config.yaml and custom_callbacks.py from that isolated worktree.
 # Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
 # ref main, path services/litellm/docker-compose.yml, poll 5 min.
 #
@@ -23,8 +23,18 @@
 # Secrets via Portainer UI (never commit):
 #   LITELLM_MASTER_KEY, LITELLM_SALT_KEY, LITELLM_POSTGRES_PASSWORD, provider API keys
 #
-# LiteLLM supports native config loading from S3/GCS via LITELLM_CONFIG_BUCKET_*.
-# Git-sync is used here for consistency with home-services pattern.
+# LiteLLM supports native S3/GCS configuration, but this stack keeps its small
+# versioned config and callback beside the compose definition through git-sync.
+
+configs:
+  git_sync_sparse_checkout:
+    content: |
+      /*
+      !/*/
+      /services/
+      !/services/*/
+      /services/litellm/
+
 
 name: litellm
 
@@ -42,15 +52,20 @@ services:
     image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
     restart: unless-stopped
     user: "0:0"
-    command: [
-      "git-sync",
-      "--repo=https://github.com/mspiegel31/home-services.git",
-      "--ref=main",
-      "--root=/git",
-      "--link=current",
-      "--period=30s",
-      "--http-bind=:1234",
-    ]
+    command:
+      - git-sync
+      - --repo=https://github.com/mspiegel31/home-services.git
+      - --ref=main
+      - --root=/git
+      - --link=current
+      - --depth=1
+      - --submodules=off
+      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
+      - --period=30s
+      - --http-bind=:1234
+    configs:
+      - source: git_sync_sparse_checkout
+        target: /etc/git-sync/sparse-checkout
     volumes:
       - litellm-config:/git
     healthcheck:
@@ -59,6 +74,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
+
 
   postgres:
     container_name: litellm-postgres
