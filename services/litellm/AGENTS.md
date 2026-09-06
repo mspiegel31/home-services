@@ -61,10 +61,11 @@ covers Qwen3.8 (`qwen3.8-27b-fp8`, `-nvfp4-bf16-lmhead`,
 it accepts top-level Chat Completions effort but not nested effort, and it
 intentionally omits Responses API summaries and encrypted reasoning output.
 
-The SGLang Qwen3.8 deployment declares `custom_llm_provider: hosted_vllm`.
-LiteLLM discovery therefore directs OMP to Chat Completions, where explicit
-thinking toggles and effort tiers remain available to this callback. No
-client-side transport or compatibility override is required.
+The vLLM and SGLang Qwen3.8 deployments declare
+`custom_llm_provider: hosted_vllm`. LiteLLM discovery therefore directs OMP to
+Chat Completions, where explicit thinking toggles and effort tiers remain
+available to this callback. No client-side transport or compatibility override
+is required.
 
 - `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
 - vLLM/SGLang `minimal`/`low` -> `enable_thinking=true`, nested `reasoning_effort=low`
