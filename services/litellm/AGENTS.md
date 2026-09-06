@@ -56,8 +56,8 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 `custom_callbacks.py` translates public thinking controls for the whole
 qwen3 reasoning-parser family the stack serves before LiteLLM forwards
 requests. The policy covers Qwen3.8 (`qwen3.8-27b-fp8`,
-`-nvfp4-bf16-lmhead`, `-nvfp4-bf16-lmhead-sglang`) and the Ornith checkpoint
-(`ornith-1.5-9b-nvfp4`).
+`-nvfp4-bf16-lmhead`, `-nvfp4-bf16-lmhead-sglang`, `-ninfer`) and the
+Ornith checkpoint (`ornith-1.5-9b-nvfp4`).
 
 The SGLang Qwen3.8 deployment declares `custom_llm_provider: hosted_vllm`.
 LiteLLM discovery therefore directs OMP to Chat Completions, where explicit

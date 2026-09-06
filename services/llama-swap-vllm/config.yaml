@@ -218,6 +218,59 @@ models:
       --speculative-num-draft-tokens 4
     cmdStop: docker stop --time 90 sglang-qwen3-8-27b-nvfp4-bf16
 
+  "qwen3.8-27b-ninfer":
+    name: Qwen3.8 27B NVFP4 (NInfer)
+    description: Qwen3.8 27B NVFP4 (unsloth weights) on NInfer's sm_120a C++/CUDA engine; 262,144-token context, MTP3 spec decode with BF16 lm-head draft, exact-prefix checkpoint reuse. Exclusive full-GPU lane like the SGLang lane.
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      # Built locally on the inference box from Neroued/ninfer (Dockerfile);
+      # not a registry image, so no digest pin available. Rebuild:
+      #   git clone --depth 1 https://github.com/Neroued/ninfer ~/ninfer-src/ninfer
+      #   docker build -t ninfer:local ~/ninfer-src/ninfer
+      NINFER_IMAGE: "ninfer:local"
+      # Self-contained artifact (weights + tokenizer + chat template + MTP
+      # draft head). Downloaded once via `hf download neroued/Qwen3.8-27B-nvfp4-NInfer`.
+      NINFER_ARTIFACT: "/models/huggingface/ninfer/qwen3_8_27b_nvfp4.ninfer"
+    proxy: http://ninfer-qwen3-8-27b:8080
+    # No DOCKER_PREFIX: NInfer is a C++/CUDA engine, not vLLM/SGLang — it
+    # needs no HF env, no HF cache writes (read-only mount), and no
+    # PYTORCH_CUDA_ALLOC_CONF. --ulimit memlock=-1 is required for the
+    # --host-kv-mib pinned Host KV pool. --model-id aliases the served name
+    # to this llama-swap model id (the artifact's own identity id is opaque).
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --shm-size=16g --ulimit memlock=-1
+      --network llama-swap-vllm-backend
+      --volume /mnt/models:/models:ro
+      --name ninfer-qwen3-8-27b
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      ${NINFER_IMAGE}
+      ninfer-serve ${NINFER_ARTIFACT}
+      --host 0.0.0.0
+      --model-id ${MODEL_ID}
+      --max-context 262144
+      --kv-capacity auto
+      --max-concurrency 4
+      --kv-dtype fp8
+      --device-state-slots 2
+      --host-state-slots 8
+      --host-kv-mib 8192
+      --spec mtp --draft-tokens 3
+      --lm-head-draft
+      --preserve-thinking
+      --vision
+    cmdStop: docker stop --time 90 ninfer-qwen3-8-27b
+
   "qwen3.8-27b-fp8":
     name: Qwen3.8 27B FP8
     description: Qwen3.8 27B FP8 with auto-fit context (native 262,144 when served alone)
@@ -331,3 +384,4 @@ routing:
             - qwen3.8-27b-fp8
             - qwen3.8-27b-nvfp4-bf16-lmhead
             - qwen3.8-27b-nvfp4-bf16-lmhead-sglang
+            - qwen3.8-27b-ninfer
