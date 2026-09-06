@@ -25,7 +25,6 @@ clients commonly request both, so those optional hints are removed only for the
 NInfer route.
 """
 
-from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -354,10 +353,10 @@ class QwenRequestAdapter(CustomLogger):
 
     async def async_pre_call_hook(
         self,
-        user_api_key_dict: UserAPIKeyAuth,
-        cache: DualCache,
+        user_api_key_dict: "UserAPIKeyAuth",
+        cache: "DualCache",
         data: dict[str, Any],
-        call_type: CallTypesLiteral,
+        call_type: "CallTypesLiteral",
     ) -> dict[str, Any] | None:
         try:
             return self._transform(dict(data))
