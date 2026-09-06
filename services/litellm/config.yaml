@@ -98,7 +98,7 @@ model_list:
       model: qwen3.8-27b-nvfp4-bf16-lmhead
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
+      custom_llm_provider: hosted_vllm
     model_info:
       <<: *qwen38_model_info
       reasoning_effort: [low, medium, xhigh]
