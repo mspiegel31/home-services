@@ -35,6 +35,7 @@ QWEN_MODELS: Final[frozenset[str]] = frozenset(
         "qwen3.8-27b-fp8",
         "qwen3.8-27b-nvfp4-bf16-lmhead",
         "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
+        "qwen3.8-27b-ninfer",
         "ornith-1.5-9b-nvfp4",
     }
 )
@@ -47,6 +48,7 @@ QWEN38_MODELS: Final[frozenset[str]] = frozenset(
         "qwen3.8-27b-fp8",
         "qwen3.8-27b-nvfp4-bf16-lmhead",
         "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
+        "qwen3.8-27b-ninfer",
     }
 )
 

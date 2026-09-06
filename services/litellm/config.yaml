@@ -63,9 +63,9 @@ model_list:
       input_cost_per_token: 0.0
       output_cost_per_token: 0.0
 
-  # llama-swap serves the Qwen3.8 quantizations as distinct model ids
-  # (fp8/nvfp4-bf16-lmhead); expose each as its own gateway model so clients
-  # can pick a variant. All share one model_info (YAML anchor).
+  # llama-swap serves Qwen3.8 quantizations under distinct model ids.
+  # The variants share common model_info through a YAML anchor, then override
+  # their advertised effort tiers where the backends differ.
 
   - model_name: qwen3.8-27b-fp8
     litellm_params:
@@ -79,7 +79,8 @@ model_list:
       reasoning: true
       supports_reasoning: true
       vision: true
-      reasoning_effort: [low, medium, xhigh]   # per OMP manual override
+      supports_vision: true
+      reasoning_effort: [low]   # match llama-swap's advertised FP8 tier
       supported_parameters:
         - temperature
         - top_p
@@ -98,7 +99,9 @@ model_list:
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
       custom_llm_provider: openai
-    model_info: *qwen38_model_info
+    model_info:
+      <<: *qwen38_model_info
+      reasoning_effort: [low, medium, xhigh]
 
   - model_name: qwen3.8-27b-nvfp4-bf16-lmhead-sglang
     litellm_params:
@@ -106,7 +109,21 @@ model_list:
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
       custom_llm_provider: hosted_vllm
-    model_info: *qwen38_model_info
+    model_info:
+      <<: *qwen38_model_info
+      reasoning_effort: [low, medium, xhigh]
+
+  # NInfer (Neroued/ninfer) C++/CUDA engine, sm_120a. Same NVFP4 quant as the
+  # unsloth lane, served from a self-contained .ninfer artifact.
+  - model_name: qwen3.8-27b-ninfer
+    litellm_params:
+      model: qwen3.8-27b-ninfer
+      api_base: http://192.168.1.98:11437/v1
+      api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: openai
+    model_info:
+      <<: *qwen38_model_info
+      reasoning_effort: [low, medium, xhigh]
 
   - model_name: ornith-1.5-9b-nvfp4
     litellm_params:
