@@ -69,6 +69,11 @@ controls are parsed into a `ThinkingControls` dataclass before any mutation.
 The hook boundary uses LiteLLM's own types (`UserAPIKeyAuth`, `DualCache`,
 `CallTypesLiteral`) under `TYPE_CHECKING`; the only runtime LiteLLM import is
 `CustomLogger`, so the stdlib test stub still works.
+Do not enable postponed annotations in this module: LiteLLM executes callback
+files without adding their module object to `sys.modules`, while Python
+dataclasses resolve postponed annotations through that registry. Keep the three
+type-only hook annotations quoted instead.
+
 
 The vLLM and SGLang Qwen3.8 deployments declare
 `custom_llm_provider: hosted_vllm`. LiteLLM discovery therefore directs OMP to
