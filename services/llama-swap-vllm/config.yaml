@@ -142,20 +142,22 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead"
     proxy: http://vllm-qwen3-8-27b-nvfp4-bf16:8000
-    # #54623 (open; fix PR #54624 pending): the qwen3_5 loader never routes
-    # checkpoint-shipped KV scales. This checkpoint ships none at all, so
-    # --kv-cache-dtype fp8 would run at the uncalibrated unit scale anyway
-    # (init_fp8_kv_scales TODO: "scale is 1.0 if user uses on-the-fly fp8
-    # kvcache quant"); auto (bf16) is the best quality reachable via args,
-    # same rationale as the unsloth NVFP4 sibling above.
+    # This checkpoint resolves auto KV storage to fp8_e4m3 with unit scales.
+    # Pinning the resolved dtype keeps image updates from silently changing
+    # cache capacity. BF16 remains a separate quality canary until calibrated
+    # scales are available.
+    # vLLM #52540 traces SM120 wedges to this FlashInfer FP8 linear kernel.
+    # The local canary also improved eight-request aggregate throughput 17.9%.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b-nvfp4-bf16
+      --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
+      --max-num-batched-tokens 16384
       --gpu-memory-utilization 0.9
-      --kv-cache-dtype auto
+      --kv-cache-dtype fp8_e4m3
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4-bf16
