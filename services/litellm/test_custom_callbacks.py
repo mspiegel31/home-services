@@ -9,9 +9,11 @@ directory:
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import sys
 import types
 import unittest
+from pathlib import Path
 from typing import Any
 
 try:
@@ -56,6 +58,18 @@ def chat(controls: dict[str, Any]) -> dict[str, Any]:
 
 class QwenThinkingPolicySmokeTests(unittest.TestCase):
     # ---- pass-through ----------------------------------------------------
+
+    def test_dynamic_loader_without_sys_modules_registration(self):
+        spec = importlib.util.spec_from_file_location(
+            "_litellm_dynamic_callback",
+            Path(__file__).with_name("custom_callbacks.py"),
+        )
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules.pop(spec.name, None)
+        spec.loader.exec_module(module)
+        self.assertTrue(hasattr(module, "qwen_thinking_policy"))
 
     def test_other_models_pass_through(self):
         for data in (
