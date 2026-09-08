@@ -91,12 +91,12 @@ models:
 
   "muse-glimmer-30b-nvidia-nvfp4":
     name: Muse Glimmer 30B NVIDIA NVFP4
-    description: NVIDIA ModelOpt mixed NVFP4/FP8/BF16 canary with native 131,072-token context
+    description: NVIDIA ModelOpt mixed NVFP4/FP8/BF16 canary with experimental 262,144-token YaRN extension
     capabilities:
       in: ["text", "image"]
       out: ["text"]
       tools: true
-      context: 131072
+      context: 262144
     metadata:
       reasoning: true
       thinking: true
@@ -113,9 +113,13 @@ models:
       --name vllm-muse-glimmer-nvidia
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-model-len 131072
-      --gpu-memory-utilization 0.92
-      --kv-cache-dtype auto
+      # Experimental 2x extension. vLLM applies this nested override before
+      # validating --max-model-len, so the Hugging Face cache stays immutable.
+      # YaRN only affects the 39 local RoPE layers; the 13 global layers are NoPE.
+      --hf-overrides '{"text_config":{"max_position_embeddings":262144,"rope_parameters":{"rope_type":"yarn","factor":2.0,"original_max_position_embeddings":131072,"rope_theta":500000.0}}}'
+      --max-model-len 262144
+      --gpu-memory-utilization 0.80
+      --kv-cache-dtype fp8
       --enable-chunked-prefill
       --mamba-cache-mode align
       --reasoning-parser muse_glimmer
@@ -127,7 +131,7 @@ models:
 
   "gemma-4-31b":
     name: Google Gemma 4 31B NVFP4
-    description: Gemma 4 31B dense with auto-fit context (native 262,144 when served alone)
+    description: Gemma 4 31B NVFP4 with MTP and native 262,144-token context
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -150,12 +154,13 @@ models:
       --name vllm-gemma-4-31b
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-model-len auto
-      --gpu-memory-utilization 0.4
+      --max-model-len 262144
+      --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8
       --reasoning-parser gemma4
       --tool-call-parser gemma4
       --enable-auto-tool-choice
+      --speculative-config '{"method":"mtp","model":"google/gemma-4-31B-it-assistant","num_speculative_tokens":4}'
     cmdStop: docker stop --time 90 vllm-gemma-4-31b
 
   "qwen3.8-27b-nvfp4-bf16-lmhead":
@@ -405,20 +410,9 @@ models:
 
 routing:
   router:
+    use: matrix
     settings:
-      groups:
-        small:
-          exclusive: false
-          members:
-            - gemma-4-31b
-            - nemotron-3.5-lightning
-            - ornith-1.5-9b-nvfp4
-        large:
-          exclusive: false
-          members:
-            - qwen3.8-27b-fp8
-            - qwen3.8-27b-nvfp4-bf16-lmhead
-            - qwen3.8-27b-nvfp4-bf16-lmhead-sglang
-            - qwen3.8-27b-ninfer
-            - muse-glimmer-30b
-            - muse-glimmer-30b-nvidia-nvfp4
+      matrix:
+        sets:
+          gemma: "gemma-4-31b"
+          co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
