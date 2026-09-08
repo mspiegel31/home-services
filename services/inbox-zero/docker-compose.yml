@@ -17,7 +17,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - inbox-zero-private
+      - inbox-zero-db
 
   redis:
     image: redis:7
@@ -37,10 +37,10 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - inbox-zero-private
+      - inbox-zero-redis
 
   serverless-redis-http:
-    image: hiett/serverless-redis-http:latest
+    image: hiett/serverless-redis-http:0.0.10@sha256:65128347949bca511e448fd7238780d624573d74c22b79155a7563db19e9b678
     container_name: inbox-zero-redis-http
     restart: unless-stopped
     depends_on:
@@ -50,8 +50,18 @@ services:
       SRH_MODE: env
       SRH_TOKEN: ${UPSTASH_REDIS_TOKEN:?Set the local Redis HTTP token in Portainer}
       SRH_CONNECTION_STRING: redis://redis:6379
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget -qO- --header="Authorization: Bearer $${UPSTASH_REDIS_TOKEN}" --header="Content-Type: application/json" --post-data='{"command":["PING"]}' "http://127.0.0.1:80/" | grep -q PONG
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     networks:
-      - inbox-zero-private
+      - inbox-zero-redis
+      - inbox-zero-app
 
   migrate:
     image: ghcr.io/elie222/inbox-zero:2.30.0
@@ -65,7 +75,7 @@ services:
       DIRECT_URL: postgresql://inboxzero:${POSTGRES_PASSWORD:?Set a URL-safe hexadecimal PostgreSQL password in Portainer}@db:5432/inboxzero?schema=public
       MIGRATION_TIMEOUT_SECONDS: "320"
     networks:
-      - inbox-zero-private
+      - inbox-zero-db
 
   web:
     image: ghcr.io/elie222/inbox-zero:2.30.0
@@ -77,7 +87,7 @@ services:
       redis:
         condition: service_healthy
       serverless-redis-http:
-        condition: service_started
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     environment:
@@ -154,7 +164,9 @@ services:
       retries: 5
       start_period: 60s
     networks:
-      - inbox-zero-private
+      - inbox-zero-db
+      - inbox-zero-redis
+      - inbox-zero-app
       - cloudflare_tunnel
 
   worker:
@@ -173,7 +185,8 @@ services:
       INTERNAL_API_URL: http://web:3000
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set the internal API key in Portainer}
     networks:
-      - inbox-zero-private
+      - inbox-zero-redis
+      - inbox-zero-app
 
   cron:
     image: alpine:3.22
@@ -188,13 +201,20 @@ services:
       - sh
       - -ec
       - |
+        mkdir -p /tmp/cron/ok /tmp/cron/pid /tmp/cron/interval
+        date +%s > /tmp/cron/start
+
         run_loop() {
           label="$${1}"
           path="$${2}"
           interval="$${3}"
+          key="$${path//\//_}"
+          echo "$$$$" > "/tmp/cron/pid/$${key}"
+          echo "$${interval}" > "/tmp/cron/interval/$${key}"
           while true; do
-            echo "[cron] $${label}"
-            if ! wget -q -O /dev/null --header="Authorization: Bearer $${CRON_SECRET}" "http://web:3000$${path}"; then
+            if wget -q -O /dev/null --header="Authorization: Bearer $${CRON_SECRET}" "http://web:3000$${path}"; then
+              date +%s > "/tmp/cron/ok/$${key}"
+            else
               echo "[cron] Warning: $${label} request failed" >&2
             fi
             sleep "$${interval}"
@@ -210,10 +230,47 @@ services:
         run_loop "Applying reasoning retention" "/api/cron/reasoning-retention" 86400 &
         run_loop "Applying draft cleanup" "/api/cron/draft-cleanup" 86400 &
         wait
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - |
+          fail=0
+          now=$$(date +%s)
+          start=$$(cat /tmp/cron/start)
+          for f in /tmp/cron/pid/*; do
+            [ -e "$${f}" ] || continue
+            key=$$(basename "$${f}")
+            interval=$$(cat "/tmp/cron/interval/$${key}")
+            pid=$$(cat "$${f}")
+            if ! kill -0 "$${pid}" 2>/dev/null; then
+              echo "cron unhealthy: loop $${key} is dead" >&2
+              fail=1
+              continue
+            fi
+            if [ -f "/tmp/cron/ok/$${key}" ]; then
+              ok=$$(cat "/tmp/cron/ok/$${key}")
+              if [ $$(($${now} - $${ok})) -gt $$(($${interval} * 2 + 120)) ]; then
+                echo "cron unhealthy: $${key} last success is stale" >&2
+                fail=1
+              fi
+            else
+              if [ $$(($${now} - $${start})) -gt $$(($${interval} * 2 + 120)) ]; then
+                echo "cron unhealthy: $${key} has never succeeded" >&2
+                fail=1
+              fi
+            fi
+          done
+          exit $${fail}
+      interval: 300s
+      timeout: 10s
+      retries: 5
+      start_period: 1800s
     networks:
-      - inbox-zero-private
+      - inbox-zero-app
 
 networks:
-  inbox-zero-private:
+  inbox-zero-app:
+  inbox-zero-db:
+  inbox-zero-redis:
   cloudflare_tunnel:
     external: true
