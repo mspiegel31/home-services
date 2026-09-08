@@ -144,6 +144,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-fp8",
             "qwen3.8-27b-nvfp4-bf16-lmhead",
             "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
+            "qwen3.8-27b-quasar-nvfp4",
         ):
             with self.subTest(model=model):
                 result = call_hook(chat({"model": model, "reasoning_effort": "low"}))

@@ -50,6 +50,7 @@ class LocalReasoningModel(str, Enum):
     QWEN38_NVFP4 = "qwen3.8-27b-nvfp4-bf16-lmhead"
     QWEN38_NVFP4_SGLANG = "qwen3.8-27b-nvfp4-bf16-lmhead-sglang"
     QWEN38_NINFER = "qwen3.8-27b-ninfer"
+    QWEN38_QUASAR_NVFP4 = "qwen3.8-27b-quasar-nvfp4"
     ORNITH = "ornith-1.5-9b-nvfp4"
     LAGUNA_XS_2_1 = "laguna-xs-2.1"
 
@@ -95,6 +96,9 @@ _CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
     ),
     LocalReasoningModel.QWEN38_NINFER: ModelCapabilities(
         three_tier_effort=True, nested_effort=False
+    ),
+    LocalReasoningModel.QWEN38_QUASAR_NVFP4: ModelCapabilities(
+        three_tier_effort=True, nested_effort=True
     ),
     LocalReasoningModel.ORNITH: ModelCapabilities(
         three_tier_effort=False, nested_effort=True
