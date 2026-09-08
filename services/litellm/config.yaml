@@ -75,7 +75,9 @@ model_list:
       context_window: 262144      # HF: 256K (google/gemma-4-31B-it)
       max_input_tokens: 262144
       reasoning: true
+      supports_reasoning: true
       vision: true
+      supports_vision: true
       supported_parameters:
         - temperature
         - top_p
