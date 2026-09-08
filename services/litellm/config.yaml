@@ -137,6 +137,18 @@ model_list:
     model_info:
       <<: *qwen38_model_info
       reasoning_effort: [low, medium, xhigh]
+      supports_function_calling: true
+      supports_tool_choice: true
+      supported_openai_params:
+        - temperature
+        - top_p
+        - top_k
+        - repetition_penalty
+        - max_tokens
+        - stream
+        - reasoning_effort
+        - tools
+        - tool_choice
 
   - model_name: qwen3.8-27b-nvfp4-bf16-lmhead-sglang
     litellm_params:
