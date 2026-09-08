@@ -57,36 +57,35 @@ macros:
 models:
   "muse-glimmer-30b":
     name: Muse Glimmer 30B NVFP4
-    description: Muse Glimmer 30B with auto-fit context (native 131,072 when served alone)
+    description: Muse Glimmer 30B with native 131,072-token context
     capabilities:
       in: ["text", "image"]
       out: ["text"]
       tools: true
-      context: 262144
+      context: 131072
     metadata:
       reasoning: true
       thinking: true
       vision: true
       reasoning_effort: [low, medium, high, xhigh]
     macros:
-      VLLM_IMAGE: "vllm/vllm-openai:muse-glimmer@sha256:413c8fbecb1204a218117c77a4ea4b3a211d5686ff99c31d82ba6dd0cec8c5a6"
       checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
-      # DFlash spec decode needs lower --max-num-seqs: the global 128 produces
-      # a negative token budget (-6144) with the draft head. 64 + explicit
-      # --max-num-batched-tokens 16384 avoids the crash (recipes#782).
-      MAX_NUM_SEQS: "64"
+      # The vLLM recipe caps DFlash at 32 concurrent sequences. With 15
+      # speculative tokens, this uses 512 scheduler slots and stays well below
+      # v0.28.0's 16,384-token default budget.
+      MAX_NUM_SEQS: "32"
     proxy: http://vllm-muse-glimmer:8000
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-muse-glimmer
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-model-len auto
-      --gpu-memory-utilization 0.4
-      --kv-cache-dtype fp8
+      --max-model-len 131072
+      --gpu-memory-utilization 0.92
       --reasoning-parser muse_glimmer
       --tool-call-parser muse_glimmer
       --enable-auto-tool-choice
+      --generation-config auto
       --speculative-config '{"method":"dflash","model":"meta-models/Muse-Glimmer-30B-assistant","num_speculative_tokens":15}'
     cmdStop: docker stop --time 90 vllm-muse-glimmer
 
@@ -375,7 +374,6 @@ routing:
         small:
           exclusive: false
           members:
-            - muse-glimmer-30b
             - gemma-4-31b
             - nemotron-3.5-lightning
             - ornith-1.5-9b-nvfp4
@@ -386,3 +384,4 @@ routing:
             - qwen3.8-27b-nvfp4-bf16-lmhead
             - qwen3.8-27b-nvfp4-bf16-lmhead-sglang
             - qwen3.8-27b-ninfer
+            - muse-glimmer-30b
