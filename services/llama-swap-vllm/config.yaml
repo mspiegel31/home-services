@@ -89,6 +89,42 @@ models:
       --speculative-config '{"method":"dflash","model":"meta-models/Muse-Glimmer-30B-assistant","num_speculative_tokens":15}'
     cmdStop: docker stop --time 90 vllm-muse-glimmer
 
+  "muse-glimmer-30b-nvidia-nvfp4":
+    name: Muse Glimmer 30B NVIDIA NVFP4
+    description: NVIDIA ModelOpt mixed NVFP4/FP8/BF16 canary with native 131,072-token context
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 131072
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, high, xhigh]
+    macros:
+      checkpoint: "nvidia/Muse-Glimmer-30B-NVFP4"
+      # DFlash needs 32 concurrent sequences; the NVIDIA card's non-DFlash
+      # command uses 64. Keep the canary scheduler identical to production.
+      MAX_NUM_SEQS: "32"
+    proxy: http://vllm-muse-glimmer-nvidia:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-muse-glimmer-nvidia
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len 131072
+      --gpu-memory-utilization 0.92
+      --kv-cache-dtype auto
+      --enable-chunked-prefill
+      --mamba-cache-mode align
+      --reasoning-parser muse_glimmer
+      --tool-call-parser muse_glimmer
+      --enable-auto-tool-choice
+      --generation-config auto
+      --speculative-config '{"method":"dflash","model":"meta-models/Muse-Glimmer-30B-assistant","num_speculative_tokens":15}'
+    cmdStop: docker stop --time 90 vllm-muse-glimmer-nvidia
+
   "gemma-4-31b":
     name: Google Gemma 4 31B NVFP4
     description: Gemma 4 31B dense with auto-fit context (native 262,144 when served alone)
@@ -385,3 +421,4 @@ routing:
             - qwen3.8-27b-nvfp4-bf16-lmhead-sglang
             - qwen3.8-27b-ninfer
             - muse-glimmer-30b
+            - muse-glimmer-30b-nvidia-nvfp4
