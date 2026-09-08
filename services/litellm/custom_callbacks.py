@@ -1,11 +1,11 @@
-"""LiteLLM request policies for locally served models.
+"""LiteLLM request policies for local reasoning models.
 
-The policy normalizes public thinking controls into the qwen3/Froggeric
-chat-template contract before LiteLLM forwards Chat Completions requests to
-llama-swap. It also removes unsupported OpenAI Responses compatibility hints
-from NInfer requests. Other models and API shapes pass through unchanged.
+The policy normalizes public thinking controls into each model's chat-template
+contract before LiteLLM forwards Chat Completions requests to llama-swap. It
+also removes unsupported OpenAI Responses compatibility hints from NInfer
+requests. Other models and API shapes pass through unchanged.
 
-Precedence for the qwen models:
+Precedence for each managed model:
 
 1. an explicit boolean ``chat_template_kwargs.enable_thinking``
 2. an explicit boolean top-level ``enable_thinking``
@@ -17,7 +17,8 @@ When the resolved state is thinking-off, a stale top-level
 has nothing to act on.
 
 The Froggeric template defaults to medium thinking when none of those controls
-is present, so this module deliberately does not invent a default.
+is present, so this module deliberately does not invent a default. Gemma 4 is
+binary-only: it receives ``enable_thinking`` but never an effort tier.
 
 NInfer implements reasoning effort and raw reasoning output, but intentionally
 does not implement reasoning summaries or encrypted reasoning output. Responses
@@ -41,9 +42,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class QwenModel(str, Enum):
-    """Model IDs served by the qwen3 reasoning-parser family."""
+class LocalReasoningModel(str, Enum):
+    """Model IDs requiring local chat-template thinking controls."""
 
+    GEMMA4_31B = "gemma-4-31b"
     QWEN38_FP8 = "qwen3.8-27b-fp8"
     QWEN38_NVFP4 = "qwen3.8-27b-nvfp4-bf16-lmhead"
     QWEN38_NVFP4_SGLANG = "qwen3.8-27b-nvfp4-bf16-lmhead-sglang"
@@ -66,29 +68,33 @@ class ModelCapabilities:
     Qwen3.8 collapses the public effort vocabulary into three tiers and
     expects the effort nested under ``chat_template_kwargs``. NInfer accepts
     effort only at the top level. Ornith keeps its own public effort values.
+    Gemma 4 only accepts ``enable_thinking``.
     """
 
     three_tier_effort: bool
     nested_effort: bool
 
 
-# Qwen3.8 exposes a three-tier effort vocabulary to clients. The other qwen
+# Qwen3.8 exposes a three-tier effort vocabulary to clients. The other Qwen
 # models retain their public effort values, including Ornith's distinct high
-# tier.
-_CAPABILITIES: Final[Mapping[QwenModel, ModelCapabilities]] = {
-    QwenModel.QWEN38_FP8: ModelCapabilities(
+# tier. Gemma 4 is binary-only, so it must not receive reasoning_effort.
+_CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
+    LocalReasoningModel.GEMMA4_31B: ModelCapabilities(
+        three_tier_effort=False, nested_effort=False
+    ),
+    LocalReasoningModel.QWEN38_FP8: ModelCapabilities(
         three_tier_effort=True, nested_effort=True
     ),
-    QwenModel.QWEN38_NVFP4: ModelCapabilities(
+    LocalReasoningModel.QWEN38_NVFP4: ModelCapabilities(
         three_tier_effort=True, nested_effort=True
     ),
-    QwenModel.QWEN38_NVFP4_SGLANG: ModelCapabilities(
+    LocalReasoningModel.QWEN38_NVFP4_SGLANG: ModelCapabilities(
         three_tier_effort=True, nested_effort=True
     ),
-    QwenModel.QWEN38_NINFER: ModelCapabilities(
+    LocalReasoningModel.QWEN38_NINFER: ModelCapabilities(
         three_tier_effort=True, nested_effort=False
     ),
-    QwenModel.ORNITH: ModelCapabilities(
+    LocalReasoningModel.ORNITH: ModelCapabilities(
         three_tier_effort=False, nested_effort=True
     ),
 }
@@ -120,11 +126,11 @@ def _normalize(value: object) -> str:
     return str(value).strip().lower()
 
 
-def _qwen_model(value: Any) -> QwenModel | None:
+def _local_reasoning_model(value: Any) -> LocalReasoningModel | None:
     if not isinstance(value, str):
         return None
     try:
-        return QwenModel(value)
+        return LocalReasoningModel(value)
     except ValueError:
         return None
 
@@ -138,7 +144,7 @@ def _canonical_effort(value: object) -> TemplateEffort | None:
     tier = _EFFORT_ALIASES.get(_normalize(value))
     if tier is None:
         logger.warning(
-            "qwen thinking policy: leaving unknown reasoning_effort %r untouched",
+            "local thinking policy: leaving unknown reasoning_effort %r untouched",
             value,
         )
     return tier
@@ -240,10 +246,12 @@ class NInferResponsesPolicy:
         return True
 
 
-class QwenChatCompletionPolicy:
-    """Translates public thinking controls into the chat-template contract."""
+class ChatTemplateThinkingPolicy:
+    """Translates public thinking controls into the model's template contract."""
 
-    def transform(self, data: dict[str, Any], model: QwenModel) -> dict[str, Any] | None:
+    def transform(
+        self, data: dict[str, Any], model: LocalReasoningModel
+    ) -> dict[str, Any] | None:
         if not isinstance(data.get("messages"), list):
             return None
 
@@ -331,20 +339,20 @@ class QwenChatCompletionPolicy:
         return changed
 
 
-class QwenRequestAdapter(CustomLogger):
-    """Proxy hook that applies the Qwen backend request policies."""
+class LocalReasoningRequestAdapter(CustomLogger):
+    """Proxy hook applying local reasoning-model request policies."""
 
     def __init__(self) -> None:
         super().__init__()
         self._responses_policy = NInferResponsesPolicy()
-        self._chat_policy = QwenChatCompletionPolicy()
+        self._chat_policy = ChatTemplateThinkingPolicy()
 
     def _transform(self, data: dict[str, Any]) -> dict[str, Any] | None:
-        model = _qwen_model(data.get("model"))
+        model = _local_reasoning_model(data.get("model"))
         if model is None:
             return None
 
-        if model is QwenModel.QWEN38_NINFER:
+        if model is LocalReasoningModel.QWEN38_NINFER:
             sanitized = self._responses_policy.sanitize(data)
             if sanitized is not None:
                 return sanitized
@@ -362,9 +370,9 @@ class QwenRequestAdapter(CustomLogger):
             return self._transform(dict(data))
         except Exception:
             logger.exception(
-                "qwen thinking policy failed; passing request through unchanged"
+                "local thinking policy failed; passing request through unchanged"
             )
             return None
 
 
-qwen_thinking_policy = QwenRequestAdapter()
+local_thinking_policy = LocalReasoningRequestAdapter()

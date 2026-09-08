@@ -53,36 +53,37 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
   - Provider API keys as needed (e.g., `OPENAI_API_KEY`)
   - `LLAMA_SWAP_API_KEY` — API key presented to the llama-swap router (matches the value configured in the llama-swap-vllm stack)
 
-## Qwen3 thinking policy
+## Local reasoning-model thinking policy
 
-`custom_callbacks.py` translates public thinking controls for the whole
-qwen3 reasoning-parser family before LiteLLM forwards requests. The policy
-covers Qwen3.8 (`qwen3.8-27b-fp8`, `-nvfp4-bf16-lmhead`,
-`-nvfp4-bf16-lmhead-sglang`, `-ninfer`) and the Ornith checkpoint
-(`ornith-1.5-9b-nvfp4`). NInfer has a separate wire-compatibility branch because
+`custom_callbacks.py` translates public thinking controls for local models
+whose chat templates need them before LiteLLM forwards Chat Completions
+requests. The policy covers Gemma 4 31B (binary thinking), Qwen3.8
+(`qwen3.8-27b-fp8`, `-nvfp4-bf16-lmhead`, `-nvfp4-bf16-lmhead-sglang`,
+`-ninfer`), and Ornith. NInfer has a separate wire-compatibility branch because
 it accepts top-level Chat Completions effort but not nested effort, and it
 intentionally omits Responses API summaries and encrypted reasoning output.
 
-Module structure: `QwenRequestAdapter` (the registered `CustomLogger` pre-call
-hook) dispatches to `NInferResponsesPolicy` (Responses request sanitizing) and
-`QwenChatCompletionPolicy` (chat-template control translation). Recognized
-models are the `QwenModel` enum with per-model `ModelCapabilities`; client
-controls are parsed into a `ThinkingControls` dataclass before any mutation.
-The hook boundary uses LiteLLM's own types (`UserAPIKeyAuth`, `DualCache`,
-`CallTypesLiteral`) under `TYPE_CHECKING`; the only runtime LiteLLM import is
-`CustomLogger`, so the stdlib test stub still works.
-Do not enable postponed annotations in this module: LiteLLM executes callback
-files without adding their module object to `sys.modules`, while Python
-dataclasses resolve postponed annotations through that registry. Keep the three
-type-only hook annotations quoted instead.
+Module structure: `LocalReasoningRequestAdapter` (the registered
+`CustomLogger` pre-call hook) dispatches to `NInferResponsesPolicy` (Responses
+request sanitizing) and `ChatTemplateThinkingPolicy` (chat-template control
+translation). Recognized models are the `LocalReasoningModel` enum with
+per-model `ModelCapabilities`; client controls are parsed into a
+`ThinkingControls` dataclass before any mutation. The hook boundary uses
+LiteLLM's own types (`UserAPIKeyAuth`, `DualCache`, `CallTypesLiteral`) under
+`TYPE_CHECKING`; the only runtime LiteLLM import is `CustomLogger`, so the
+stdlib test stub still works. Do not enable postponed annotations in this
+module: LiteLLM executes callback files without adding their module object to
+`sys.modules`, while Python dataclasses resolve postponed annotations through
+that registry. Keep the three type-only hook annotations quoted instead.
 
+All local deployments declare `custom_llm_provider: hosted_vllm`. LiteLLM
+discovery therefore directs OMP to Chat Completions, where its thinking controls
+reach this callback. No client-side transport or compatibility override is
+required.
 
-The vLLM and SGLang Qwen3.8 deployments declare
-`custom_llm_provider: hosted_vllm`. LiteLLM discovery therefore directs OMP to
-Chat Completions, where explicit thinking toggles and effort tiers remain
-available to this callback. No client-side transport or compatibility override
-is required.
-
+- Gemma 4: a positive `thinking_token_budget` or `enable_thinking=true` maps
+  to `chat_template_kwargs.enable_thinking=true`; zero or `false` disables it.
+  It never receives `reasoning_effort` because Gemma's template has no tiers.
 - `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
 - vLLM/SGLang `minimal`/`low` -> `enable_thinking=true`, nested `reasoning_effort=low`
 - vLLM/SGLang `medium` -> `enable_thinking=true`, nested `reasoning_effort=medium`
@@ -92,7 +93,7 @@ is required.
 - NInfer Responses requests drop `reasoning.summary` and
   `include: ["reasoning.encrypted_content"]`; NInfer returns raw reasoning text
   but cannot produce either requested representation
-- other qwen models preserve their requested effort tier
+- other Qwen models preserve their requested effort tier
 - zero `thinking_token_budget` -> `enable_thinking=false`
 - positive `thinking_token_budget` -> `enable_thinking=true`
 - explicit `enable_thinking` wins over effort
@@ -101,8 +102,8 @@ is required.
   stripped so the backend cannot re-arm it
 
 The callback is registered in `litellm_settings.callbacks` as
-`custom_callbacks.qwen_thinking_policy` and lives beside `config.yaml`,
-so git-sync already delivers it to `/config/current/services/litellm/`.
+`custom_callbacks.local_thinking_policy` and lives beside `config.yaml`, so
+git-sync already delivers it to `/config/current/services/litellm/`.
 
 `test_custom_callbacks.py` is a stdlib-only smoke suite (no pytest, no
 LiteLLM needed — it stubs the import): `python3 test_custom_callbacks.py`.

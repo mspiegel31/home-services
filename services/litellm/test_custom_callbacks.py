@@ -1,4 +1,4 @@
-"""Basic smoke tests for the qwen thinking policy.
+"""Basic smoke tests for the local thinking policy.
 
 Vanilla Python only (stdlib, no pytest, no LiteLLM required). Run from this
 directory:
@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from custom_callbacks import qwen_thinking_policy
+    from custom_callbacks import local_thinking_policy
 except ImportError:
     # Vanilla-Python fallback: stub the LiteLLM import so the policy module
     # loads without the LiteLLM dependency installed.
@@ -36,13 +36,13 @@ except ImportError:
     sys.modules["litellm.integrations"] = _integrations
     sys.modules["litellm.integrations.custom_logger"] = _custom_logger
 
-    from custom_callbacks import qwen_thinking_policy
+    from custom_callbacks import local_thinking_policy
 
 
 def call_hook(data: dict[str, Any], call_type: str = "completion") -> dict[str, Any] | None:
     """Invoke the public LiteLLM hook entry point with a copy of ``data``."""
     return asyncio.run(
-        qwen_thinking_policy.async_pre_call_hook(
+        local_thinking_policy.async_pre_call_hook(
             user_api_key_dict=None,
             cache=None,
             data=dict(data),
@@ -56,7 +56,7 @@ def chat(controls: dict[str, Any]) -> dict[str, Any]:
     return {"messages": [{"role": "user", "content": "hi"}], **controls}
 
 
-class QwenThinkingPolicySmokeTests(unittest.TestCase):
+class LocalThinkingPolicySmokeTests(unittest.TestCase):
     # ---- pass-through ----------------------------------------------------
 
     def test_dynamic_loader_without_sys_modules_registration(self):
@@ -69,7 +69,7 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         sys.modules.pop(spec.name, None)
         spec.loader.exec_module(module)
-        self.assertTrue(hasattr(module, "qwen_thinking_policy"))
+        self.assertTrue(hasattr(module, "local_thinking_policy"))
 
     def test_other_models_pass_through(self):
         for data in (
@@ -172,8 +172,8 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
             {"enable_thinking": True, "reasoning_effort": "high"},
         )
 
-    def test_non_qwen_family_model_passes_through(self):
-        # Models on a different reasoning-parser family are untouched.
+    def test_untargeted_model_passes_through(self):
+        # Models without a local template contract are untouched.
         for model in ("nemotron-3.5-lightning", "north-mini-code-1.0-fp8"):
             with self.subTest(model=model):
                 self.assertIsNone(
@@ -236,6 +236,20 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
     def test_positive_token_budget_enables_thinking(self):
         result = call_hook(chat({"model": "qwen3.8-27b-fp8", "thinking_token_budget": 4096}))
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
+
+    def test_gemma_positive_token_budget_enables_thinking(self):
+        result = call_hook(chat({
+            "model": "gemma-4-31b",
+            "thinking_token_budget": 8192,
+        }))
+        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
+
+    def test_gemma_zero_token_budget_disables_thinking(self):
+        result = call_hook(chat({
+            "model": "gemma-4-31b",
+            "thinking_token_budget": 0,
+        }))
+        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
 
     def test_unparseable_token_budget_treated_as_positive(self):
         # A budget that cannot be parsed is not zero, so it takes the
@@ -339,14 +353,14 @@ class QwenThinkingPolicySmokeTests(unittest.TestCase):
         self.assertEqual(result["chat_template_kwargs"]["reasoning_effort"], "low")
 
     def test_policy_failure_does_not_break_hook(self):
-        original = qwen_thinking_policy._transform
-        qwen_thinking_policy._transform = (  # type: ignore[method-assign]
+        original = local_thinking_policy._transform
+        local_thinking_policy._transform = (  # type: ignore[method-assign]
             lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom"))
         )
         try:
             result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"}))
         finally:
-            qwen_thinking_policy._transform = original
+            local_thinking_policy._transform = original
         self.assertIsNone(result)
 
 
