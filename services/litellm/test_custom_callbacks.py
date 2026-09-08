@@ -251,6 +251,36 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         }))
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
 
+    def test_laguna_positive_token_budget_enables_thinking(self):
+        result = call_hook(chat({
+            "model": "laguna-xs-2.1",
+            "thinking_token_budget": 8192,
+        }))
+        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
+
+    def test_laguna_zero_token_budget_disables_thinking(self):
+        result = call_hook(chat({
+            "model": "laguna-xs-2.1",
+            "thinking_token_budget": 0,
+        }))
+        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
+
+    def test_laguna_effort_never_nested(self):
+        # Binary-thinking model: a positive effort only flips enable_thinking.
+        result = call_hook(chat({
+            "model": "laguna-xs-2.1",
+            "reasoning_effort": "high",
+        }))
+        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
+
+    def test_laguna_off_effort_disables_thinking(self):
+        result = call_hook(chat({
+            "model": "laguna-xs-2.1",
+            "reasoning_effort": "off",
+        }))
+        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
+        self.assertNotIn("reasoning_effort", result)
+
     def test_unparseable_token_budget_treated_as_positive(self):
         # A budget that cannot be parsed is not zero, so it takes the
         # positive-budget path and enables thinking.
