@@ -39,6 +39,11 @@ except ImportError:
     from custom_callbacks import local_thinking_policy
 
 
+# The Qwen3.8 lane behind the SGLang engine: the only deployment whose engine
+# does not natively forward the effort tier, so it stays tier-managed.
+_SGLANG_LANE = "qwen3.8-27b-nvfp4-bf16-lmhead-sglang"
+
+
 def call_hook(data: dict[str, Any], call_type: str = "completion") -> dict[str, Any] | None:
     """Invoke the public LiteLLM hook entry point with a copy of ``data``."""
     return asyncio.run(
@@ -81,11 +86,26 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             with self.subTest(data=data):
                 self.assertIsNone(call_hook(data))
 
+    def test_vllm_lanes_pass_through(self):
+        # Pinned vLLM 0.28.0 already forwards reasoning_effort and
+        # thinking_token_budget into the chat template, so these lanes must
+        # reach the engine untouched.
+        for model in (
+            "qwen3.8-27b-fp8",
+            "qwen3.8-27b-nvfp4-bf16-lmhead",
+            "qwen3.8-27b-quasar-nvfp4",
+            "ornith-1.5-9b-nvfp4",
+        ):
+            with self.subTest(model=model):
+                self.assertIsNone(
+                    call_hook(chat({"model": model, "reasoning_effort": "low"}))
+                )
+
     def test_non_chat_payload_passes_through(self):
         # Embeddings-style payloads carry no messages, so there is no
         # conversation to translate — for any route type.
         data = {
-            "model": "qwen3.8-27b-fp8",
+            "model": _SGLANG_LANE,
             "input": ["hello"],
             "reasoning_effort": "low",
         }
@@ -127,53 +147,23 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         for call_type in ("completion", "acompletion", "text_completion", "embeddings"):
             with self.subTest(call_type=call_type):
                 result = call_hook(
-                    chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "none"}),
+                    chat({"model": _SGLANG_LANE, "reasoning_effort": "none"}),
                     call_type,
                 )
                 self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
                 self.assertNotIn("reasoning_effort", result)
 
     def test_no_controls_leaves_template_default(self):
-        self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "max_tokens": 16})))
+        self.assertIsNone(
+            call_hook(chat({"model": _SGLANG_LANE, "max_tokens": 16}))
+        )
 
     def test_unknown_effort_passes_through(self):
-        self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "turbo"})))
-
-    def test_all_quantized_variants_are_targets(self):
-        for model in (
-            "qwen3.8-27b-fp8",
-            "qwen3.8-27b-nvfp4-bf16-lmhead",
-            "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
-            "qwen3.8-27b-quasar-nvfp4",
-        ):
-            with self.subTest(model=model):
-                result = call_hook(chat({"model": model, "reasoning_effort": "low"}))
-                self.assertEqual(
-                    result["chat_template_kwargs"],
-                    {"enable_thinking": True, "reasoning_effort": "low"},
-                )
-
-    def test_ornith_is_a_target(self):
-        # The policy spans the whole qwen3 reasoning-parser family, not just
-        # the Qwen3.8 line: Ornith shares the same chat_template_kwargs
-        # contract.
-        result = call_hook(chat({"model": "ornith-1.5-9b-nvfp4", "reasoning_effort": "xhigh"}))
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {"enable_thinking": True, "reasoning_effort": "xhigh"},
+        self.assertIsNone(
+            call_hook(chat({"model": _SGLANG_LANE, "reasoning_effort": "turbo"}))
         )
 
-
-    def test_ornith_high_effort_is_not_condensed(self):
-        result = call_hook(
-            chat({"model": "ornith-1.5-9b-nvfp4", "reasoning_effort": "high"})
-        )
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {"enable_thinking": True, "reasoning_effort": "high"},
-        )
-
-    def test_untargeted_model_passes_through(self):
+    def test_untargeted_model_pass_through(self):
         # Models without a local template contract are untouched.
         for model in ("nemotron-3.5-lightning", "north-mini-code-1.0-fp8"):
             with self.subTest(model=model):
@@ -184,45 +174,45 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
     # ---- reasoning_effort mapping ----------------------------------------
 
     def test_effort_none_disables_thinking(self):
-        result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "none"}))
+        result = call_hook(chat({"model": _SGLANG_LANE, "reasoning_effort": "none"}))
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
         self.assertNotIn("reasoning_effort", result)
 
     def test_effort_off_disables_thinking(self):
-        result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "off"}))
+        result = call_hook(chat({"model": _SGLANG_LANE, "reasoning_effort": "off"}))
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
         self.assertNotIn("reasoning_effort", result)
 
     def test_effort_low(self):
-        result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"}))
+        result = call_hook(chat({"model": _SGLANG_LANE, "reasoning_effort": "low"}))
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "low"},
         )
 
     def test_effort_medium(self):
-        result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "medium"}))
+        result = call_hook(chat({"model": _SGLANG_LANE, "reasoning_effort": "medium"}))
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "medium"},
         )
 
     def test_effort_high_maps_to_xhigh(self):
-        result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "high"}))
+        result = call_hook(chat({"model": _SGLANG_LANE, "reasoning_effort": "high"}))
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "xhigh"},
         )
 
     def test_effort_max_maps_to_xhigh(self):
-        result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "max"}))
+        result = call_hook(chat({"model": _SGLANG_LANE, "reasoning_effort": "max"}))
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "xhigh"},
         )
 
     def test_effort_xhigh(self):
-        result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "xhigh"}))
+        result = call_hook(chat({"model": _SGLANG_LANE, "reasoning_effort": "xhigh"}))
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "xhigh"},
@@ -231,11 +221,11 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
     # ---- token budget ------------------------------------------------------
 
     def test_zero_token_budget_disables_thinking(self):
-        result = call_hook(chat({"model": "qwen3.8-27b-fp8", "thinking_token_budget": 0}))
+        result = call_hook(chat({"model": _SGLANG_LANE, "thinking_token_budget": 0}))
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
 
     def test_positive_token_budget_enables_thinking(self):
-        result = call_hook(chat({"model": "qwen3.8-27b-fp8", "thinking_token_budget": 4096}))
+        result = call_hook(chat({"model": _SGLANG_LANE, "thinking_token_budget": 4096}))
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
 
     def test_gemma_positive_token_budget_enables_thinking(self):
@@ -286,13 +276,13 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         # A budget that cannot be parsed is not zero, so it takes the
         # positive-budget path and enables thinking.
         result = call_hook(
-            chat({"model": "qwen3.8-27b-fp8", "thinking_token_budget": "abc"})
+            chat({"model": _SGLANG_LANE, "thinking_token_budget": "abc"})
         )
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
 
     def test_zero_budget_wins_over_high_effort(self):
         result = call_hook(chat({
-            "model": "qwen3.8-27b-fp8",
+            "model": _SGLANG_LANE,
             "reasoning_effort": "high",
             "thinking_token_budget": 0,
         }))
@@ -303,7 +293,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
 
     def test_explicit_kwargs_false_wins_over_effort(self):
         result = call_hook(chat({
-            "model": "qwen3.8-27b-fp8",
+            "model": _SGLANG_LANE,
             "reasoning_effort": "xhigh",
             "chat_template_kwargs": {"enable_thinking": False},
         }))
@@ -311,7 +301,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
 
     def test_explicit_top_level_false_wins_over_effort(self):
         result = call_hook(chat({
-            "model": "qwen3.8-27b-fp8",
+            "model": _SGLANG_LANE,
             "reasoning_effort": "medium",
             "enable_thinking": False,
         }))
@@ -319,7 +309,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
 
     def test_omp_off_payload_disables_sglang_thinking(self):
         result = call_hook(chat({
-            "model": "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
+            "model": _SGLANG_LANE,
             "enable_thinking": False,
             "chat_template_kwargs": {"preserve_thinking": True},
         }))
@@ -330,7 +320,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
 
     def test_omp_low_payload_selects_sglang_tier(self):
         result = call_hook(chat({
-            "model": "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
+            "model": _SGLANG_LANE,
             "enable_thinking": True,
             "reasoning_effort": "low",
             "chat_template_kwargs": {
@@ -349,7 +339,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
 
     def test_explicit_true_with_effort_selects_tier(self):
         result = call_hook(chat({
-            "model": "qwen3.8-27b-fp8",
+            "model": _SGLANG_LANE,
             "reasoning_effort": "low",
             "enable_thinking": True,
         }))
@@ -362,7 +352,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
 
     def test_existing_template_kwargs_preserved(self):
         result = call_hook(chat({
-            "model": "qwen3.8-27b-fp8",
+            "model": _SGLANG_LANE,
             "reasoning_effort": "medium",
             "chat_template_kwargs": {"image_count": 0, "video_count": 0},
         }))
@@ -377,7 +367,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         )
 
     def test_input_not_mutated(self):
-        original = chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"})
+        original = chat({"model": _SGLANG_LANE, "reasoning_effort": "low"})
         snapshot = dict(original)
         result = call_hook(original)
         self.assertEqual(original, snapshot)
@@ -389,7 +379,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom"))
         )
         try:
-            result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"}))
+            result = call_hook(chat({"model": _SGLANG_LANE, "reasoning_effort": "low"}))
         finally:
             local_thinking_policy._transform = original
         self.assertIsNone(result)

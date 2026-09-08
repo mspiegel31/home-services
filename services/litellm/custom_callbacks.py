@@ -5,6 +5,13 @@ contract before LiteLLM forwards Chat Completions requests to llama-swap. It
 also removes unsupported OpenAI Responses compatibility hints from NInfer
 requests. Other models and API shapes pass through unchanged.
 
+vLLM lanes (pinned vLLM 0.28.0) already handle ``reasoning_effort``
+natively — it forwards the effort tier into ``chat_template_kwargs`` and
+auto-injects ``enable_thinking``, and accepts ``thinking_token_budget`` — so
+they pass through unmanaged. SGLang maps ``reasoning_effort`` to an
+``enable_thinking`` bool only and drops the tier string, so the SGLang lane
+keeps its nested-tier write.
+
 Precedence for each managed model:
 
 1. an explicit boolean ``chat_template_kwargs.enable_thinking``
@@ -46,12 +53,8 @@ class LocalReasoningModel(str, Enum):
     """Model IDs requiring local chat-template thinking controls."""
 
     GEMMA4_31B = "gemma-4-31b"
-    QWEN38_FP8 = "qwen3.8-27b-fp8"
-    QWEN38_NVFP4 = "qwen3.8-27b-nvfp4-bf16-lmhead"
     QWEN38_NVFP4_SGLANG = "qwen3.8-27b-nvfp4-bf16-lmhead-sglang"
     QWEN38_NINFER = "qwen3.8-27b-ninfer"
-    QWEN38_QUASAR_NVFP4 = "qwen3.8-27b-quasar-nvfp4"
-    ORNITH = "ornith-1.5-9b-nvfp4"
     LAGUNA_XS_2_1 = "laguna-xs-2.1"
 
 
@@ -65,11 +68,12 @@ class TemplateEffort(str, Enum):
 
 @dataclass(frozen=True)
 class ModelCapabilities:
-    """Which chat-template contract a deployment speaks.
+    """Which chat-template contract a managed deployment speaks.
 
-    Qwen3.8 collapses the public effort vocabulary into three tiers and
-    expects the effort nested under ``chat_template_kwargs``. NInfer accepts
-    effort only at the top level. Ornith keeps its own public effort values.
+    Only lanes whose engine does not already handle the public thinking
+    controls are managed. Qwen3.8's SGLang deployment collapses the public
+    effort vocabulary into three tiers and expects the effort nested under
+    ``chat_template_kwargs``. NInfer accepts effort only at the top level.
     Gemma 4 and Laguna XS 2.1 only accept ``enable_thinking``.
     """
 
@@ -77,31 +81,19 @@ class ModelCapabilities:
     nested_effort: bool
 
 
-# Qwen3.8 exposes a three-tier effort vocabulary to clients. The other Qwen
-# models retain their public effort values, including Ornith's distinct high
-# tier. Gemma 4 and Laguna XS 2.1 are binary-only, so they must not receive
-# reasoning_effort.
+# The vLLM lanes (fp8, nvfp4, quasar, ornith) are pass-through: pinned vLLM
+# 0.28.0 forwards ``reasoning_effort`` and ``thinking_token_budget`` natively.
+# Gemma 4 and Laguna XS 2.1 are binary-only, so they must not receive
+# reasoning_effort tiers.
 _CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
     LocalReasoningModel.GEMMA4_31B: ModelCapabilities(
         three_tier_effort=False, nested_effort=False
-    ),
-    LocalReasoningModel.QWEN38_FP8: ModelCapabilities(
-        three_tier_effort=True, nested_effort=True
-    ),
-    LocalReasoningModel.QWEN38_NVFP4: ModelCapabilities(
-        three_tier_effort=True, nested_effort=True
     ),
     LocalReasoningModel.QWEN38_NVFP4_SGLANG: ModelCapabilities(
         three_tier_effort=True, nested_effort=True
     ),
     LocalReasoningModel.QWEN38_NINFER: ModelCapabilities(
         three_tier_effort=True, nested_effort=False
-    ),
-    LocalReasoningModel.QWEN38_QUASAR_NVFP4: ModelCapabilities(
-        three_tier_effort=True, nested_effort=True
-    ),
-    LocalReasoningModel.ORNITH: ModelCapabilities(
-        three_tier_effort=False, nested_effort=True
     ),
     # Laguna's template takes only enable_thinking; it has no effort tiers.
     LocalReasoningModel.LAGUNA_XS_2_1: ModelCapabilities(
