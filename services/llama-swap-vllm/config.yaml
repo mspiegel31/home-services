@@ -51,7 +51,8 @@ macros:
   #   for hybrid SSM models → 128 is a safe shared cap. Solo models can go higher.
   #   Override per-model by setting MAX_NUM_SEQS in the model's macros.
   MAX_NUM_SEQS: "128"
-  VLLM_COMMON: "--model ${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching --max-num-seqs ${MAX_NUM_SEQS}"
+  # vllm-openai runs `vllm serve`; keep the model as its first positional argument.
+  VLLM_COMMON: "${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching --max-num-seqs ${MAX_NUM_SEQS}"
   QWEN38_COMMON: "--reasoning-parser qwen3 --tool-call-parser qwen3_xml --enable-auto-tool-choice --performance-mode throughput"
 
 models:
