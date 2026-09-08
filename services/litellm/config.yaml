@@ -150,6 +150,30 @@ model_list:
       <<: *qwen38_model_info
       reasoning_effort: [low, medium, xhigh]
 
+  # Poolside Laguna XS 2.1 (33B/3B-A MoE). Binary thinking only — the chat
+  # template takes enable_thinking and has no effort tiers, so it must not
+  # receive reasoning_effort (same policy as Gemma 4; see custom_callbacks.py).
+  - model_name: laguna-xs-2.1
+    litellm_params:
+      model: laguna-xs-2.1
+      api_base: http://192.168.1.98:11437/v1
+      api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: hosted_vllm
+    model_info:
+      context_window: 262144      # HF: 262,144 native (poolside/Laguna-XS-2.1)
+      max_input_tokens: 262144
+      reasoning: true
+      supports_reasoning: true
+      supported_parameters:
+        - temperature
+        - top_p
+        - top_k
+        - repetition_penalty
+        - max_tokens
+        - stream
+      input_cost_per_token: 0.0
+      output_cost_per_token: 0.0
+
   - model_name: ornith-1.5-9b-nvfp4
     litellm_params:
       model: ornith-1.5-9b-nvfp4

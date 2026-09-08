@@ -51,6 +51,7 @@ class LocalReasoningModel(str, Enum):
     QWEN38_NVFP4_SGLANG = "qwen3.8-27b-nvfp4-bf16-lmhead-sglang"
     QWEN38_NINFER = "qwen3.8-27b-ninfer"
     ORNITH = "ornith-1.5-9b-nvfp4"
+    LAGUNA_XS_2_1 = "laguna-xs-2.1"
 
 
 class TemplateEffort(str, Enum):
@@ -68,7 +69,7 @@ class ModelCapabilities:
     Qwen3.8 collapses the public effort vocabulary into three tiers and
     expects the effort nested under ``chat_template_kwargs``. NInfer accepts
     effort only at the top level. Ornith keeps its own public effort values.
-    Gemma 4 only accepts ``enable_thinking``.
+    Gemma 4 and Laguna XS 2.1 only accept ``enable_thinking``.
     """
 
     three_tier_effort: bool
@@ -77,7 +78,8 @@ class ModelCapabilities:
 
 # Qwen3.8 exposes a three-tier effort vocabulary to clients. The other Qwen
 # models retain their public effort values, including Ornith's distinct high
-# tier. Gemma 4 is binary-only, so it must not receive reasoning_effort.
+# tier. Gemma 4 and Laguna XS 2.1 are binary-only, so they must not receive
+# reasoning_effort.
 _CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
     LocalReasoningModel.GEMMA4_31B: ModelCapabilities(
         three_tier_effort=False, nested_effort=False
@@ -96,6 +98,10 @@ _CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
     ),
     LocalReasoningModel.ORNITH: ModelCapabilities(
         three_tier_effort=False, nested_effort=True
+    ),
+    # Laguna's template takes only enable_thinking; it has no effort tiers.
+    LocalReasoningModel.LAGUNA_XS_2_1: ModelCapabilities(
+        three_tier_effort=False, nested_effort=False
     ),
 }
 

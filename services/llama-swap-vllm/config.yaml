@@ -313,6 +313,44 @@ models:
       --vision
     cmdStop: docker stop --time 90 ninfer-qwen3-8-27b
 
+  "laguna-xs-2.1":
+    name: Poolside Laguna XS 2.1 NVFP4
+    description: Poolside Laguna XS 2.1 (33B total / 3B active MoE) NVFP4 with DFlash spec decode and native 262,144-token context
+    capabilities:
+      in: ["text"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+    macros:
+      checkpoint: "poolside/Laguna-XS-2.1-NVFP4"
+      # The vLLM recipe caps DFlash at 32 concurrent sequences. With 15
+      # speculative tokens this uses 512 scheduler slots, matching the
+      # Muse Glimmer DFlash lane on the same image.
+      MAX_NUM_SEQS: "32"
+    proxy: http://vllm-laguna-xs-2-1:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-laguna-xs-2-1
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len 262144
+      --gpu-memory-utilization 0.9
+      --kv-cache-dtype fp8
+      --reasoning-parser poolside_v1
+      --tool-call-parser poolside_v1
+      --enable-auto-tool-choice
+      --generation-config auto
+      # DFlash drafter support (vllm#46853, merged 2026-07-03) is in the
+      # pinned v0.28.0 image — verified against the tag's registry.py and
+      # laguna_dflash.py. The default DeepGEMM MoE backend is incompatible
+      # with the DFlash draft path, so the recipe forces Triton MoE.
+      --speculative-config '{"method":"dflash","model":"poolside/Laguna-XS-2.1-DFlash-NVFP4","num_speculative_tokens":15}'
+      --moe-backend triton
+    cmdStop: docker stop --time 90 vllm-laguna-xs-2-1
+
   "qwen3.8-27b-fp8":
     name: Qwen3.8 27B FP8
     description: Qwen3.8 27B FP8 with auto-fit context (native 262,144 when served alone)
@@ -416,4 +454,5 @@ routing:
       matrix:
         sets:
           gemma: "gemma-4-31b"
+          laguna-xs-2.1: "laguna-xs-2.1"
           co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
