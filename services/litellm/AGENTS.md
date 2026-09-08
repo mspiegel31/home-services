@@ -21,10 +21,12 @@ Gotchas that break routing silently:
 - `api_base` must keep the `/v1` suffix — llama-swap serves the OpenAI API only
   under `/v1` (root `/chat/completions` 404s), and LiteLLM appends `chat/completions`
   to `api_base` verbatim.
-- Each entry needs `custom_llm_provider: openai` — the bare llama-swap model ids
+- Each entry needs `custom_llm_provider: openai` or `hosted_vllm` — the bare llama-swap model ids
   carry no provider prefix, so LiteLLM's router cannot create a deployment
   without an explicit provider (symptom: "LLM Provider NOT provided" at startup,
   "no healthy deployments" at request time, gateway otherwise looks healthy).
+  Prefer `hosted_vllm`: LiteLLM discovery then directs OMP to Chat Completions
+  and synthesizes the `thinking` block OMP's UI requires (see Qwen3 thinking policy below).
 
 Model capability + reasoning/thinking metadata is authored in `model_info` and surfaced
 through LiteLLM discovery endpoints, so Oh My Pi (and any OpenAI client) learns context,

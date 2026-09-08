@@ -24,7 +24,7 @@ model_list:
       model: muse-glimmer-30b
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
+      custom_llm_provider: hosted_vllm
     model_info:
       context_window: 131072      # HF: 131,072+ (meta-models/Muse-Glimmer-30B)
       max_input_tokens: 131072
@@ -47,7 +47,7 @@ model_list:
       model: muse-glimmer-30b-nvidia-nvfp4
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
+      custom_llm_provider: hosted_vllm
     model_info:
       context_window: 262144
       max_input_tokens: 262144
@@ -70,7 +70,7 @@ model_list:
       model: gemma-4-31b
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
+      custom_llm_provider: hosted_vllm
     model_info:
       context_window: 262144      # HF: 256K (google/gemma-4-31B-it)
       max_input_tokens: 262144
@@ -97,7 +97,7 @@ model_list:
       model: qwen3.8-27b-fp8
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
+      custom_llm_provider: hosted_vllm
     model_info: &qwen38_model_info
       context_window: 262144      # HF: 262,144 native (extensible to 1M)
       max_input_tokens: 262144
@@ -145,7 +145,7 @@ model_list:
       model: qwen3.8-27b-ninfer
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
+      custom_llm_provider: hosted_vllm
     model_info:
       <<: *qwen38_model_info
       reasoning_effort: [low, medium, xhigh]
@@ -155,7 +155,7 @@ model_list:
       model: ornith-1.5-9b-nvfp4
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
+      custom_llm_provider: hosted_vllm
     model_info: &ornith_model_info
       context_window: 262144
       max_input_tokens: 262144
@@ -180,7 +180,7 @@ model_list:
       model: nemotron-3.5-lightning
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
-      custom_llm_provider: openai
+      custom_llm_provider: hosted_vllm
     model_info:
       context_window: 1048576     # HF: 1M (NVIDIA-Nemotron-3.5-Lightning-30B-A3B)
       max_input_tokens: 1048576
