@@ -203,6 +203,38 @@ models:
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4-bf16
 
+  "qwen3.8-27b-quasar-nvfp4":
+    name: Qwen3.8 27B QUASAR NVFP4
+    description: Qwen3.8 27B QUASAR quantization-aware-trained NVFP4 with DFlash2 spec decode and auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4"
+    proxy: http://vllm-qwen3-8-27b-quasar:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-qwen3-8-27b-quasar
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --max-num-batched-tokens 16384
+      --gpu-memory-utilization 0.9
+      --kv-cache-dtype fp8_e4m3
+      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-quasar
+
+
 
   "qwen3.8-27b-nvfp4-bf16-lmhead-sglang":
     name: Qwen3.8 27B NVFP4 BF16 LM Head (SGLang)
@@ -455,4 +487,4 @@ routing:
         sets:
           gemma: "gemma-4-31b"
           laguna-xs-2.1: "laguna-xs-2.1"
-          co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
+          co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | qwen3.8-27b-quasar-nvfp4 | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
