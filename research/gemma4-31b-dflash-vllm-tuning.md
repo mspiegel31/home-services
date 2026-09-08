@@ -13,7 +13,7 @@ Those omissions do not necessarily make every request crash because target verif
 
 The safe optimization available on v0.28.0 is Google's **MTP assistant**, `google/gemma-4-31B-it-assistant`. Gemma 4 MTP support merged in vLLM PR #41745 and exists in the v0.28.0 tag. Its NVFP4 target pairing has upstream B300 evidence at seven draft tokens.
 
-Treat DFlash as a later custom-image experiment. First tune the NVIDIA NVFP4 target and MTP on the current image.
+Treat DFlash as a later custom-image experiment. First tune the retained Unsloth NVFP4 target with MTP on the current image.
 
 ## Source evidence
 
