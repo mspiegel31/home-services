@@ -1,0 +1,219 @@
+name: inbox-zero
+
+services:
+  db:
+    image: postgres:16
+    container_name: inbox-zero-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: inboxzero
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a URL-safe hexadecimal PostgreSQL password in Portainer}
+      POSTGRES_DB: inboxzero
+    volumes:
+      - /mnt/tank/container-configs/inbox-zero/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inboxzero -d inboxzero"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - inbox-zero-private
+
+  redis:
+    image: redis:7
+    container_name: inbox-zero-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+    volumes:
+      - /mnt/tank/container-configs/inbox-zero/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - inbox-zero-private
+
+  serverless-redis-http:
+    image: hiett/serverless-redis-http:latest
+    container_name: inbox-zero-redis-http
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: ${UPSTASH_REDIS_TOKEN:?Set the local Redis HTTP token in Portainer}
+      SRH_CONNECTION_STRING: redis://redis:6379
+    networks:
+      - inbox-zero-private
+
+  migrate:
+    image: ghcr.io/elie222/inbox-zero:2.30.0
+    container_name: inbox-zero-migrate
+    command: ["/app/docker/scripts/migrate.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://inboxzero:${POSTGRES_PASSWORD:?Set a URL-safe hexadecimal PostgreSQL password in Portainer}@db:5432/inboxzero?schema=public
+      DIRECT_URL: postgresql://inboxzero:${POSTGRES_PASSWORD:?Set a URL-safe hexadecimal PostgreSQL password in Portainer}@db:5432/inboxzero?schema=public
+      MIGRATION_TIMEOUT_SECONDS: "320"
+    networks:
+      - inbox-zero-private
+
+  web:
+    image: ghcr.io/elie222/inbox-zero:2.30.0
+    container_name: inbox-zero
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      serverless-redis-http:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_BASE_URL: https://inbox.electricgarage.net
+      DATABASE_URL: postgresql://inboxzero:${POSTGRES_PASSWORD:?Set a URL-safe hexadecimal PostgreSQL password in Portainer}@db:5432/inboxzero?schema=public
+      DIRECT_URL: postgresql://inboxzero:${POSTGRES_PASSWORD:?Set a URL-safe hexadecimal PostgreSQL password in Portainer}@db:5432/inboxzero?schema=public
+      SKIP_DB_MIGRATIONS: "true"
+
+      AUTH_SECRET: ${AUTH_SECRET:?Set the Inbox Zero authentication secret in Portainer}
+      AUTH_ALLOWED_EMAILS: ${AUTH_ALLOWED_EMAILS:?Set the exact allowed Gmail address in Portainer}
+      EMAIL_ENCRYPT_SECRET: ${EMAIL_ENCRYPT_SECRET:?Set the email encryption secret in Portainer}
+      EMAIL_ENCRYPT_SALT: ${EMAIL_ENCRYPT_SALT:?Set the email encryption salt in Portainer}
+      INTERNAL_API_URL: http://web:3000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set the internal API key in Portainer}
+      API_KEY_SALT: ${API_KEY_SALT:?Set the external API key salt in Portainer}
+      CRON_SECRET: ${CRON_SECRET:?Set the cron bearer secret in Portainer}
+      HEALTH_API_KEY: ${HEALTH_API_KEY:?Set the deep health-check key in Portainer}
+
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set the Google OAuth client ID in Portainer}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Set the Google OAuth client secret in Portainer}
+      GOOGLE_PUBSUB_TOPIC_NAME: ${GOOGLE_PUBSUB_TOPIC_NAME:?Set the full Google Pub/Sub topic name in Portainer}
+      GOOGLE_PUBSUB_VERIFICATION_TOKEN: ${GOOGLE_PUBSUB_VERIFICATION_TOKEN:?Set the Google Pub/Sub verification token in Portainer}
+
+      UPSTASH_REDIS_URL: http://serverless-redis-http:80
+      UPSTASH_REDIS_TOKEN: ${UPSTASH_REDIS_TOKEN:?Set the local Redis HTTP token in Portainer}
+      REDIS_URL: redis://redis:6379
+      QUEUE_BACKEND: bullmq
+
+      DEFAULT_LLM_PROVIDER: openai-compatible
+      DEFAULT_LLM_MODEL: qwen3.8-27b-quasar-nvfp4
+      ECONOMY_LLM_PROVIDER: openai-compatible
+      ECONOMY_LLM_MODEL: qwen3.8-27b-quasar-nvfp4
+      CHAT_LLM_PROVIDER: openai-compatible
+      CHAT_LLM_MODEL: qwen3.8-27b-quasar-nvfp4
+      NANO_LLM_PROVIDER: openai-compatible
+      NANO_LLM_MODEL: qwen3.8-27b-quasar-nvfp4
+      DRAFT_LLM_PROVIDER: openai-compatible
+      DRAFT_LLM_MODEL: qwen3.8-27b-quasar-nvfp4
+      OPENAI_COMPATIBLE_BASE_URL: http://192.168.1.98:4000/v1
+      OPENAI_COMPATIBLE_MODEL: qwen3.8-27b-quasar-nvfp4
+      LLM_API_KEY: ${LLM_API_KEY:?Set a dedicated LiteLLM virtual key in Portainer}
+      SENSITIVE_DATA_POLICY_DEFAULT: ALLOW
+
+      NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true"
+      NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true"
+      NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED: "true"
+      NEXT_PUBLIC_CONTACTS_ENABLED: "true"
+      NEXT_PUBLIC_DIGEST_ENABLED: "true"
+      NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: "true"
+      NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: "true"
+      NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true"
+      NEXT_PUBLIC_SMART_FILING_ENABLED: "true"
+      NEXT_PUBLIC_CLEANER_ENABLED: "true"
+      NEXT_PUBLIC_BOOKING_LINKS_ENABLED: "true"
+      NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true"
+      NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: "true"
+      NEXT_PUBLIC_AUTO_DRAFT_DISABLED: "false"
+      NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED: "true"
+      NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE: "true"
+      IMAGE_PROXY_SIGNING_SECRET: ${IMAGE_PROXY_SIGNING_SECRET:?Set the image proxy signing secret in Portainer}
+
+      REASONING_RETENTION_DAYS: "90"
+      DRAFT_SENT_TEXT_RETENTION_DAYS: "14"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/api/health', {headers: {'x-health-api-key': process.env.HEALTH_API_KEY}}).then((response) => {if (!response.ok) process.exit(1)}).catch(() => process.exit(1))
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - inbox-zero-private
+      - cloudflare_tunnel
+
+  worker:
+    image: ghcr.io/elie222/inbox-zero:2.30.0
+    container_name: inbox-zero-worker
+    restart: unless-stopped
+    command: ["/app/docker/scripts/start-worker.sh"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    environment:
+      QUEUE_BACKEND: bullmq
+      REDIS_URL: redis://redis:6379
+      INTERNAL_API_URL: http://web:3000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set the internal API key in Portainer}
+    networks:
+      - inbox-zero-private
+
+  cron:
+    image: alpine:3.22
+    container_name: inbox-zero-cron
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?Set the cron bearer secret in Portainer}
+    command:
+      - sh
+      - -ec
+      - |
+        run_loop() {
+          label="$${1}"
+          path="$${2}"
+          interval="$${3}"
+          while true; do
+            echo "[cron] $${label}"
+            if ! wget -q -O /dev/null --header="Authorization: Bearer $${CRON_SECRET}" "http://web:3000$${path}"; then
+              echo "[cron] Warning: $${label} request failed" >&2
+            fi
+            sleep "$${interval}"
+          done
+        }
+
+        run_loop "Processing scheduled actions" "/api/cron/scheduled-actions" 900 &
+        run_loop "Processing automation jobs" "/api/cron/automation-jobs" 900 &
+        run_loop "Processing follow-up reminders" "/api/follow-up-reminders" 3600 &
+        run_loop "Processing digest emails" "/api/resend/digest/all" 1800 &
+        run_loop "Processing meeting briefs" "/api/meeting-briefs" 900 &
+        run_loop "Renewing email watches" "/api/watch/all" 21600 &
+        run_loop "Applying reasoning retention" "/api/cron/reasoning-retention" 86400 &
+        run_loop "Applying draft cleanup" "/api/cron/draft-cleanup" 86400 &
+        wait
+    networks:
+      - inbox-zero-private
+
+networks:
+  inbox-zero-private:
+  cloudflare_tunnel:
+    external: true
