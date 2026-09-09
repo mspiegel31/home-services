@@ -43,6 +43,8 @@ jobs:
             // arm64 is still built for local debugging on Apple Silicon.
             const policy = {
               'vllm-fastokens': { platforms: 'linux/amd64,linux/arm64', cacheTo: '' },
+              // The upstream unified-cuda image does not publish arm64.
+              'llama-swap-vllm': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
               // PyPI wheels are manylinux x86_64 only.
               'freetoken': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
               // The official signal-cli native release asset is x86_64 only.
