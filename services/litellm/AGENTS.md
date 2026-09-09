@@ -53,15 +53,21 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
   - Provider API keys as needed (e.g., `OPENAI_API_KEY`)
   - `LLAMA_SWAP_API_KEY` — API key presented to the llama-swap router (matches the value configured in the llama-swap-vllm stack)
 
-## Local reasoning-model thinking policy
-
 `custom_callbacks.py` translates public thinking controls for local models
-whose chat templates need them before LiteLLM forwards Chat Completions
-requests. The policy covers Gemma 4 31B (binary thinking), Qwen3.8
-(`qwen3.8-27b-fp8`, `-nvfp4-bf16-lmhead`, `-nvfp4-bf16-lmhead-sglang`,
-`-ninfer`), and Ornith. NInfer has a separate wire-compatibility branch because
-it accepts top-level Chat Completions effort but not nested effort, and it
-intentionally omits Responses API summaries and encrypted reasoning output.
+whose engine does not already handle them before LiteLLM forwards Chat
+Completions requests. The vLLM lanes pass through untouched: pinned vLLM
+0.28.0 forwards `reasoning_effort` (tier string) into `chat_template_kwargs`
+and auto-injects `enable_thinking`, and accepts `thinking_token_budget`
+natively. The SGLang lane stays managed because SGLang maps top-level
+`reasoning_effort` to an `enable_thinking`/`thinking` bool only — it does not
+forward the tier, so the shim writes the nested `reasoning_effort`.
+
+Managed models: Gemma 4 31B (binary thinking) and Laguna XS 2.1 (binary
+thinking), the Qwen3.8 SGLang deployment (`qwen3.8-27b-nvfp4-bf16-lmhead-sglang`,
+three tiers), and Qwen3.8 NInfer. NInfer has a separate wire-compatibility
+branch because it accepts top-level Chat Completions effort but not nested
+effort, and it intentionally omits Responses API summaries and encrypted
+reasoning output.
 
 Module structure: `LocalReasoningRequestAdapter` (the registered
 `CustomLogger` pre-call hook) dispatches to `NInferResponsesPolicy` (Responses
@@ -81,19 +87,22 @@ discovery therefore directs OMP to Chat Completions, where its thinking controls
 reach this callback. No client-side transport or compatibility override is
 required.
 
-- Gemma 4: a positive `thinking_token_budget` or `enable_thinking=true` maps
-  to `chat_template_kwargs.enable_thinking=true`; zero or `false` disables it.
-  It never receives `reasoning_effort` because Gemma's template has no tiers.
-- `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
-- vLLM/SGLang `minimal`/`low` -> `enable_thinking=true`, nested `reasoning_effort=low`
-- vLLM/SGLang `medium` -> `enable_thinking=true`, nested `reasoning_effort=medium`
-- vLLM/SGLang Qwen3.8 `high`/`xhigh`/`max` -> nested `reasoning_effort=xhigh`
+- vLLM lanes (fp8, nvfp4-bf16-lmhead, quasar, ornith) pass through unchanged —
+  vLLM 0.28.0 forwards `reasoning_effort` and `thinking_token_budget` natively
+- Gemma 4 / Laguna XS 2.1: a positive `thinking_token_budget` or
+  `enable_thinking=true` maps to `chat_template_kwargs.enable_thinking=true`;
+  zero or `false` disables it. They never receive `reasoning_effort` because
+  their templates have no tiers
+- SGLang lane: `reasoning_effort` `none`/`off` ->
+  `chat_template_kwargs.enable_thinking=false`; `minimal`/`low` -> nested
+  `reasoning_effort=low`; `medium` -> nested `reasoning_effort=medium`;
+  `high`/`max` -> nested `reasoning_effort=xhigh` (the Qwen3.8 Froggeric
+  template's three tiers)
 - NInfer Chat Completions keeps `reasoning_effort` top-level and adds only
   `chat_template_kwargs.enable_thinking`
 - NInfer Responses requests drop `reasoning.summary` and
   `include: ["reasoning.encrypted_content"]`; NInfer returns raw reasoning text
   but cannot produce either requested representation
-- other Qwen models preserve their requested effort tier
 - zero `thinking_token_budget` -> `enable_thinking=false`
 - positive `thinking_token_budget` -> `enable_thinking=true`
 - explicit `enable_thinking` wins over effort
