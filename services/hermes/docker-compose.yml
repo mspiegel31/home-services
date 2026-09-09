@@ -1,28 +1,95 @@
-# Hermes Agent retained as a stopped experiment.
-# Its persisted configuration targeted Ollama at 192.168.1.97. Restore the
-# archived Ollama stack or configure another provider before reactivating it.
-
-x-networks: &default-networks
-  networks:
-    - hermes
+name: hermes
 
 services:
-  hermes:
-    <<: *default-networks
-    container_name: hermes
-    image: nousresearch/hermes-agent:latest
+  signal-cli:
+    image: ghcr.io/mspiegel31/signal-cli:v0.14.7
+    container_name: signal-cli
     restart: unless-stopped
-    command: gateway run
-    ports:
-      - "8642:8642"   # gateway OpenAI-compatible API (optional — for external tools)
-      - "9119:9119"   # web dashboard
-    volumes:
-      - /mnt/models/hermes:/opt/data
+    tty: true
+    stdin_open: true
     environment:
-      - HERMES_DASHBOARD=1
-      - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=${HERMES_DASHBOARD_USER}
-      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=${HERMES_DASHBOARD_PASS}
-    shm_size: 1g   # Playwright/browser tools; drop if you don't need browser automation
+      SIGNAL_ACCOUNT: ${SIGNAL_ACCOUNT:?Set SIGNAL_ACCOUNT in Portainer}
+      SIGNAL_DEVICE_NAME: ${SIGNAL_DEVICE_NAME:-Hermes Agent}
+    volumes:
+      - /mnt/tank/container-configs/signal-cli:/data
+    networks:
+      - hermes
+    healthcheck:
+      test: ["CMD", "gosu", "signal:signal", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/api/v1/check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+  hermes:
+    image: ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8
+    container_name: hermes
+    restart: unless-stopped
+    command: ["gateway", "run"]
+    depends_on:
+      signal-cli:
+        condition: service_healthy
+    ports:
+      - "192.168.1.39:9119:9119"
+    environment:
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: ${HERMES_DASHBOARD_USER:?Set HERMES_DASHBOARD_USER in Portainer}
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: ${HERMES_DASHBOARD_PASSWORD:?Set HERMES_DASHBOARD_PASSWORD in Portainer}
+      HERMES_DASHBOARD_BASIC_AUTH_SECRET: ${HERMES_DASHBOARD_SECRET:?Set HERMES_DASHBOARD_SECRET in Portainer}
+      HERMES_GATEWAY_BOOTSTRAP_STATE: running
+      HERMES_UID: ${HERMES_UID:-10000}
+      HERMES_GID: ${HERMES_GID:-10000}
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: 127.0.0.1
+      API_SERVER_KEY: ${HERMES_API_SERVER_KEY:?Set HERMES_API_SERVER_KEY in Portainer}
+      LITELLM_KEY: ${LITELLM_KEY:?Set LITELLM_KEY in Portainer}
+      MEALIE_BASE_URL: http://mealie:9000
+      MEALIE_API_KEY: ${MEALIE_API_KEY:?Set MEALIE_API_KEY in Portainer}
+      SIGNAL_HTTP_URL: http://signal-cli:8080
+      SIGNAL_ACCOUNT: ${SIGNAL_ACCOUNT:?Set SIGNAL_ACCOUNT in Portainer}
+      SIGNAL_ALLOWED_USERS: ${SIGNAL_ALLOWED_USERS:?Set explicit SIGNAL_ALLOWED_USERS in Portainer}
+      SIGNAL_GROUP_ALLOWED_USERS: ${SIGNAL_GROUP_ALLOWED_USERS:-}
+      SIGNAL_ALLOW_ALL_USERS: "false"
+      HERMES_SIGNAL_SHARE_USERS: ${HERMES_SIGNAL_SHARE_USERS:-}
+      HERMES_SIGNAL_SHARE_GROUPS: ${HERMES_SIGNAL_SHARE_GROUPS:-}
+    volumes:
+      - /mnt/tank/container-configs/hermes:/opt/data
+    networks:
+      - hermes
+      - home-butler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8642/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    shm_size: 1g
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - KILL
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
@@ -31,3 +98,7 @@ services:
 
 networks:
   hermes:
+    driver: bridge
+  home-butler:
+    external: true
+    name: home-butler

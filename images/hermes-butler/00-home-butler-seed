@@ -1,0 +1,36 @@
+#!/command/with-contenv sh
+set -eu
+
+home="${HERMES_HOME:-/opt/data}"
+seed=/opt/hermes-seed
+
+if [ -L "$home" ]; then
+    echo "[home-butler] Refusing to seed through symlinked HERMES_HOME" >&2
+    exit 1
+fi
+
+mkdir -p "$home"
+if [ -L "$home/workspace" ]; then
+    echo "[home-butler] Refusing to seed through symlinked workspace" >&2
+    exit 1
+fi
+mkdir -p "$home/workspace"
+
+seed_absent() {
+    source_path=$1
+    destination_path=$2
+    mode=$3
+
+    if [ -e "$destination_path" ] || [ -L "$destination_path" ]; then
+        return
+    fi
+
+    cp --no-clobber "$source_path" "$destination_path"
+    chown hermes:hermes "$destination_path"
+    chmod "$mode" "$destination_path"
+    echo "[home-butler] Seeded $destination_path"
+}
+
+chown hermes:hermes "$home/workspace"
+seed_absent "$seed/config.yaml" "$home/config.yaml" 0640
+seed_absent "$seed/AGENTS.md" "$home/workspace/AGENTS.md" 0644

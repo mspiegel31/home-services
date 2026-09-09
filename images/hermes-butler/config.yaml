@@ -1,0 +1,130 @@
+database:
+  journal_mode: wal
+  synchronous: FULL
+
+providers:
+  home-litellm:
+    api: http://192.168.1.98:4000/v1
+    key_env: LITELLM_KEY
+    transport: chat_completions
+    default_model: muse-glimmer-30b
+    discover_models: false
+
+model:
+  default: muse-glimmer-30b
+  provider: custom:home-litellm
+  streaming: true
+
+terminal:
+  backend: local
+  cwd: /opt/data/workspace
+  timeout: 180
+  home_mode: profile
+  docker_mount_cwd_to_workspace: false
+
+platform_toolsets:
+  cli: [hermes-cli]
+  signal: [web, vision, skills, todo]
+
+approvals:
+  mode: smart
+  timeout: 300
+  cron_mode: deny
+  single_query_mode: deny
+  unattended_mode: deny
+  denial_breaker_threshold: 3
+  mcp_reload_confirm: true
+  destructive_slash_confirm: true
+  deny:
+    - "*signal-cli*"
+    - "*http://signal-cli:*"
+    - "*http://mealie:*"
+
+mcp_servers:
+  mealie:
+    command: /opt/mealie-mcp/.venv/bin/mealie-mcp-server
+    env:
+      MEALIE_BASE_URL: "${MEALIE_BASE_URL}"
+      MEALIE_API_KEY: "${MEALIE_API_KEY}"
+    trust: full
+    sampling:
+      enabled: false
+    tools:
+      include:
+        - get_recipes
+        - get_recipe_detailed
+        - get_recipe_concise
+        - create_recipe
+        - create_recipe_full
+        - import_recipe_from_url
+        - update_recipe
+        - patch_recipe
+        - duplicate_recipe
+        - mark_recipe_last_made
+        - set_recipe_categories
+        - set_recipe_tags
+        - update_recipe_categories_and_tags
+        - get_categories
+        - get_tags
+        - get_tools
+        - get_foods
+        - get_units
+        - get_shopping_lists
+        - create_shopping_list
+        - get_shopping_list
+        - add_recipe_to_shopping_list
+        - get_shopping_list_items
+        - get_shopping_list_item
+        - create_shopping_list_item
+        - create_shopping_list_items_bulk
+        - update_shopping_list_item
+        - update_shopping_list_items_bulk
+        - get_all_mealplans
+        - create_mealplan
+        - create_mealplan_bulk
+        - get_todays_mealplan
+      resources: false
+      prompts: false
+
+  mealie-feedback:
+    command: /opt/mealie-mcp/.venv/bin/python
+    args: [/opt/home-butler-mcp/mealie_feedback_server.py]
+    env:
+      MEALIE_BASE_URL: "${MEALIE_BASE_URL}"
+      MEALIE_API_KEY: "${MEALIE_API_KEY}"
+    trust: full
+    sampling:
+      enabled: false
+    tools:
+      include:
+        - set_recipe_rating
+        - add_recipe_favorite
+        - get_recipe_comments
+        - add_recipe_comment
+        - update_recipe_comment
+      resources: false
+      prompts: false
+
+  signal-share:
+    command: /opt/mealie-mcp/.venv/bin/python
+    args: [/opt/home-butler-mcp/signal_share_server.py]
+    env:
+      SIGNAL_HTTP_URL: "${SIGNAL_HTTP_URL}"
+      SIGNAL_ACCOUNT: "${SIGNAL_ACCOUNT}"
+      HERMES_SIGNAL_SHARE_USERS: "${HERMES_SIGNAL_SHARE_USERS}"
+      HERMES_SIGNAL_SHARE_GROUPS: "${HERMES_SIGNAL_SHARE_GROUPS}"
+    trust: untrusted
+    sampling:
+      enabled: false
+    tools:
+      include: [share_signal_message]
+      resources: false
+      prompts: false
+
+telemetry:
+  shared_metrics:
+    enabled: false
+    send: false
+
+updates:
+  check: false
