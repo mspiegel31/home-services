@@ -136,12 +136,20 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
     def test_no_controls_leaves_template_default(self):
         self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "max_tokens": 16})))
 
+    def test_unsloth_defaults_to_xhigh_for_froggeric_template(self):
+        result = call_hook(chat({"model": "qwen3.8-27b-nvfp4"}))
+        self.assertEqual(
+            result["chat_template_kwargs"],
+            {"enable_thinking": True, "reasoning_effort": "xhigh"},
+        )
+
     def test_unknown_effort_passes_through(self):
         self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "turbo"})))
 
     def test_all_quantized_variants_are_targets(self):
         for model in (
             "qwen3.8-27b-fp8",
+            "qwen3.8-27b-nvfp4",
             "qwen3.8-27b-nvfp4-bf16-lmhead",
             "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
             "qwen3.8-27b-quasar-nvfp4",
@@ -152,6 +160,43 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
                     result["chat_template_kwargs"],
                     {"enable_thinking": True, "reasoning_effort": "low"},
                 )
+
+    def test_unsloth_non_thinking_uses_official_sampling_defaults(self):
+        result = call_hook(
+            chat(
+                {
+                    "model": "qwen3.8-27b-nvfp4",
+                    "reasoning_effort": "none",
+                }
+            )
+        )
+        self.assertEqual(
+            {
+                key: result[key]
+                for key in ("temperature", "top_p", "presence_penalty")
+            },
+            {
+                "temperature": 0.7,
+                "top_p": 0.8,
+                "presence_penalty": 1.5,
+            },
+        )
+
+    def test_unsloth_non_thinking_preserves_explicit_sampling(self):
+        result = call_hook(
+            chat(
+                {
+                    "model": "qwen3.8-27b-nvfp4",
+                    "reasoning_effort": "none",
+                    "temperature": 0.2,
+                    "top_p": 0.4,
+                    "presence_penalty": 0.0,
+                }
+            )
+        )
+        self.assertEqual(result["temperature"], 0.2)
+        self.assertEqual(result["top_p"], 0.4)
+        self.assertEqual(result["presence_penalty"], 0.0)
 
     def test_ornith_is_a_target(self):
         # The policy spans the whole qwen3 reasoning-parser family, not just

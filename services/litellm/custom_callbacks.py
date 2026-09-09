@@ -20,6 +20,12 @@ The Froggeric template defaults to medium thinking when none of those controls
 is present, so this module deliberately does not invent a default. Gemma 4 is
 binary-only: it receives ``enable_thinking`` but never an effort tier.
 
+The Unsloth NVFP4 deployment loads its thinking-mode sampling defaults from
+the checkpoint. Its Froggeric template defaults to medium effort, so requests
+without a thinking control receive Unsloth's xhigh default explicitly.
+Thinking-off requests receive Unsloth's differing non-thinking defaults only
+for values the client omitted.
+
 NInfer implements reasoning effort and raw reasoning output, but intentionally
 does not implement reasoning summaries or encrypted reasoning output. Responses
 clients commonly request both, so those optional hints are removed only for the
@@ -47,6 +53,7 @@ class LocalReasoningModel(str, Enum):
 
     GEMMA4_31B = "gemma-4-31b"
     QWEN38_FP8 = "qwen3.8-27b-fp8"
+    QWEN38_UNSLOTH_NVFP4 = "qwen3.8-27b-nvfp4"
     QWEN38_NVFP4 = "qwen3.8-27b-nvfp4-bf16-lmhead"
     QWEN38_NVFP4_SGLANG = "qwen3.8-27b-nvfp4-bf16-lmhead-sglang"
     QWEN38_NINFER = "qwen3.8-27b-ninfer"
@@ -88,6 +95,9 @@ _CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
     LocalReasoningModel.QWEN38_FP8: ModelCapabilities(
         three_tier_effort=True, nested_effort=True
     ),
+    LocalReasoningModel.QWEN38_UNSLOTH_NVFP4: ModelCapabilities(
+        three_tier_effort=True, nested_effort=True
+    ),
     LocalReasoningModel.QWEN38_NVFP4: ModelCapabilities(
         three_tier_effort=True, nested_effort=True
     ),
@@ -112,6 +122,11 @@ _CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
 _NINFER_ENCRYPTED_REASONING_INCLUDE: Final[str] = "reasoning.encrypted_content"
 _KW_ENABLE_THINKING: Final[str] = "enable_thinking"
 _KW_REASONING_EFFORT: Final[str] = "reasoning_effort"
+_UNSLOTH_INSTRUCT_SAMPLING_DEFAULTS: Final[Mapping[str, float]] = {
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "presence_penalty": 1.5,
+}
 
 # "Off" spellings are a thinking state rather than a tier, so they stay out
 # of the tier table.
@@ -176,6 +191,38 @@ def _explicit_enable_thinking(data: Mapping[str, Any]) -> bool | None:
         if toggle is not None:
             return toggle
     return _as_bool_toggle(data.get(_KW_ENABLE_THINKING))
+
+
+def _apply_unsloth_default_effort(data: dict[str, Any]) -> bool:
+    """Keep Unsloth's xhigh default while using Froggeric's safer template."""
+    if not isinstance(data.get("messages"), list):
+        return False
+    if not _extract_controls(data).is_empty:
+        return False
+
+    kwargs_in = data.get("chat_template_kwargs")
+    kwargs: dict[str, Any] = dict(kwargs_in) if isinstance(kwargs_in, dict) else {}
+    kwargs[_KW_ENABLE_THINKING] = True
+    kwargs[_KW_REASONING_EFFORT] = TemplateEffort.XHIGH.value
+    data["chat_template_kwargs"] = kwargs
+    return True
+
+
+def _apply_unsloth_instruct_sampling_defaults(data: dict[str, Any]) -> bool:
+    """Apply Unsloth's non-thinking profile without overriding the client."""
+    if not isinstance(data.get("messages"), list):
+        return False
+
+    kwargs = data.get("chat_template_kwargs")
+    if not isinstance(kwargs, dict) or kwargs.get(_KW_ENABLE_THINKING) is not False:
+        return False
+
+    changed = False
+    for parameter, value in _UNSLOTH_INSTRUCT_SAMPLING_DEFAULTS.items():
+        if data.get(parameter) is None:
+            data[parameter] = value
+            changed = True
+    return changed
 
 
 def _budget_disables_thinking(budget: Any) -> bool:
@@ -367,7 +414,16 @@ class LocalReasoningRequestAdapter(CustomLogger):
             if sanitized is not None:
                 return sanitized
 
-        return self._chat_policy.transform(data, model)
+        transformed = self._chat_policy.transform(data, model)
+        if model is not LocalReasoningModel.QWEN38_UNSLOTH_NVFP4:
+            return transformed
+
+        request = transformed if transformed is not None else data
+        changed = False
+        if transformed is None:
+            changed |= _apply_unsloth_default_effort(request)
+        changed |= _apply_unsloth_instruct_sampling_defaults(request)
+        return request if changed else transformed
 
     async def async_pre_call_hook(
         self,

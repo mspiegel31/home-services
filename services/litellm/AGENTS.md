@@ -58,10 +58,20 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 `custom_callbacks.py` translates public thinking controls for local models
 whose chat templates need them before LiteLLM forwards Chat Completions
 requests. The policy covers Gemma 4 31B (binary thinking), Qwen3.8
-(`qwen3.8-27b-fp8`, `-nvfp4-bf16-lmhead`, `-nvfp4-bf16-lmhead-sglang`,
-`-ninfer`), and Ornith. NInfer has a separate wire-compatibility branch because
+(`qwen3.8-27b-fp8`, `-nvfp4`, `-nvfp4-bf16-lmhead`,
+`-nvfp4-bf16-lmhead-sglang`, `-quasar-nvfp4`, `-ninfer`), and Ornith. NInfer
+has a separate wire-compatibility branch because
 it accepts top-level Chat Completions effort but not nested effort, and it
 intentionally omits Responses API summaries and encrypted reasoning output.
+
+The Unsloth NVFP4 lane uses the pinned Froggeric v22.5 template bundled in the
+`vllm-fastokens` image. Froggeric defaults to medium effort, so the callback
+explicitly supplies Unsloth's xhigh default when a client omits thinking
+controls. `generation_config.json` supplies the thinking sampling profile. When
+a request disables thinking, the callback fills Unsloth's differing defaults
+(`temperature=0.7`, `top_p=0.8`, `presence_penalty=1.5`) only when the client
+omitted them. Both profiles retain `top_k=20`, `min_p=0`, and
+`repetition_penalty=1`; explicit client values win.
 
 Module structure: `LocalReasoningRequestAdapter` (the registered
 `CustomLogger` pre-call hook) dispatches to `NInferResponsesPolicy` (Responses
