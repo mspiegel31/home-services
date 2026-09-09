@@ -27,6 +27,8 @@ jobs:
         id: set
         with:
           script: |
+            const fs = require('fs');
+
             // Every directory under images/ containing a Dockerfile is a buildable image.
             // NOTE: @actions/glob returns absolute paths — take the parent dir name,
             // never a fixed index (f.split('/')[1] would yield 'home' on runners).
@@ -43,8 +45,23 @@ jobs:
               'vllm-fastokens': { platforms: 'linux/amd64,linux/arm64', cacheTo: '' },
               // PyPI wheels are manylinux x86_64 only.
               'freetoken': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
+              // The official signal-cli native release asset is x86_64 only.
+              'signal-cli': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
             };
             const defaults = { platforms: 'linux/amd64,linux/arm64', cacheTo: 'type=gha,mode=max' };
+            const versionFor = image => {
+              const versionPath = `images/${image}/VERSION`;
+              if (!fs.existsSync(versionPath)) {
+                return '';
+              }
+
+              const version = fs.readFileSync(versionPath, 'utf8').trim();
+              if (!version || !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(version)) {
+                throw new Error(`${versionPath} must contain one valid OCI tag`);
+              }
+              return version;
+            };
+
 
             const inputImage = context.payload.inputs?.image || '';
             let changed;
@@ -79,7 +96,12 @@ jobs:
             core.info(`Building: ${changed.length ? changed.join(', ') : '<none>'}`);
             core.setOutput('count', changed.length);
             core.setOutput('matrix', JSON.stringify({
-              include: changed.map(image => ({ image, ...defaults, ...(policy[image] || {}) })),
+              include: changed.map(image => ({
+                image,
+                version: versionFor(image),
+                ...defaults,
+                ...(policy[image] || {}),
+              })),
             }));
 
   build:
@@ -115,6 +137,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha,prefix=,format=short
+            type=raw,value=${{ matrix.version }},enable=${{ matrix.version != '' }}
 
       - uses: docker/build-push-action@v6
         with:
