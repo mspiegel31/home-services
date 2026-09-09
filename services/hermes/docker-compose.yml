@@ -2,7 +2,7 @@ name: hermes
 
 services:
   signal-cli:
-    image: ghcr.io/mspiegel31/signal-cli:v0.14.7
+    image: ghcr.io/mspiegel31/signal-cli:v0.14.7@sha256:f4ecbdbfab555c1836135d84d14935fa5918ed3e827b8666489a7b84ce94b951
     container_name: signal-cli
     restart: unless-stopped
     tty: true
@@ -37,7 +37,7 @@ services:
           cpus: "1.0"
 
   hermes:
-    image: ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8
+    image: ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8@sha256:d6e980e597468358614847e9893bb4120b472b1d8852be71d47facf91cd61e77
     container_name: hermes
     restart: unless-stopped
     command: ["gateway", "run"]
