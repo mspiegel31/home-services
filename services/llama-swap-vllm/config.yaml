@@ -164,6 +164,45 @@ models:
       --speculative-config '{"method":"mtp","model":"google/gemma-4-31B-it-assistant","num_speculative_tokens":4}'
     cmdStop: docker stop --time 90 vllm-gemma-4-31b
 
+  "qwen3.8-27b-nvfp4":
+    name: Qwen3.8 27B Unsloth Dynamic NVFP4
+    description: Qwen3.8 27B Unsloth Dynamic V3.0 mixed NVFP4/FP8 with DFlash2 spec decode and auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
+    proxy: http://vllm-qwen3-8-27b-nvfp4:8000
+    # Released vLLM 0.28.0 supports DFlash2 with this checkpoint's quantized
+    # FP8 lm_head. Cap first-run FlashInfer compilation on the 64 GB host.
+    # The qwen3_5 loader does not yet apply this checkpoint's calibrated FP8
+    # KV scales (vllm#54623); bfloat16 KV remains the quality canary.
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-qwen3-8-27b-nvfp4
+      --env MAX_JOBS=4
+      --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --max-num-batched-tokens 16384
+      --gpu-memory-utilization 0.9
+      --kv-cache-dtype fp8_e4m3
+      --generation-config auto
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4
+
   "qwen3.8-27b-nvfp4-bf16-lmhead":
     name: Qwen3.8 27B NVFP4 BF16 LM Head
     description: Qwen3.8 27B mixed-precision (NVFP4 MLP, FP8 attention, BF16 embeddings/lm_head) with auto-fit context (native 262,144 when served alone)
@@ -487,4 +526,4 @@ routing:
         sets:
           gemma: "gemma-4-31b"
           laguna-xs-2.1: "laguna-xs-2.1"
-          co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | qwen3.8-27b-quasar-nvfp4 | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
+          co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | qwen3.8-27b-quasar-nvfp4 | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
