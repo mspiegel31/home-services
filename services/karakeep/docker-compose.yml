@@ -6,7 +6,8 @@ x-networks: &default-networks
 
 services:
   web:
-    <<: *default-networks
+    depends_on:
+      - ollama
     container_name: karakeep
     image: ghcr.io/karakeep-app/karakeep:${KARAKEEP_VERSION:-release}
     restart: unless-stopped
@@ -35,15 +36,15 @@ services:
       INFERENCE_NUM_WORKERS: ${INFERENCE_NUM_WORKERS}
       INFERENCE_CONTEXT_LENGTH: ${INFERENCE_CONTEXT_LENGTH}
       CRAWLER_STORE_PDF: ${CRAWLER_STORE_PDF}
-      # Semantic search: embeddings come from the standalone CPU Ollama on the
-      # ai box (services/ollama, port 11434, nomic-embed-text). These
+      # Semantic search: embeddings come from the ollama sidecar below
+      # (nomic-embed-text, reached over the karakeep network). These
       # EMBEDDING_* vars drive a separate OpenAI client from OPENAI_* (litellm
       # chat route used for tagging/summarization) - see
       # EmbeddingClientFactory in karakeep-app/karakeep
       # packages/shared/inference.ts.
       SEMANTIC_SEARCH_ENABLED: "true"
       EMBEDDING_ENABLE_AUTO_INDEXING: "true"
-      EMBEDDING_OPENAI_BASE_URL: http://192.168.1.98:11434/v1
+      EMBEDDING_OPENAI_BASE_URL: http://ollama:11434/v1
       EMBEDDING_OPENAI_API_KEY: ollama
       EMBEDDING_TEXT_MODEL: nomic-embed-text
       EMBEDDING_DIMENSIONS: 768
@@ -78,6 +79,23 @@ services:
       MEILI_NO_ANALYTICS: "true"
     volumes:
       - /mnt/tank/container-configs/melisearch:/meili_data
+  ollama:
+    # Embedding-only sidecar for karakeep semantic search (nomic-embed-text,
+    # 768-dim). Not exposed to the LAN: internal karakeep-network access only.
+    # CPU-only; the model is 137M params and unloads after 10 idle minutes.
+    container_name: karakeep-ollama
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    networks:
+      - karakeep
+    environment:
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=10m
+    volumes:
+      # Model storage, per the homelab convention (see llama-swap's
+      # /mnt/models): shared host dir so models persist across container
+      # rebuilds.
+      - /mnt/hugginface:/root/.ollama
 
 volumes:
   data:
