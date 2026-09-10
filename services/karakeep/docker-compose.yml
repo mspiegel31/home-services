@@ -35,6 +35,19 @@ services:
       INFERENCE_NUM_WORKERS: ${INFERENCE_NUM_WORKERS}
       INFERENCE_CONTEXT_LENGTH: ${INFERENCE_CONTEXT_LENGTH}
       CRAWLER_STORE_PDF: ${CRAWLER_STORE_PDF}
+      # Semantic search: embeddings come from the standalone CPU Ollama on the
+      # ai box (services/ollama, port 11434, nomic-embed-text). These
+      # EMBEDDING_* vars drive a separate OpenAI client from OPENAI_* (litellm
+      # chat route used for tagging/summarization) - see
+      # EmbeddingClientFactory in karakeep-app/karakeep
+      # packages/shared/inference.ts.
+      SEMANTIC_SEARCH_ENABLED: "true"
+      EMBEDDING_ENABLE_AUTO_INDEXING: "true"
+      EMBEDDING_OPENAI_BASE_URL: http://192.168.1.98:11434/v1
+      EMBEDDING_OPENAI_API_KEY: ollama
+      EMBEDDING_TEXT_MODEL: nomic-embed-text
+      EMBEDDING_DIMENSIONS: 768
+      EMBEDDING_CONTEXT_LENGTH: 8192
 
       # You almost never want to change the value of the DATA_DIR variable.
       # If you want to mount a custom directory, change the volume mapping above instead.

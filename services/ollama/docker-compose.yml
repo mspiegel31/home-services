@@ -1,0 +1,26 @@
+# Standalone CPU Ollama on the ai box, serving Karakeep embeddings only.
+# nomic-embed-text auto-pulls on first request (~275MB) and fits in system
+# RAM, so no GPU is reserved - the RTX PRO 5000 stays dedicated to the vLLM
+# stack. Karakeep (truenas) reaches it at 192.168.1.98:11434.
+#
+# Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
+# ref main, path services/ollama/docker-compose.yml, poll 5 min.
+#
+# 11434 was ollama's port by convention (see services/hfdownloader); 11435 =
+# llama-server, 11436 = hfdownloader, 11437 = llama-swap.
+
+name: ollama
+
+services:
+  ollama:
+    container_name: ollama
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      # One small embedding model at a time; unload after 10 idle minutes.
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=10m
+    volumes:
+      - /mnt/models/ollama:/root/.ollama
