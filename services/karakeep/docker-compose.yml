@@ -6,6 +6,7 @@ x-networks: &default-networks
 
 services:
   web:
+    <<: *default-networks
     depends_on:
       - ollama
     container_name: karakeep
