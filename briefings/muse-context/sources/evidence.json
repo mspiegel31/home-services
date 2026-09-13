@@ -1,0 +1,91 @@
+{
+  "repository_revision": "a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+  "source_coverage": [
+    {
+      "path": "research/muse-glimmer-nvidia-nvfp4-256k-vllm.md",
+      "sha256": "08145553bbf357e35ea21026ab86d7b748430cc949b5844bae28e8c609d220c9",
+      "topics": [
+        {
+          "topic": "Treat 262,144 tokens as an experimental extension rather than native support",
+          "section": "The configured path",
+          "status": "retained",
+          "note": "Current NVIDIA and Meta model cards retain a 131K/131,072+ supported context; neither validates this NVIDIA artifact at 262,144 tokens."
+        },
+        {
+          "topic": "Keep the canonical NVIDIA checkpoint and apply a nested vLLM Hugging Face override",
+          "section": "The configured path",
+          "status": "corrected",
+          "note": "The source presented this as a deployment design. The repository now contains it as a configured canary profile; activation on the deployed host was not observed."
+        },
+        {
+          "topic": "NVIDIA-supported context and serving recipe stop at 131,072 tokens",
+          "section": "Three separate proofs",
+          "status": "retained",
+          "note": "Revalidated against the current NVIDIA model card and its vLLM 0.28.0 command."
+        },
+        {
+          "topic": "Local/local/local/global attention and local-layer RoPE make extension plausible",
+          "section": "Tradeoffs and decision gates",
+          "status": "retained",
+          "note": "Meta documents 52 layers, the repeating attention pattern, a 2,048-token sliding window, and RoPE only on local layers. This supports plausibility, not quality."
+        },
+        {
+          "topic": "vLLM 0.28.0 applies nested hf_overrides before deriving and validating max_model_len",
+          "section": "Claims that aged or remain unsupported",
+          "status": "retained",
+          "note": "Revalidated in the v0.28.0 ModelConfig source."
+        },
+        {
+          "topic": "The vLLM recipe reports a rope-extended 262,144-token FP8-KV configuration initializing at gpu-memory-utilization 0.80 after 0.92 failed",
+          "section": "Tradeoffs and decision gates",
+          "status": "historical",
+          "note": "Preserved only as a report about a different RTX 5090 setup. It is not a local RTX PRO 5000 measurement or a general memory guarantee."
+        },
+        {
+          "topic": "Third-party long-context retrieval and NVFP4 failure reports",
+          "section": "Claims that aged or remain unsupported",
+          "status": "historical",
+          "note": "Not retained as evidence of local quality or runtime compatibility because the report targets different artifacts and runtimes and was not a primary source for this deployment."
+        },
+        {
+          "topic": "Deployment requirements for the extended canary",
+          "section": "The configured path",
+          "status": "corrected",
+          "note": "The checkpoint, nested YaRN override, 262,144 advertisements, FP8 KV cache, 0.80 memory utilization, and a separate native profile are now configured in repository files. Runtime activation is unverified."
+        },
+        {
+          "topic": "Acceptance gates for startup, request acceptance, retrieval, native-window regression, DFlash, tool parsing, and vision",
+          "section": "Tradeoffs and decision gates",
+          "status": "retained",
+          "note": "No local output for these gates was found in the consolidation source or target configuration files."
+        }
+      ]
+    }
+  ],
+  "local_evidence": [
+    {
+      "path": "services/llama-swap-vllm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "  \"muse-glimmer-30b-nvidia-nvfp4\":\n    name: Muse Glimmer 30B NVIDIA NVFP4\n    description: NVIDIA ModelOpt mixed NVFP4/FP8/BF16 canary with experimental 262,144-token YaRN extension\n    capabilities:\n      in: [\"text\", \"image\"]\n      out: [\"text\"]\n      tools: true\n      context: 262144\n    metadata:\n      reasoning: true\n      thinking: true\n      vision: true\n      reasoning_effort: [low, medium, high, xhigh]\n    macros:\n      checkpoint: \"nvidia/Muse-Glimmer-30B-NVFP4\"\n      # DFlash needs 32 concurrent sequences; the NVIDIA card's non-DFlash\n      # command uses 64. Keep the canary scheduler identical to production.\n      MAX_NUM_SEQS: \"32\"\n    proxy: http://vllm-muse-glimmer-nvidia:8000\n    cmd: >-\n      ${DOCKER_PREFIX}\n      --name vllm-muse-glimmer-nvidia\n      ${VLLM_IMAGE}\n      ${VLLM_COMMON}\n      # Experimental 2x extension. vLLM applies this nested override before\n      # validating --max-model-len, so the Hugging Face cache stays immutable.\n      # YaRN only affects the 39 local RoPE layers; the 13 global layers are NoPE.\n      --hf-overrides '{\"text_config\":{\"max_position_embeddings\":262144,\"rope_parameters\":{\"rope_type\":\"yarn\",\"factor\":2.0,\"original_max_position_embeddings\":131072,\"rope_theta\":500000.0}}}'\n      --max-model-len 262144\n      --gpu-memory-utilization 0.80\n      --kv-cache-dtype fp8\n      --enable-chunked-prefill\n      --mamba-cache-mode align\n      --reasoning-parser muse_glimmer\n      --tool-call-parser muse_glimmer\n      --enable-auto-tool-choice\n      --generation-config auto\n      --speculative-config '{\"method\":\"dflash\",\"model\":\"meta-models/Muse-Glimmer-30B-assistant\",\"num_speculative_tokens\":15}'\n    cmdStop: docker stop --time 90 vllm-muse-glimmer-nvidia",
+      "note": "Verbatim lines 93-131 from the configured router/backend source; no deployed-state or request observation. SHA-256 6bc13345047b50b7d25f7adde04b13ea1be28769b11e0936bfd258d810614d7f."
+    },
+    {
+      "path": "services/llama-swap-vllm/docker-compose.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "  llama-swap:\n    container_name: llama-swap-vllm\n    image: ghcr.io/mspiegel31/llama-swap-vllm:latest\n    pull_policy: always\n    restart: unless-stopped\n    ports:\n      - \"11437:8080\"\n    networks:\n      - backend\n    # GPU device so in-container nvidia-smi works for /metrics; no VRAM is\n    # allocated unless a CUDA context is created (the router never does).\n    deploy:\n      resources:\n        reservations:\n          devices:\n            - driver: nvidia\n              count: 1\n              capabilities: [gpu]\n    stop_grace_period: 2m\n    environment:\n      - LLAMA_SWAP_API_KEY=${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}\n      - HF_TOKEN=${HF_TOKEN:?Set HF_TOKEN in Portainer}\n    command: [\"--config\", \"/config/current/services/llama-swap-vllm/config.yaml\", \"--listen\", \"0.0.0.0:8080\"]\n    volumes:\n      - llama-swap-config:/config:ro\n      - /var/run/docker.sock:/var/run/docker.sock",
+      "note": "Verbatim lines 68-93 from the router Compose source; placeholders name secrets but contain no secret values. SHA-256 bb3e6aa88439a224165de1df6dacc66b6d532c82e995c4142bac2bea30e8e7c8."
+    },
+    {
+      "path": "services/litellm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "  - model_name: muse-glimmer-30b-nvidia-nvfp4\n    litellm_params:\n      model: muse-glimmer-30b-nvidia-nvfp4\n      api_base: http://192.168.1.98:11437/v1\n      api_key: os.environ/LLAMA_SWAP_API_KEY\n      custom_llm_provider: hosted_vllm\n    model_info:\n      context_window: 262144\n      max_input_tokens: 262144\n      reasoning: true\n      vision: true\n      reasoning_effort: [low, medium, high, xhigh]",
+      "note": "Verbatim lines 45-56 from the gateway config; the environment lookup names a secret but contains no secret value. SHA-256 8d5b8fd542270f29acc8c3ca2c25c709c25a4ccd91d39db66efdec3f3d8ab56f."
+    },
+    {
+      "path": "services/litellm/docker-compose.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "  litellm:\n    container_name: litellm\n    image: docker.litellm.ai/berriai/litellm:main-stable\n    init: true\n    pull_policy: always\n    restart: unless-stopped\n    ports:\n      # Migration bridge: legacy cloudflared llm hostname + local clients.\n      # Remove at Pangolin cutover (plan step 14) - then only Newt reaches here.\n      - \"4000:4000\"\n    networks:\n      - litellm\n    environment:\n      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in Portainer}\n      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?Set LITELLM_SALT_KEY in Portainer}\n      DATABASE_URL: postgresql://litellm:${LITELLM_POSTGRES_PASSWORD}@postgres:5432/litellm\n      STORE_MODEL_IN_DB: \"True\"\n      LLAMA_SWAP_API_KEY: ${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}\n      REDIS_URL: redis://valkey:6379\n    command: >\n      --config /config/current/services/litellm/config.yaml\n    volumes:\n      - litellm-config:/config:ro",
+      "note": "Verbatim lines 112-134 from the gateway Compose source; placeholders name secrets but contain no secret values. SHA-256 5ac6c5f429102e40e38f2b59756b37869da28cb1d38b4fb39133b6119210da4b."
+    }
+  ]
+}

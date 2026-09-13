@@ -1,0 +1,195 @@
+---
+title: "Muse context extension"
+type: technology
+diataxis: guide
+audience: self
+question: "Is 256K context usable or merely loadable?"
+decision: "Whether to rely on extended context and what evidence must gate that choice."
+status: reviewed
+created: 2026-09-09
+updated: 2026-09-09
+bibliography: references.bib
+---
+
+::: {.brief-meta}
+**Question.** Is 256K context usable or merely loadable?
+**Decision.** Whether to rely on extended context and what evidence must gate that choice.
+**Reader.** self.
+:::
+
+## Summary
+
+The local 256K Muse profile is configured for an experimental extension; available evidence does not yet show memory fit, [accepted request length](#glossary), or [useful context](#glossary) on this host [@localMuseEvidence; @nvidiaMuseNvfp4].
+
+- The repository exposes a [native-context](#glossary) profile at 131,072 tokens and a separate 262,144-token NVIDIA canary through LiteLLM, llama-swap, and vLLM 0.28.0 [@localMuseEvidence].
+- NVIDIA validates its NVFP4 artifact at 131,072 tokens; the 262,144-token [YaRN](#glossary) configuration has no recorded local startup, request, or retrieval result [@nvidiaMuseNvfp4; @localMuseEvidence].
+- Meta says the base model supports longer contexts without naming a supported maximum, while NVIDIA says its quantized artifact supports context “up to 131K” [@metaMusePrompting; @nvidiaMuseNvfp4].
+- A vLLM recipe reports that one rope-extended 262,144-token configuration on different RTX 5090 hardware initialized at `--gpu-memory-utilization 0.80`, but that observation cannot establish fit, latency, or quality on the homelab host [@vllmMuseRecipe].
+- The next decision-grade check is a controlled 140K retrieval probe only if existing logs first confirm that the canary is already running with the intended kernel and resolved length [@localMuseEvidence].
+
+## Glossary
+
+**Native context.** The position range represented by the published checkpoint configuration and vendor-supported serving recipe; NVIDIA's recipe sets `--max-model-len 131072` [@nvidiaMuseNvfp4].
+
+**Advertised context.** A limit exposed by gateway or router metadata to clients; the local canary advertises 262,144 tokens at both LiteLLM and llama-swap [@localMuseEvidence].
+
+**YaRN.** A RoPE context-extension method that changes positional interpolation so a model can operate beyond its pretrained sequence length; the method alone does not validate a particular checkpoint at the new length [@peng2026yarn].
+
+**Accepted request length.** The largest prompt-plus-output length that the serving path admits without rejection or truncation; vLLM validates `max_model_len` against its derived model configuration [@vllmModelConfig028].
+
+**Useful context.** The admitted range over which a deployment still retrieves and uses evidence at the required accuracy. Vendor guidance calls for use-case-specific evaluation rather than inferring this property from startup [@nvidiaMuseNvfp4].
+
+## The configured path
+
+The repository keeps [native context](#glossary) and extension risk separate. `muse-glimmer-30b` uses the Inferact W4A4 artifact and advertises 131,072 tokens. `muse-glimmer-30b-nvidia-nvfp4` uses NVIDIA's mixed-precision artifact and [advertises](#glossary) 262,144 tokens [@localMuseEvidence].
+
+A request for the canary follows this configured path:
+
+```text
+client
+  -> LiteLLM :4000, model=muse-glimmer-30b-nvidia-nvfp4
+  -> llama-swap 192.168.1.98:11437/v1
+  -> vllm-muse-glimmer-nvidia:8000 on llama-swap-vllm-backend
+  -> nvidia/Muse-Glimmer-30B-NVFP4
+```
+
+LiteLLM publishes `context_window` and `max_input_tokens` as 262,144. llama-swap publishes the same context, starts the backend lazily, and proxies to its container name rather than host loopback [@localMuseEvidence]. The repository proves configuration intent, not deployed state: neither source file shows which revision Portainer has activated or whether the backend is warm.
+
+The backend command makes four linked choices. It changes the nested text configuration to 262,144 positions, selects [YaRN](#glossary) with factor `2.0` and original length `131072`, sets vLLM's admission ceiling to `262144`, and asks vLLM to reserve `0.80` of GPU memory while storing KV cache entries in FP8 [@localMuseEvidence]. The canary also enables chunked prefill, aligned Mamba cache, Muse reasoning and tool parsers, and a 15-token DFlash speculator [@localMuseEvidence].
+
+| Layer | Configured limit | What that value establishes |
+|---|---:|---|
+| LiteLLM metadata | 262,144 [@localMuseEvidence] | Client discovery and gateway policy intent |
+| llama-swap metadata | 262,144 [@localMuseEvidence] | Router advertisement and model selection intent |
+| vLLM `--max-model-len` | 262,144 [@localMuseEvidence] | Backend admission ceiling if initialization succeeds |
+| NVIDIA-supported recipe | 131,072 [@nvidiaMuseNvfp4] | Vendor-tested boundary for this artifact |
+
+The table exposes the key gap: matching configuration values do not turn an extension into vendor-supported behavior.
+
+## Three separate proofs
+
+A usable result needs three observations in order. **Memory fit** means the backend initializes with the target, drafter, kernels, and enough cache on the actual GPU. **Request acceptance** means a tokenized prompt beyond 131,072 passes every layer without truncation. **Quality validation** means the response correctly uses evidence distributed through that admitted prompt [@nvidiaMuseNvfp4; @localMuseEvidence].
+
+| Proof | Minimum local observation | Available now? |
+|---|---|---|
+| Memory fit | Startup log with resolved `max_model_len=262144`, NVIDIA NVFP4 kernel, KV capacity, and no fallback | No recorded local output [@localMuseEvidence] |
+| Accepted request length | A request above 131,072 input tokens returns without truncation and reports the expected token count | No recorded local output [@localMuseEvidence] |
+| Useful context | Retrieval probes at about 140K, 192K, and 256K with evidence near the start, middle, and end; compare the same probes within 128K | No recorded local output [@localMuseEvidence] |
+
+NVIDIA's evaluation does not fill these cells. It compares BF16 and the NVFP4 artifact under the same high-reasoning sampling policy, but its serving command remains at 131,072 tokens [@nvidiaMuseNvfp4]. Those results support the artifact at its tested boundary, not the local YaRN extension.
+
+## Claims that aged or remain unsupported
+
+The strongest current conflict is deliberate. Meta labels the base context `131,072+` and says longer contexts are supported without publishing a number or extension recipe [@metaMuseCard; @metaMusePrompting]. NVIDIA narrows its artifact to “up to 131K” and tests vLLM 0.28.0 with `--max-model-len 131072` [@nvidiaMuseNvfp4]. The local 262,144-token value therefore belongs in the configured-experimental category.
+
+The consolidation note originally described the NVIDIA canary as a proposed deployment. The repository now contains the separate model entry, nested override, gateway advertisement, FP8 KV setting, and `0.80` memory target [@localMuseEvidence]. This updates configuration status only. The note's third-party retrieval and initialization reports remain historical leads because they used different artifacts, runtimes, or hardware; they cannot become local quality claims.
+
+vLLM 0.28.0 does support the nested shape used here. `ModelConfig` recursively updates nested `PretrainedConfig` objects, then selects the text configuration and derives the maximum model length [@vllmModelConfig028]. This revalidates syntax and ordering. It does not show that Muse's weights learned to use the expanded positions.
+
+## Tradeoffs and decision gates
+
+Muse's architecture makes the experiment plausible. Meta documents 52 layers with a repeating local/local/local/global attention pattern, a 2,048-token sliding window, and RoPE on local layers only [@metaMuseCard]. Local attention limits the span over which rotary positions interact, while global layers attend across the sequence without RoPE. That structure reduces one extrapolation concern but gives no retrieval guarantee outside the evaluated range.
+
+Memory is host-specific. The vLLM recipe reports that a rope-extended 262,144-token, FP8-KV setup on two RTX 5090 cards failed at `0.92` after sizing a 2,594,229-token cache, then initialized at `0.80` [@vllmMuseRecipe]. The local canary copies `0.80`, but its RTX PRO 5000 Blackwell host, concurrency, co-residency, and exact artifact path differ [@localMuseEvidence]. Treat the recipe as a warning about headroom, not a capacity forecast. See [Model memory](../model-memory/index.qmd) for the broader capacity model.
+Latency remains unmeasured locally. Chunked prefill and DFlash are configured, but configuration cannot establish time to first token, prefill rate, decode rate, or whether speculation still helps at the extended length [@localMuseEvidence]. Operational isolation is better: the native and extended profiles have distinct model IDs, checkpoints, advertisements, and backend containers [@localMuseEvidence]. That separation limits the canary's blast radius while clients continue to see its unverified 262,144-token claim.
+
+
+The acceptance gate stays cumulative:
+
+1. Confirm the resolved length, NVFP4 kernel, KV capacity, and DFlash initialization in existing startup logs.
+2. Confirm one prompt above 131,072 tokens is accepted without truncation.
+3. Run retrieval at about 140K, 192K, and 256K with evidence at three positions.
+4. Repeat the same probes within 128K to detect regression from YaRN.
+5. Exercise tool parsing and one image request because the profile advertises both capabilities.
+6. Record time to first token, prefill rate, decode rate, peak memory, and concurrency at each length.
+
+No retained source supplies local results for these gates [@localMuseEvidence]. Startup would establish loadability. Only steps 2 through 6 can support a reliability decision.
+
+## The most informative next check
+
+Inspect existing canary startup logs without waking a dormant backend. Missing logs or logs from another configuration leave loadability unverified and support no readiness claim. If matching logs show the intended 262,144-token resolution, NVFP4 kernel, and cache capacity, submit one controlled 140K retrieval fixture and compare its answer with the same evidence inside 128K; that paired result is the smallest check that crosses the vendor boundary and tests [useful context](#glossary), not metadata [@nvidiaMuseNvfp4; @localMuseEvidence].
+
+Record the exact image digest, model revision, token count, evidence position, output, latency, and peak memory. Do not infer success from HTTP status alone. A successful response proves [accepted request length](#glossary); correct retrieval supplies the first quality evidence.
+
+## Worked example
+
+This reconstruction uses the repository's configured values and does not send a request or start a model [@localMuseEvidence]. The following YAML is a normalized explanatory projection of those values. It is neither the LiteLLM nor llama-swap schema and must not be copied into either source file.
+
+```yaml
+# Source: services/litellm/config.yaml
+model_name: muse-glimmer-30b-nvidia-nvfp4
+litellm_params:
+  model: muse-glimmer-30b-nvidia-nvfp4
+  api_base: http://192.168.1.98:11437/v1
+  custom_llm_provider: hosted_vllm
+model_info:
+  context_window: 262144
+  max_input_tokens: 262144
+
+# Source: services/llama-swap-vllm/config.yaml
+model: muse-glimmer-30b-nvidia-nvfp4
+checkpoint: nvidia/Muse-Glimmer-30B-NVFP4
+proxy: http://vllm-muse-glimmer-nvidia:8000
+image: vllm/vllm-openai:v0.28.0
+arguments:
+  - --hf-overrides
+  - '{"text_config":{"max_position_embeddings":262144,"rope_parameters":{"rope_type":"yarn","factor":2.0,"original_max_position_embeddings":131072,"rope_theta":500000.0}}}'
+  - --max-model-len
+  - "262144"
+  - --gpu-memory-utilization
+  - "0.80"
+  - --kv-cache-dtype
+  - fp8
+  - --enable-chunked-prefill
+  - --mamba-cache-mode
+  - align
+  - --reasoning-parser
+  - muse_glimmer
+  - --tool-call-parser
+  - muse_glimmer
+  - --enable-auto-tool-choice
+  - --speculative-config
+  - '{"method":"dflash","model":"meta-models/Muse-Glimmer-30B-assistant","num_speculative_tokens":15}'
+```
+
+Assume `muse-140k.txt` is a tokenizer-prepared fixture whose recorded input count is 140,000 tokens, with a unique fact near the beginning and a question at the end. These commands materialize the full JSON request and show the exact configured API path:
+
+```bash
+jq --null-input --rawfile prompt muse-140k.txt '{
+  model: "muse-glimmer-30b-nvidia-nvfp4",
+  messages: [
+    {role: "system", content: "Reasoning strength: high."},
+    {role: "user", content: $prompt}
+  ],
+  temperature: 1.0,
+  top_p: 0.95,
+  top_k: 64,
+  stream: false
+}' > muse-140k.json
+
+curl --fail-with-body \
+  --request POST \
+  --url http://localhost:4000/v1/chat/completions \
+  --header "Authorization: Bearer $LITELLM_API_KEY" \
+  --header "Content-Type: application/json" \
+  --data-binary @muse-140k.json
+```
+
+The request selects the canary, uses NVIDIA's matched sampling values, and enables high reasoning [@nvidiaMuseNvfp4]. LiteLLM authenticates and forwards it to llama-swap. llama-swap selects the canary and, if already active, proxies to `vllm-muse-glimmer-nvidia:8000` [@localMuseEvidence]. vLLM has already applied the nested text override before validating its 262,144-token maximum [@vllmModelConfig028]. It then either admits the 140,000-token input or returns an over-limit or capacity error.
+
+The observed boundary is still 131,072 vendor-tested tokens. The unverified boundary begins with this 140,000-token fixture and extends to the configured ceiling [@nvidiaMuseNvfp4; @localMuseEvidence]. A correct answer would be one retrieval observation, not proof across the full range.
+
+For the counterfactual, change only vLLM's `--max-model-len` from `262144` to `131072` while leaving the gateway advertisements unchanged. The same fixture should then fail at the backend length check; observing that failure would establish that vLLM, rather than gateway metadata, enforces the effective request ceiling [@vllmModelConfig028]. This is a proposed diagnostic, not a deployed change.
+
+## Limitations
+
+No local model startup, inference request, tokenizer count, retrieval score, latency trace, memory trace, or concurrency run was performed for this briefing. The current Portainer revision and container logs were not inspected. The vLLM recipe's RTX 5090 measurements describe a different system, and Meta's unnumbered “longer contexts” statement does not validate 262,144 tokens for NVIDIA's artifact [@vllmMuseRecipe; @metaMusePrompting].
+
+## Next action
+
+Read the existing canary startup log. Proceed to the paired 140K/128K retrieval fixture only if the backend is already running with the intended image, kernel, nested override, and resolved context. Keep the canary labelled experimental until every acceptance gate has recorded local evidence.
+
+## References
+
+::: {#refs}
+:::
