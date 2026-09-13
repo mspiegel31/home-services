@@ -1,0 +1,97 @@
+{
+  "repository_revision": "a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+  "source_coverage": [
+    {
+      "path": "research/gemma4-31b-dflash-vllm-tuning.md",
+      "sha256": "23c12353256609af8179be933c4c2d8c50497ed638219eff1c8f3d4d2bebaeda",
+      "topics": [
+        {
+          "topic": "Decision and source evidence",
+          "section": "Evidence hierarchy and current compatibility",
+          "status": "corrected",
+          "note": "Retains stock-v0.28.0 MTP as the configured candidate, but narrows the conclusion: vLLM source supports the Gemma 4 MTP path while this exact Unsloth target/Google assistant pair remains locally unmeasured. Expands PR #41703 from two Gemma fixes to its current five-part fix set."
+        },
+        {
+          "topic": "Selected deployment and implemented launch profile",
+          "section": "Configured, supported, and unverified",
+          "status": "retained",
+          "note": "Revalidated against services/llama-swap-vllm/config.yaml. The target, image digest, 262144-token limit, 0.9 memory budget, FP8 KV cache, prefix caching, Gemma parsers, MTP assistant, K=4, max-num-seqs=128, and singleton routing are configured state only, not runtime proof."
+        },
+        {
+          "topic": "MTP tuning note and speculative-depth sweeps",
+          "section": "The measurement that changes the decision",
+          "status": "retained",
+          "note": "Preserves the proposed MTP sweep at K=2,4,7,8 and the requirement to change one variable per arm. The B300 K=7 result remains external historical evidence, not a prediction for the local RTX PRO 5000 or Unsloth export."
+        },
+        {
+          "topic": "Future DFlash custom image",
+          "section": "Evidence hierarchy and current compatibility",
+          "status": "corrected",
+          "note": "The current DFlash card still requires open PR #41703. The PR now covers embedding normalization, final-logit soft-capping, concrete KV geometry, rejected-token handling, and a text-only draft-backend fix. Its published vLLM point uses 15 speculative tokens; K=7 remains only one proposed sweep point."
+        },
+        {
+          "topic": "Stages 1-3: correctness, behavior preservation, and depth tuning",
+          "section": "The measurement that changes the decision",
+          "status": "retained",
+          "note": "Preserves exact greedy-output parity, tool-call validity, stability, prefix-cache, latency, throughput, acceptance, and task-success acceptance criteria, including concurrency 17 as a padded-batch regression probe."
+        },
+        {
+          "topic": "Stages 4-7: context, cache, residency, modalities, scheduler, and graphs",
+          "section": "Tradeoffs are coupled but evidence is separate",
+          "status": "retained",
+          "note": "Preserves the full-context capacity gate, FP8-KV and prefix-cache controls, singleton-residency requirement, text-only canary, and one-knob-per-arm rule. No historical proposal is presented as an observed local result."
+        },
+        {
+          "topic": "Expected outcome",
+          "section": "Worked example",
+          "status": "corrected",
+          "note": "Removes the unsupported expectation that target plus assistant fits at 262144 tokens inside the 0.9 budget. The briefing requires startup profiling to prove one full-length slot after weights, multimodal components, KV cache, and CUDA graphs."
+        },
+        {
+          "topic": "Next tuning steps",
+          "section": "Next action",
+          "status": "retained",
+          "note": "Condenses the sequence to a target-only control, the configured K=4 MTP arm, then depth and context canaries only after correctness and stability pass."
+        }
+      ]
+    }
+  ],
+  "local_evidence": [
+    {
+      "path": "services/llama-swap-vllm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "VLLM_IMAGE is vllm/vllm-openai:v0.28.0@sha256:61fc8a896b0a4fbbbdc063bc4b0dbc25ce98e02b5050c24aeb7830ac02039b14; gemma-4-31b uses unsloth/gemma-4-31B-it-NVFP4, max-model-len 262144, gpu-memory-utilization 0.9, kv-cache-dtype fp8, Gemma 4 reasoning/tool parsers, and google/gemma-4-31B-it-assistant with method mtp and four speculative tokens. VLLM_COMMON adds prefix caching and max-num-seqs 128. The routing matrix places Gemma in a singleton set.",
+      "note": "Current configured serving state. No backend was launched and no runtime behavior was observed."
+    },
+    {
+      "path": "services/llama-swap-vllm/docker-compose.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "The llama-swap router reads the checked-out config at startup, exposes port 11437, and spawns backend containers through the Docker socket. Configuration activation requires a restart or redeploy because watch-config is omitted.",
+      "note": "Read-only reconstruction of the request and launch path; no Portainer or Docker state was changed."
+    },
+    {
+      "path": "services/litellm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "The gemma-4-31b route points to llama-swap on port 11437 and advertises context_window and max_input_tokens as 262144, reasoning and vision support, and ordinary sampling/stream parameters.",
+      "note": "Configured API metadata, not a measured capacity claim."
+    },
+    {
+      "path": "services/litellm/custom_callbacks.py",
+      "observed_at": "2026-09-09",
+      "excerpt": "Gemma 4 is modeled as binary thinking only. Explicit enable_thinking, thinking_token_budget, or reasoning_effort is normalized into chat_template_kwargs.enable_thinking; Gemma receives no nested effort tier.",
+      "note": "Current request-transform policy. It establishes wire behavior before forwarding, not model-output quality."
+    },
+    {
+      "path": "images/llama-swap-vllm/Dockerfile",
+      "observed_at": "2026-09-09",
+      "excerpt": "The router image extends ghcr.io/mostlygeek/llama-swap:unified-cuda and installs docker.io.",
+      "note": "This image routes and spawns backends; it is not the Gemma inference image."
+    },
+    {
+      "path": "images/vllm-fastokens/Dockerfile",
+      "observed_at": "2026-09-09",
+      "excerpt": "The custom fastokens image derives from the same vLLM v0.28.0 digest and adds fastokens plus a Qwen chat template.",
+      "note": "Gemma does not override VLLM_IMAGE with this custom image, so its configured backend is the stock pinned vLLM image."
+    }
+  ]
+}

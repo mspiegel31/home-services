@@ -1,0 +1,150 @@
+---
+title: "Gemma serving and tuning"
+type: technology
+diataxis: guide
+audience: self
+question: "What is supported, and what still needs measurement?"
+decision: "Choose a safe Gemma serving and speculation path, then define the tuning evidence required before treating it as the local default."
+status: reviewed
+created: 2026-09-09
+updated: 2026-09-09
+bibliography: references.bib
+---
+
+::: {.brief-meta}
+**Question.** What is supported, and what still needs measurement?
+
+**Decision.** Choose a safe Gemma serving and speculation path, then define the tuning evidence required before treating it as the local default.
+
+**Reader.** self.
+:::
+
+## Summary
+
+The pinned stock-vLLM profile is a defensible experiment, but local runtime evidence still blocks default status [@localgemma2026].
+
+- **Configured state:** `unsloth/gemma-4-31B-it-NVFP4` is configured to run alone on the pinned stock vLLM `v0.28.0` image with a 262,144-token limit, FP8 [KV cache](#kv-cache), a 0.9 GPU-memory budget, and Google's [MTP](#mtp) assistant at four speculative tokens [@localgemma2026].
+- **Support evidence:** vLLM `v0.28.0` contains the native Gemma 4 target and MTP-assistant path; Gemma [DFlash](#dflash) still depends on open PR #41703 and is not a stock-image candidate [@vllm028mtpmodel; @vllm028specconfig; @vllmpr41703].
+- **Conflicts and age:** the current recipe's nightly-only MTP note conflicts with the `v0.28.0` tag's implementation and documentation, while B300 results for NVIDIA's [NVFP4](#nvfp4) export do not establish behavior for the configured Unsloth export on an RTX PRO 5000 [@vllmgemmarecipe; @vllm028mtpdocs; @vllmpr41745; @localgemma2026].
+- **Tradeoffs:** target quantization, [speculative decoding](#speculative-decoding), and memory headroom are separate decisions; compressed target weights do not prove assistant acceptance, KV capacity, graph headroom, tool quality, or safety [@unsloth31bconfig; @vllm028memorydocs; @google31bcard].
+- **Decisive measurement:** compare target-only and MTP K=4 with every other setting fixed, require greedy-output and tool-call parity, and record the startup KV capacity plus end-to-end latency and throughput before sweeping depth [@vllm028specdocs; @localgemma2026].
+
+## Glossary
+
+| Term | Meaning |
+|---|---|
+| []{#speculative-decoding}Speculative decoding | A drafter proposes future tokens and the target verifies them; vLLM describes the algorithm as lossless subject to hardware precision and batch-dependent numerical variation [@vllm028specdocs]. |
+| []{#mtp}MTP | Gemma's multi-token-prediction assistant is a small autoregressive decoder whose attention layers share the target's KV cache; vLLM routes Gemma assistant checkpoints through a dedicated MTP path [@googleassistantcard; @vllm028mtpdocs]. |
+| []{#dflash}DFlash | A separate block-diffusion drafter proposes a block in parallel; the Gemma 4 31B checkpoint uses five mixed-attention layers and six target auxiliary layers [@zlabdflashcard; @zlabdflashconfig]. |
+| []{#nvfp4}NVFP4 | A 4-bit floating-point weight/activation format used here inside a mixed compressed-tensors target; the configured Unsloth export also keeps selected operations at 8-bit precision [@unsloth31bconfig]. |
+| []{#kv-cache}KV cache | Runtime storage for attention keys and values; its capacity changes with context length, batch limits, cache precision, model components, and other GPU allocations [@vllm028memorydocs]. |
+| []{#acceptance-length}Acceptance length | The mean number of tokens produced per target verification round, including the verified draft prefix and target bonus token in vLLM's reported speculative metrics [@vllmpr41745]. |
+
+## Configured, supported, and unverified
+
+
+| State | What it covers | Decision weight |
+|---|---|---|
+| **Configured** | Stock vLLM `v0.28.0`; Unsloth NVFP4 target; 262,144-token limit; FP8 KV; prefix caching; `max-num-seqs=128`; Gemma reasoning/tool parsers; Google assistant; MTP K=4 [@localgemma2026] | Defines the first test arm. |
+| **Upstream-supported** | Unsloth documents vLLM serving, and the tagged registry, model code, and MTP guide contain the target and assistant path [@unsloth31bcard; @vllm028registry; @vllm028mtpmodel; @vllm028mtpdocs] | Establishes software reachability, not local success. |
+| **Historically observed** | A vLLM contributor reported the NVIDIA 31B NVFP4 target with Google's assistant at K=7 on one B300: 5.19 mean acceptance length and 296.86 output tokens/s [@vllmpr41745] | Shows that an NVFP4 target can accept this assistant. Hardware and target export differ. |
+| **Proposed** | Keep K=4 as the first MTP arm, then test K=2, 7, and 8; reserve DFlash for a corrected custom image [@localgemma2026; @zlabdflashcard] | Measurement plan only. |
+| **Unverified** | Startup, full-context capacity, exact-target acceptance, greedy parity, tool behavior, cache hits, throughput, latency, peak memory, and stability | Blocks default status. |
+
+The local request transform maps Gemma's binary thinking controls to `chat_template_kwargs.enable_thinking` without an effort tier, matching the target and assistant cards [@localgemma2026; @google31bcard; @googleassistantcard].
+
+## Evidence hierarchy and current compatibility
+
+PR #41745 merged Gemma 4 MTP, and `v0.28.0` contains its implementation, detection, and model registrations [@vllmpr41745; @vllm028mtpmodel; @vllm028specconfig; @vllm028registry]. Target and assistant configs share a 5,376-wide backbone, 262,144-token vocabulary, and 262,144-token position space; the assistant declares four BF16 layers and four shared-KV layers [@google31bconfig; @googleassistantconfig]. Current `main` retains the MTP path [@vllmmainmtpmodel].
+
+DFlash has a different support boundary. The stock tag can recognize a Qwen3-shaped DFlash drafter and its mixed sliding/full-attention geometry, but neither the tagged file nor current `main` contains the Gemma-specific PR as merged code [@vllm028dflashmodel; @vllmmaindflashmodel]. The drafter's own card still tells vLLM users to install PR #41703 [@zlabdflashcard].
+
+| PR #41703 fix | Why startup alone is insufficient |
+|---|---|
+| Apply Gemma's `sqrt(hidden_size)` target-embedding normalization | Wrong draft embeddings can lower acceptance without crashing [@vllmpr41703]. |
+| Pass `final_logit_softcapping` to draft logits | The target and DFlash configs both declare a 30.0 soft cap, but the stock DFlash logits processor does not apply it [@google31bconfig; @zlabdflashconfig; @vllm028dflashmodel]. |
+| Size Triton metadata from concrete KV-cache geometry | Gemma mixes sliding and global attention geometry [@vllmpr41703]. |
+| Mask rejected slots and unpad batch verification correctly | The PR records a failure when 17 real requests were padded to 24 graph slots [@vllmpr41703]. |
+| Keep text-only draft attention off the target multimodal-prefix restriction | The requested draft and target attention backends differ [@vllmpr41703]. |
+
+As of the fetch date, PR #41703 is open, marked `needs-rebase` and `stale`, and lacks required review. Its measured DFlash results therefore describe the PR branch, not stock `v0.28.0` [@vllmpr41703].
+
+## Version conflicts change the conclusion
+
+The current recipe calls Gemma MTP nightly-only, but the immutable `v0.28.0` tag documents and implements it. The tag governs this pinned runtime [@vllmgemmarecipe; @vllm028mtpdocs; @vllm028mtpmodel].
+
+PR #49797 merged support for Transformers' heterogeneous Gemma attention config before the local pin. This resolves the source-level geometry issue, while exact-image startup remains unobserved [@vllmpr49797; @localgemma2026].
+
+NVIDIA reports GPQA Diamond moving from 85.80% to 85.35% and LiveCodeBench from 82.49% to 82.27% for its NVFP4 export. Those H100 target-only results cannot certify Unsloth quality, MTP parity, or RTX PRO 5000 behavior [@nvidia31bcard; @localgemma2026]. The DFlash card validates a PR-based B300 K=15 setup, not the historical K=7 proposal [@zlabdflashcard].
+
+## Tradeoffs are coupled but evidence is separate
+
+| Choice | Added mechanism | What it can improve | Evidence still required locally |
+|---|---|---|---|
+| Unsloth NVFP4 target | Mixed 4-bit and 8-bit compressed target weights plus FP8 KV metadata [@unsloth31bconfig] | Weight and cache headroom | Exact-target quality, kernel selection, startup memory, and full-context KV capacity |
+| Google MTP assistant | A 469,518,596-parameter BF16 assistant with target-KV sharing [@googleassistantcard; @vllm028mtpmodel] | Decode latency when accepted drafts cost less than verified output | Load success, acceptance by workload, graph memory, parity, and net task time |
+| Z-Lab DFlash | A 1,535,967,488-parameter BF16 block drafter with five attention layers [@zlabdflashcard; @zlabdflashconfig] | Parallel proposal generation | Corrected custom image, backend compatibility, padded-batch stability, memory, parity, and net task time |
+
+Quantization saves target memory; it does not shrink the BF16 drafters or prove room for one 262,144-token request after multimodal components and CUDA graphs. vLLM treats context, batch size, graph capture, and multimodal profiling as separate memory controls, so `gpu-memory-utilization=0.9` remains a budget rather than a capacity result [@vllm028memorydocs; @localgemma2026].
+
+vLLM qualifies speculative losslessness for floating-point and batch-dependent variation. Test greedy parity, tools, reasoning separation, long-context retrieval, and safety; Google's card names factual error, bias, and harmful output as application risks [@vllm028specdocs; @google31bcard].
+
+## The measurement that changes the decision
+
+Run the target-only control first, then the configured MTP K=4 arm with model revision, prompt order, sampling, context, cache dtype, prefix-cache state, concurrency, and graph settings fixed. Capture the resolved model length, GPU KV-cache tokens, maximum concurrency at 262,144 tokens, post-capture memory, TTFT, TPOT, output tokens/s, request throughput, mean acceptance length, per-position acceptance, cache hits, and task success [@vllm028specdocs; @localgemma2026].
+
+The acceptance gate is stricter than “server started.” Require exact greedy token parity for representative text, code, reasoning-on/off, one tool call, a multi-turn tool result, and 20–40 instruction-following prompts. Reject the arm for malformed tools, leaked reasoning, new call loops, NaN/CUDA faults, engine restarts, or loss of repeat-prefix cache hits. Exercise concurrency 1, 4, 8, 16, 17, 24, and 32; 17 targets the historical graph-padding failure shape [@vllmpr41703; @localgemma2026].
+
+Only a passing K=4 arm earns a depth sweep at K=2, 7, and 8. Compare end-to-end task time and TPOT, not acceptance alone. Test a near-full-context request separately from ordinary 16K and 32K agent traffic so a throughput win cannot hide the loss of the required full-length slot [@localgemma2026].
+
+## Worked example
+
+This is the exact effective launch shape reconstructed from the checked-in macros. It is evidence of configuration, not evidence that the backend has run [@localgemma2026].
+
+```bash
+docker run --init --rm --gpus all --ipc host \
+  --shm-size=16g --ulimit memlock=-1 --ulimit stack=67108864 \
+  --network llama-swap-vllm-backend \
+  --env HF_TOKEN --env HF_HOME=/models/huggingface \
+  --env SAFETENSORS_FAST_GPU=1 \
+  --env VLLM_CACHE_ROOT=/models/vllm --env VLLM_USE_FASTOKENS=0 \
+  --env PYTORCH_CUDA_ALLOC_CONF=expandable_segments:False \
+  --volume /mnt/models:/models \
+  --name vllm-gemma-4-31b \
+  vllm/vllm-openai:v0.28.0@sha256:61fc8a896b0a4fbbbdc063bc4b0dbc25ce98e02b5050c24aeb7830ac02039b14 \
+  unsloth/gemma-4-31B-it-NVFP4 \
+  --served-model-name gemma-4-31b \
+  --enable-prefix-caching --max-num-seqs 128 \
+  --max-model-len 262144 --gpu-memory-utilization 0.9 \
+  --kv-cache-dtype fp8 \
+  --reasoning-parser gemma4 --tool-call-parser gemma4 \
+  --enable-auto-tool-choice \
+  --speculative-config '{"method":"mtp","model":"google/gemma-4-31B-it-assistant","num_speculative_tokens":4}'
+```
+
+The failure scenario is a capacity gate: after loading the target, assistant, vision path, KV cache, and CUDA graphs, startup reports fewer than 262,144 cacheable tokens for one request, or a near-limit request cannot complete. The outcome is **unverified** because no startup log or request trace was collected [@localgemma2026; @vllm028memorydocs].
+
+| Step | Mechanism | Observable evidence |
+|---|---|---|
+| 1 | llama-swap selects Gemma's singleton matrix set and expands the pinned stock-image command [@localgemma2026] | Expanded command and no co-resident model |
+| 2 | vLLM loads the mixed-precision target and routes the Google assistant through `gemma4_mtp` [@unsloth31bconfig; @vllm028specconfig] | Target/draft architecture log and resolved quantization |
+| 3 | The MTP proposer shares target KV while retaining assistant compute [@vllm028mtpmodel] | Draft model load, KV-sharing map, and post-load memory |
+| 4 | vLLM profiles KV capacity and CUDA graphs under the 0.9 budget [@vllm028memorydocs] | GPU KV-cache tokens and maximum full-length concurrency |
+| 5 | At decode, the assistant proposes four tokens and the target verifies them [@vllm028mtpdocs] | Acceptance length, per-position acceptance, TPOT, and output rate |
+
+The isolated control removes only `--speculative-config`. Keep context, FP8 KV, prefix caching, parsers, graph policy, prompts, and request order fixed. If K=4 preserves greedy/tool behavior, retains one full-length slot, stays stable under the probes, and improves end-to-end task time, MTP becomes the candidate default. A failed gate keeps target-only serving and leaves DFlash in the custom-image lane [@localgemma2026].
+
+## Limitations
+
+This briefing inspected files and upstream sources without launching a model, querying Portainer, or collecting GPU logs. It proves configured intent and source reachability, not that mutable Hub revisions, the image's Transformers build, the exact Unsloth export, and the RTX PRO 5000 execute together [@localgemma2026].
+
+No source measures the exact local combination. Published results use different hardware, checkpoints, depths, contexts, and traffic; NVIDIA evaluated a different target export. Recheck PR #41703 before any DFlash image build [@vllmpr41745; @zlabdflashcard; @nvidia31bcard; @vllmpr41703].
+
+## Next action
+
+In a separately authorized controlled runtime experiment, capture one startup and benchmark bundle for target-only and MTP K=4 on the pinned image and current Hub revisions. Record revisions, full-context capacity, greedy parity, tool validity, stability, cache hits, TTFT, TPOT, throughput, acceptance, peak memory, and task time. Do not sweep depth or build DFlash until that two-arm gate passes. This briefing performed no runtime experiment; only inspection of already-existing logs would have been read-only [@localgemma2026].
+
+## References
+
+::: {#refs}
+:::
