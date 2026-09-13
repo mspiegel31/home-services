@@ -1,0 +1,72 @@
+---
+title: "Briefings"
+listing:
+  contents: "*/index.qmd"
+  type: table
+  fields: [title, type, diataxis, status, updated]
+  field-display-names:
+    type: Type
+    diataxis: Mode
+    status: Status
+    updated: Updated
+  sort: "updated desc"
+  filter-ui: true
+---
+
+This collection groups eight homelab briefings around the decisions they support. Start with the question closest to your next change, then use the evidence trail to check how the briefing reached its answer.
+
+::: {.callout-note}
+All eight briefings passed citation audits, source-coverage review, rendering, and browser/print verification on 2026-09-09. `reviewed` describes the documents, not a deployment or benchmark result. Configured state, historical observations, and proposed changes remain labeled separately.
+:::
+
+## Choose a briefing
+
+### Models and serving
+
+- [Qwen quality, speculation, and tool calling](qwen-serving/index.qmd): choose a precision, decoder, and serving profile.
+- [Gemma serving and tuning](gemma-serving/index.qmd): separate supported serving paths from tuning work that still needs measurement.
+- [Muse context extension](muse-context/index.qmd): assess whether extended context is usable rather than only loadable.
+- [Larger models and memory expansion](model-memory/index.qmd): compare model, offload, memory, and hardware upgrade paths.
+
+### Systems and access
+
+- [Inference control plane and reasoning](inference-control-plane/index.qmd): align model catalogs, thinking controls, and clients.
+- [Hermes Butler architecture and readiness](hermes-butler/index.qmd): distinguish implemented behavior from planned prerequisites.
+- [Architecture whiteboarding with LLMs](architecture-whiteboarding/index.qmd): select a human–LLM architecture review loop.
+- [Private inference access](private-inference-access/index.qmd): inspect tunnel, proxy, and trust-boundary choices.
+
+## Read the evidence trail
+
+Each topic keeps five source artifacts:
+
+- `index.qmd` contains the briefing, citations, and document status.
+- `BRIEF.md` is the approved contract: reader, question, decision, scope, and supporting questions.
+- `references.bib` holds citation metadata.
+- `sources/LEDGER.md` records each fetched URL, fetch date, citation key, and source summary.
+- `sources/evidence.json` preserves local-source coverage and dated excerpts that must remain traceable after older notes are removed.
+
+The provenance status in `sources/evidence.json` records how each older topic survived consolidation. `retained` means the topic remains supported in the briefing. `corrected` means newer primary evidence changed the earlier conclusion. `historical` preserves a dated observation without presenting it as a current measurement. Briefing prose also separates configured state, historically observed behavior, proposed design, and unverified gaps.
+
+## Render or preview locally
+
+From the repository root:
+
+```bash
+quarto render briefings
+```
+
+The [Quarto project guide](https://quarto.org/docs/projects/quarto-projects.html#rendering-projects) documents directory-targeted rendering.
+
+For a local site that refreshes while source files change:
+
+```bash
+quarto preview briefings
+```
+
+Use the HTTP preview rather than opening `_site/index.html` as a `file://` URL. Verification with the installed marimo extension found that the computed memory table displays over HTTP but not through direct file access. The example has no interactive controls; its calculations run during rendering.
+
+The [Quarto preview reference](https://quarto.org/docs/cli/preview.html) documents website preview behavior and options.
+
+## All briefings
+
+Use the filter box to narrow the collection by title, type, mode, status, or update date. Open a row to read the briefing.
