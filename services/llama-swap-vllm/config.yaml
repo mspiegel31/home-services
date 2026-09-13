@@ -523,7 +523,7 @@ models:
 
   "ornith-1.5-35b-a3b-nvfp4":
     name: Ornith 1.5 35B-A3B NVFP4
-    description: Ornith 1.5 35B-A3B MoE with jzinno DFlash2, vision, binary thinking, and auto-fit context (native 262,144)
+    description: Ornith 1.5 35B-A3B MoE with vision, binary thinking, and auto-fit context (native 262,144)
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -540,6 +540,10 @@ models:
       MAX_NUM_SEQS: "32"
       checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
     proxy: http://vllm-ornith-1-5-35b-a3b:8000
+    # DFlash2 disabled: repeated subagent prefixes reproduced cached-state
+    # corruption (duct loops) on vLLM 0.28.0; fresh cache namespaces worked.
+    # Keep prefix caching; re-test warm-cache requests before restoring
+    # speculative decoding. Related: vllm-project/vllm#53912.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-ornith-1-5-35b-a3b
@@ -550,7 +554,6 @@ models:
       --max-num-batched-tokens 16384
       --gpu-memory-utilization 0.9
       --kv-cache-dtype bfloat16
-      --speculative-config '{"method":"dflash","model":"jzinno/Ornith-1.5-35B-A3B-DFlash2","num_speculative_tokens":7}'
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
