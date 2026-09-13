@@ -1,0 +1,234 @@
+---
+title: "Qwen quality, speculation, and tool calling"
+type: technology
+diataxis: guide
+audience: self
+question: "Which precision, decoder, and serving profile should be the daily driver?"
+decision: "Choose the Qwen quality and throughput profile to run as the daily driver, then choose the next comparable evaluation needed to confirm or revise that choice."
+status: reviewed
+created: 2026-09-09
+updated: 2026-09-09
+bibliography: references.bib
+---
+
+::: {.brief-meta}
+**Question.** Which precision, decoder, and serving profile should be the daily driver?
+**Decision.** Choose the Qwen quality and throughput profile to run as the daily driver, then choose the next comparable evaluation needed to confirm or revise that choice.
+**Reader.** self.
+:::
+
+## Summary
+
+Use official [FP8](#fp8-and-nvfp4) on vLLM `v0.28.0` with [DFlash2](#dflash2) K7, an FP8 [KV cache](#kv-cache), [automatic prefix caching](#automatic-prefix-caching), Qwen [tool parsers](#tool-parser), and low reasoning as the daily driver; keep the RadixArk [NVFP4](#fp8-and-nvfp4) BF16-head lane as the checkpoint-only challenger [@local-serving-config; @local-litellm-routing; @qwen-fp8-card].
+
+- The repository configures six Qwen lanes, but configuration, historical observation, proposal, and current verification are separate evidence states [@local-serving-config; @local-historical-observations].
+- First-party provenance favors official FP8 for quality, while a matched community DGX Spark comparison supports NVFP4 only as a throughput hypothesis for this host [@qwen-fp8-card; @radixark-bf16-lmhead-card; @dgx-fp8-nvfp4].
+- Decoder counts, hybrid-cache behavior, open [SM120](#sm120) defects, and dated local runs limit how far any result transfers [@dflash2-card; @vllm-issue-53726; @vllm-issue-54360; @vllm-issue-54623].
+- Quality, capacity, tool reliability, portability, and lifecycle risk favor FP8 for daily work until the faster mixed-precision lane passes the whole request path [@vllm-tool-calling; @local-audit-evidence; @rtx6kpro-common-issues].
+- A checkpoint-only FP8-versus-RadixArk comparison with fixed serving controls would most directly confirm or overturn the choice [@local-serving-config; @local-audit-evidence].
+
+## Glossary
+
+### Automatic prefix caching {#automatic-prefix-caching}
+
+vLLM automatic prefix caching reuses hash-identified KV blocks from an earlier request with the same token prefix and cache identity [@vllm-prefix-cache].
+
+### DFlash2 {#dflash2}
+
+DFlash2 is a separate block-diffusion draft checkpoint whose candidates the target model verifies before returning tokens [@dflash2-card].
+
+### FP8 and NVFP4 {#fp8-and-nvfp4}
+
+FP8 and NVIDIA FP4 are floating-point formats used by the named checkpoints in different mixed-precision layouts; the format label alone does not identify which layers stay at higher precision [@qwen-fp8-card; @radixark-bf16-lmhead-card; @unsloth-nvfp4-card].
+
+### Gated DeltaNet {#gated-deltanet}
+
+Gated DeltaNet is the recurrent linear-attention component in Qwen3.8-27B's hybrid architecture [@qwen-bf16-card].
+
+### KV cache {#kv-cache}
+
+The key-value cache stores attention state from processed tokens so later generation does not recompute that state [@vllm-prefix-cache].
+
+### Multi-token prediction {#mtp}
+
+Multi-token prediction uses a prediction head embedded in the target checkpoint to propose future tokens for verification [@sglang-qwen-cookbook; @ninfer-card].
+
+### SM120 {#sm120}
+
+SM120 is the NVIDIA Blackwell compute target named in the cited vLLM reports for the RTX 5090-class failure paths [@vllm-issue-52540; @vllm-issue-53726].
+
+### Tool parser {#tool-parser}
+
+A tool parser converts model output into the structured `tool_calls` contract expected by an OpenAI-compatible client [@vllm-tool-calling].
+
+## Local profiles have four evidence states
+
+The checked-in files prove configuration and routing, not which backend is active or which digest a prior process resolved [@local-serving-config; @local-litellm-routing].
+
+| Profile | Evidence state |
+|---|---|
+| Official FP8 on vLLM | **Configured; proposed daily driver.** FP8 KV, DFlash2 K7, prefix caching, and Qwen parsers are present [@local-serving-config]. |
+| Unsloth Dynamic NVFP4 on vLLM | **Configured; historically observed.** Dated reports of loops, early stops, and failed tool calls apply to that checkpoint and older stacks [@unsloth-nvfp4-card; @local-historical-observations]. |
+| RadixArk NVFP4 with BF16 head on vLLM | **Configured; historically measured.** FP8 E4M3 KV, 16,384 batched tokens, DFlash2 K7, and the SM120 kernel exclusion are present [@local-serving-config]. |
+| RadixArk NVFP4 with BF16 head on SGLang | **Configured; historically measured.** DFlash2 K8, LPM scheduling, radix caching, and bounded recurrent-state storage are present [@local-serving-config; @sglang-qwen-cookbook]. |
+| QUASAR NVFP4 on vLLM | **Configured; unverified here** [@local-serving-config; @local-litellm-routing]. |
+| Qwen NInfer | **Configured; unverified here.** It uses an engine-specific artifact [@local-serving-config; @ninfer-card]. |
+
+A dated vLLM control recorded 277.253 output tokens per second; a separate SGLang K8 canary recorded 266.966 [@local-historical-observations]. Different engines and configurations make these historical operating points, not a head-to-head result.
+
+## FP8 leads the precision evidence
+
+No fetched source supplies a same-revision, same-harness BF16, official FP8, and NVFP4 quality matrix. The evidence instead defines a quality control and a throughput challenger [@qwen-bf16-card; @qwen-fp8-card; @radixark-bf16-lmhead-card].
+
+| Weight profile | What the evidence supports | Daily-driver use |
+|---|---|---|
+| BF16 | First-party capability reference with no local acceptance run in the evidence snapshot [@qwen-bf16-card; @local-historical-observations]. | Reference when a fit-safe control is practical. |
+| Official FP8 | Qwen documents fine-grained FP8 with block size 128 and describes its metrics as nearly identical to BF16, but publishes no controlled precision delta [@qwen-fp8-card]. | Best available quality provenance; use now. |
+| RadixArk NVFP4 with BF16 head | The third-party recipe preserves BF16 embeddings and output head and publishes its own text evaluations [@radixark-bf16-lmhead-card]. | Faster candidate that needs local acceptance. |
+| Unsloth NVFP4 | The third-party dynamic recipe has its own template and serving guidance; dated checkpoint-specific reports describe behavioral failures on older stacks [@unsloth-nvfp4-card; @local-historical-observations]. | Lower-priority experiment. |
+
+A community DGX Spark comparison held vLLM `0.27.1`, hardware, concurrency, and random workloads constant. At 16 concurrent requests, Unsloth NVFP4 produced 29% to 34% more output tokens per second than official FP8 [@dgx-fp8-nvfp4]. It supports a throughput test, not local quality or performance claims for the RTX PRO 5000, vLLM `v0.28.0`, DFlash2, or RadixArk.
+
+FP8 stays primary; RadixArk gets one challenge.
+
+## Decoder, cache, and hardware evidence has sharp boundaries
+
+Decoder, cache, and kernel choices interact with Qwen3.8's hybrid full-attention and [Gated DeltaNet](#gated-deltanet) state. Results transfer only when the checkpoint, engine, speculation, cache geometry, and GPU path match.
+
+### DFlash2 and MTP count different units
+
+| Decoder path | Published or configured unit | Evidence boundary |
+|---|---|---|
+| vLLM DFlash2 | Seven speculative candidates for the checkpoint's eight-token block [@dflash2-card; @vllm-qwen-recipe]. | Matches the configured vLLM K7 lane [@local-serving-config]. |
+| SGLang DFlash2 | An eight-token draft block [@dflash2-card; @sglang-qwen-cookbook]. | The different spelling does not justify changing vLLM to K8. |
+| Native [MTP](#mtp) | An embedded prediction head, with no separate draft checkpoint [@sglang-qwen-cookbook; @ninfer-card]. | Lower checkpoint overhead, but open vLLM hybrid-state failures block its use on this pinned runtime [@vllm-issue-53726]. |
+| NInfer MTP | An engine-specific artifact with prompt-dependent acceptance [@ninfer-card]. | Evidence that proposals can work, not evidence that NInfer beats DFlash2. |
+
+On one RTX 5090 at concurrency one, the SGLang cookbook reports 4.92 ms median time per output token for DFlash2 and native-MTP rates of 152.9 and 144.5 output tokens per second under two recurrent-state precisions [@sglang-qwen-cookbook]. These are setup-specific operating points.
+
+### Prefix reuse has a lifecycle
+
+vLLM hashes complete token blocks with the parent hash and request identity, protects referenced matches during use, releases them when requests finish, and evicts unreferenced blocks under pressure [@vllm-prefix-cache]. DFlash2 begins after prefill, so it cannot account for time saved by a repeated prompt prefix [@dflash2-card].
+
+```text
+request tokens
+  -> full-block hash chain
+  -> matching KV blocks acquire references
+  -> prefill computes the unmatched suffix
+  -> DFlash2 proposes during decode
+  -> request releases references
+  -> memory pressure may evict free blocks
+```
+
+The diagram separates prefix prefill from speculative decode.
+
+The stack persists model and vLLM caches beneath `/mnt/models` [@local-serving-config]. Version or selectively invalidate JIT caches after runtime or kernel changes because stale Blackwell artifacts have caused failures [@rtx6kpro-common-issues]. Local sleep/wake remains disabled in favor of container unload [@local-serving-config]. Wake readiness is unknown because the earlier consolidation note did not preserve verifiable upstream fix references.
+
+### Three SM120 hazards have different scope
+
+| Hazard | Current evidence | Decision boundary |
+|---|---|---|
+| Unsloth FP8 KV calibration | Open issue #54623 reports that Qwen3.5-family loading drops the exact Unsloth checkpoint's calibrated K/V scales; the open fix is PR #54624 [@vllm-issue-54623; @vllm-pr-54624]. Local config records the limitation [@local-serving-config]. | Treat BF16 KV as the Unsloth quality canary. The report does not establish the same failure for the official FP8 target. |
+| Mixed-precision FP8 linear kernel | Open issue #52540 reports an SM120 failure in the FlashInfer FP8 scaled-matrix-multiplication lane [@vllm-issue-52540]. | Keep the kernel exclusion on affected local mixed-NVFP4 lanes; do not copy it to unrelated profiles without confirming dispatch [@local-serving-config]. |
+| Hybrid speculation and cache | Open issues report illegal memory access under native MTP and reduced or missing prefix hits when hybrid models combine caching with MTP or DFlash [@vllm-issue-53726; @vllm-issue-54360]. | Keep native MTP out of vLLM `v0.28.0`; measure DFlash cache hits instead of assuming them. |
+
+Issue #54623 reports GSM8K accuracy of 92.3% with unit-scale FP8 KV, 93.7% with calibration, and 94.5% for its BF16-KV control [@vllm-issue-54623]. This is a checkpoint-specific reporter result, not local accuracy.
+
+## The daily-driver tradeoff spans the complete request path
+
+The daily driver must preserve quality, useful context, valid tools, sustained-load stability, and reproducibility. A public token rate cannot settle all five.
+
+| Dimension | Current choice | Reason |
+|---|---|---|
+| Quality | Official FP8 | First-party provenance and no controlled local evidence that a four-bit candidate preserves the failure-sensitive workload [@qwen-fp8-card; @local-audit-evidence]. |
+| Throughput | RadixArk remains the challenger | Community measurements support an NVFP4 throughput hypothesis, while its BF16 head and checkpoint differ from the measured Unsloth pair [@dgx-fp8-nvfp4; @radixark-bf16-lmhead-card]. |
+| Context capacity | Read startup-reported context and KV capacity | `auto` model length and FP8 KV do not guarantee a particular admitted concurrency before startup profiling [@local-serving-config; @rtx6kpro-common-issues]. |
+| Decoder portability | DFlash2 on the two configured engines | vLLM and SGLang use different counters; NInfer remains engine-specific [@dflash2-card; @sglang-qwen-cookbook; @ninfer-card]. |
+| Operations | Pin image identity, preserve model caches, invalidate changed JIT artifacts, and keep sleep/wake disabled | Mutable images and stale compiled state prevent comparable runs; wake safety is not established for this profile [@local-serving-config; @rtx6kpro-common-issues]. |
+
+A skill call crosses four contracts:
+
+```text
+OpenCode skill name and description
+  -> LiteLLM request and reasoning transform
+  -> llama-swap route and model chat template
+  -> vLLM model output and tool parser
+  -> structured tool_calls returned to OpenCode
+```
+
+OpenCode loads `SKILL.md` after the model invokes the skill tool [@opencode-skills]. LiteLLM maps reasoning controls into Qwen chat-template arguments [@local-callback-policy]. vLLM automatic tool selection requires automatic choice and a parser, and the local lanes supply both [@vllm-tool-calling; @local-serving-config].
+
+A community DGX Spark test reported one prompt-injection failure under its thinking sampler and a pass under greedy decoding [@dgx-decoder-tool]. That scenario belongs in the local evaluation, not a universal sampler ranking. The FP8 route advertises only low reasoning, but this briefing sent no request through it [@local-litellm-routing; @local-callback-policy].
+
+The earlier audit rejected unpublished 93% to 97% MCP rankings and retained four non-Qwen comparison arms [@local-audit-evidence]:
+
+| Comparison arm | Role in a future evaluation |
+|---|---|
+| Muse Glimmer | Tool-use and recovery comparison. |
+| GLM-4.7-Flash | Lightweight tool-worker comparison. |
+| Gemma 4 31B | Dense model and parser interoperability comparison. |
+| gpt-oss-120b | High-memory tool-use control. |
+
+These remain unproven replacements. Their evidence sits in the [Muse](../muse-context/index.qmd), [Gemma](../gemma-serving/index.qmd), and [model-memory](../model-memory/index.qmd) briefings.
+
+## A controlled endpoint comparison can close the gap
+
+Compare official FP8 with RadixArk NVFP4 plus the BF16 head. Change only the checkpoint first; simultaneous KV, decoder, sampler, or scheduler changes would prevent attribution.
+
+| Control | Fixed or changed | Evidence to record |
+|---|---|---|
+| Target checkpoint | **Changed:** official FP8 versus RadixArk NVFP4 BF16-head. | Exact model revision and loaded weight format. |
+| Serving path | **Fixed:** vLLM `v0.28.0`, DFlash2 K7, FP8 KV, kernel selection, prefix cache, Qwen parsers, template behavior, limits, and low reasoning [@local-serving-config; @local-callback-policy]. | Effective image digest, startup-resolved context, KV capacity, and scheduler budgets. |
+| Workload | **Fixed:** request order, warmup, sampling, and 20 to 40 real agent prompts covering skill selection, tool rejection, nested arguments, recovery, long-context retrieval, coding, and prompt injection [@local-audit-evidence]. | Raw envelopes before and after LiteLLM, generated tokens, and finish reasons. |
+| Success measures | **Fixed:** valid tool structure, completed task, loops, instruction violations, token use, latency, DFlash acceptance, cache hits, queue depth, preemptions, and process errors. | Per-arm results and run-to-run spread. |
+| Promotion rule | RadixArk replaces FP8 only if it meets the FP8 behavioral gates and improves the production-shaped latency or capacity target. | A faster arm fails if parser, retrieval, instruction following, or sustained-load stability regresses. |
+
+Resolve the mutable fastokens image tag to a digest before the comparison [@local-serving-config]. If neither arm returns stable structured calls, diagnose the request path before drawing a precision conclusion.
+
+## Worked example
+
+### A repeated long agent prefix
+
+The quality-first lane expands to this vLLM argument vector; its fastokens image tag remains mutable [@local-serving-config]:
+
+```text
+Qwen/Qwen3.8-27B-FP8
+--served-model-name qwen3.8-27b-fp8
+--enable-prefix-caching
+--max-num-seqs 128
+--max-model-len auto
+--gpu-memory-utilization 0.90
+--kv-cache-dtype fp8
+--speculative-config {"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}
+--reasoning-parser qwen3
+--tool-call-parser qwen3_xml
+--enable-auto-tool-choice
+--performance-mode throughput
+```
+
+This profile combines repeated-prefix reuse, speculative decode, and structured tool parsing. Its digest, resolved context, and KV capacity require startup observation.
+
+A long agent session sends the same system instructions, skill catalogue, tool schemas, and early conversation twice, changing only the final user request.
+
+1. On the cold request, vLLM tokenizes the prefix, computes complete cache blocks, and retains reusable blocks after completion [@vllm-prefix-cache].
+2. On the warm request, identical token IDs and cache identity fields recover those blocks. A dated local probe on an earlier configured lane used a 58.8K-token shared prefix and recorded time to first token falling from 12.414 seconds cold to 1.018 and 1.010 seconds warm [@local-historical-observations]. This briefing did not reproduce that result on the FP8 lane.
+3. DFlash2 begins helping during generation. Its acceptance and decode rate do not explain the saved prefill time [@dflash2-card].
+4. Changing system text, template output, tool-schema order, model state, or another identity field can break the hash chain before the final request. The warm request then reuses fewer blocks [@vllm-prefix-cache].
+5. An open hybrid-model report says speculation can reduce hits for matching prompts [@vllm-issue-54360]. Keep the checkpoint and request fixed, then run DFlash2 on and off. Record output, cache-hit deltas, time to first token, and acceptance. Pass only if output remains correct and cache loss does not erase the end-to-end benefit.
+
+The historical probe shows the prefix benefit. The DFlash control tests whether it survives speculation; the outcome is unverified.
+
+## Limitations
+
+No backend was started and no benchmark was run. Local rates and cache timings are dated observations in `sources/evidence.json`; model cards provide vendor evidence, and NVIDIA forum posts provide community measurements. No fetched source supplies a controlled local matrix across the three precision families, two engines, and two decoders.
+
+The active backend, image digest, resolved context, KV capacity, prefix hits, and sustained-load stability remain unverified. Issue #54623 and PR #54624 were open when fetched on 2026-09-09 [@vllm-issue-54623; @vllm-pr-54624]. Sleep/wake stays disabled until a future wake regression because the evidence set does not establish fix readiness.
+
+## Next action
+
+Pin the custom fastokens image by digest, then run the checkpoint-only FP8-versus-RadixArk comparison through the complete agent request path. Keep FP8 as the daily driver until RadixArk passes the behavioral and sustained-load gates.
+
+## References
+
+::: {#refs}
+:::

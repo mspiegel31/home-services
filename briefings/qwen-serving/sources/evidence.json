@@ -1,0 +1,259 @@
+{
+  "repository_revision": "a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+  "source_coverage": [
+    {
+      "path": "research/qwen3-8b-bf16-fp8-nvfp4-quality.md",
+      "sha256": "1fa3aeed675f09954c182bb9a131cb69725f607c525ebe5554663ec0c7393867",
+      "topics": [
+        {
+          "topic": "BF16, official FP8, and third-party NVFP4 artifact provenance",
+          "section": "FP8 leads the precision evidence",
+          "status": "retained",
+          "note": "The artifact distinctions remain current after checking the pinned model cards."
+        },
+        {
+          "topic": "absence of a controlled three-precision quality matrix",
+          "section": "FP8 leads the precision evidence",
+          "status": "retained",
+          "note": "No current primary source supplies a same-revision, same-harness BF16/FP8/NVFP4 comparison."
+        },
+        {
+          "topic": "older Qwen and RadixArk benchmark extracts",
+          "section": "Limitations",
+          "status": "historical",
+          "note": "Exact dated extracts remain provenance, but they are not represented as a new local evaluation."
+        }
+      ]
+    },
+    {
+      "path": "research/qwen3-8-unsloth-nvfp4-vs-fp8-daily-drive.md",
+      "sha256": "33ac1e34c9695ee38ecfbaeedd206cd969106019b027a5d71c97562b0220e4f0",
+      "topics": [
+        {
+          "topic": "Unsloth NVFP4 daily-driver quality reports",
+          "section": "FP8 leads the precision evidence",
+          "status": "historical",
+          "note": "Community observations about loops, stops, and tool failures are retained as checkpoint-specific warnings, not general capability claims."
+        },
+        {
+          "topic": "Unsloth checkpoint layout and local cached snapshot",
+          "section": "Local profiles have four evidence states",
+          "status": "historical",
+          "note": "The cached snapshot observation was dated 2026-09-03 and was not re-measured."
+        },
+        {
+          "topic": "FP8 KV calibration and SM120 kernel hazards",
+          "section": "Decoder, cache, and hardware evidence has sharp boundaries",
+          "status": "corrected",
+          "note": "Issue #54623 and fix PR #54624 were re-read on 2026-09-09 and remain open; their evidence applies to the exact Unsloth checkpoint and Qwen3.5-family loader, not automatically to official FP8."
+        }
+      ]
+    },
+    {
+      "path": "research/qwen38-27b-nvfp4-fp8-bf16-vllm-performance.md",
+      "sha256": "1e0abb97834a5c053c5888d39cbbb434b202dcac3f0782c9c26a9000addc6409",
+      "topics": [
+        {
+          "topic": "Blackwell weight-precision throughput comparisons",
+          "section": "FP8 leads the precision evidence",
+          "status": "retained",
+          "note": "The DGX Spark pair is kept as a community measurement on matched flags and hardware; it is not projected onto the local GPU."
+        },
+        {
+          "topic": "precision-sensitive intelligence and tool-calling evidence",
+          "section": "The daily-driver tradeoff spans the complete request path",
+          "status": "corrected",
+          "note": "Vendor and community measurements are labeled by source and do not establish a universal tool-call ranking."
+        },
+        {
+          "topic": "sampler and reasoning-control effects",
+          "section": "The daily-driver tradeoff spans the complete request path",
+          "status": "retained",
+          "note": "The briefing recommends the configured low-effort profile while leaving sampler superiority to the controlled local evaluation."
+        }
+      ]
+    },
+    {
+      "path": "research/vllm-qwen38-dflash-prefix-cache-tuning.md",
+      "sha256": "21f68a0f8d4c8bb53585110b5a6337c74a73def88309986796eab2888892fd2e",
+      "topics": [
+        {
+          "topic": "vLLM DFlash2 K7 profile",
+          "section": "Decoder, cache, and hardware evidence has sharp boundaries",
+          "status": "retained",
+          "note": "Current config and the DFlash2 card still agree on seven candidates for an eight-token block."
+        },
+        {
+          "topic": "vLLM automatic prefix cache mechanics and hybrid-state boundaries",
+          "section": "Decoder, cache, and hardware evidence has sharp boundaries",
+          "status": "retained",
+          "note": "The v0.28.0 design document was fetched directly from the tagged repository."
+        },
+        {
+          "topic": "local throughput and prefix-hit controls",
+          "section": "Worked example",
+          "status": "historical",
+          "note": "Values are preserved as dated observations and were not rerun for this briefing."
+        },
+        {
+          "topic": "native MTP, speculation, and SM120 hazards",
+          "section": "Decoder, cache, and hardware evidence has sharp boundaries",
+          "status": "corrected",
+          "note": "Open issue reports were re-read on 2026-09-09; unresolved behavior is presented as a release gate."
+        }
+      ]
+    },
+    {
+      "path": "research/ninfer-mtp-portability-vllm-sglang.md",
+      "sha256": "c686b573a169a14d59d95c859b983ad8555bd3747a0930bc88f4d09863fe0fe2",
+      "topics": [
+        {
+          "topic": "SGLang DFlash2 versus native MTP measurements",
+          "section": "Decoder, cache, and hardware evidence has sharp boundaries",
+          "status": "retained",
+          "note": "The current SGLang cookbook still documents the same decoder families and warns that operating points are configuration-specific."
+        },
+        {
+          "topic": "NInfer artifact and MTP portability",
+          "section": "Decoder, cache, and hardware evidence has sharp boundaries",
+          "status": "retained",
+          "note": "NInfer remains an engine-specific fallback profile; its acceptance results do not prove superiority over DFlash2."
+        },
+        {
+          "topic": "local SGLang K8 canary",
+          "section": "Local profiles have four evidence states",
+          "status": "historical",
+          "note": "The recorded canary is preserved without claiming a new run or a cross-engine comparison."
+        }
+      ]
+    },
+    {
+      "path": "research/rtx5000-72gb-lessons-from-rtx6kpro.md",
+      "sha256": "0be8218aea0ee19beda04ff827812e2e76717938de0d2a91ae3a10536dac9606",
+      "topics": [
+        {
+          "topic": "startup KV capacity as admission contract",
+          "section": "A controlled endpoint comparison can close the gap",
+          "status": "retained",
+          "note": "The method transfers; memory capacity and rate figures from 96 GB or multi-GPU systems do not."
+        },
+        {
+          "topic": "persistent model and compiler caches",
+          "section": "Decoder, cache, and hardware evidence has sharp boundaries",
+          "status": "retained",
+          "note": "Current mounts and cache environment variables were verified in the repository."
+        },
+        {
+          "topic": "Blackwell JIT invalidation and sleep/wake risk",
+          "section": "Decoder, cache, and hardware evidence has sharp boundaries",
+          "status": "corrected",
+          "note": "JIT invalidation guidance remains current. The local sleep/wake-disabled state is current, while upstream wake-fix readiness is marked unknown because the consolidation evidence did not preserve exact fix sources."
+        }
+      ]
+    },
+    {
+      "path": "research/local-agent-model-tool-calling-sanity-check.md",
+      "sha256": "0b06c46b8ef92a0c6b7df76da7f657fc51f38c779f59288df2c7e1fe2f16124b",
+      "topics": [
+        {
+          "topic": "model, parser, and skill-discovery layer separation",
+          "section": "The daily-driver tradeoff spans the complete request path",
+          "status": "retained",
+          "note": "OpenCode's current skill documentation confirms on-demand loading through the native skill tool."
+        },
+        {
+          "topic": "unsupported MCP percentage rankings and model-name corrections",
+          "section": "The daily-driver tradeoff spans the complete request path",
+          "status": "retained",
+          "note": "The rejected claims remain excluded; no replacement universal percentage is asserted."
+        },
+        {
+          "topic": "Muse, GLM-4.7-Flash, Gemma 4, and gpt-oss comparison shortlist",
+          "section": "The daily-driver tradeoff spans the complete request path",
+          "status": "retained",
+          "note": "The shortlist is preserved without turning separate model-card claims into a local ranking; detailed treatment is cross-linked."
+        }
+      ]
+    }
+  ],
+  "local_evidence": [
+    {
+      "path": "services/llama-swap-vllm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "VLLM_IMAGE is pinned to vllm/vllm-openai:v0.28.0 by digest; VLLM_COMMON enables prefix caching and a 128-sequence cap; QWEN38_COMMON selects qwen3 reasoning, qwen3_xml tools, automatic tool choice, and throughput mode.",
+      "note": "Configured state only. No backend was started and no active deployment was inferred."
+    },
+    {
+      "path": "services/llama-swap-vllm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "The qwen3.8-27b-fp8 lane selects Qwen/Qwen3.8-27B-FP8, auto model length, 0.90 GPU memory utilization, FP8 KV, and incoai/Qwen3.8-27B-DFlash2 with num_speculative_tokens 7.",
+      "note": "This is the recommended quality-first daily-driver lane. Its custom fastokens image tag remains mutable."
+    },
+    {
+      "path": "services/llama-swap-vllm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "The RadixArk BF16-lm-head lane selects FP8 E4M3 KV, 16,384 max batched tokens, DFlash2 K7, and disables FlashInferFP8ScaledMMLinearKernel.",
+      "note": "Configured throughput candidate and comparison arm."
+    },
+    {
+      "path": "services/llama-swap-vllm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "The SGLang BF16-lm-head lane selects FP8 E4M3 KV, flashinfer attention, 4,096-token prefill chunks, LPM scheduling, 262,144 context, eight running requests, 32 Mamba cache slots, and DFlash block size 8.",
+      "note": "Configured alternative engine; runtime state was not observed."
+    },
+    {
+      "path": "services/litellm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "LiteLLM declares separate public model IDs for FP8, Unsloth NVFP4, RadixArk BF16-lm-head, QUASAR NVFP4, SGLang, and NInfer Qwen lanes; FP8 advertises only low reasoning effort.",
+      "note": "Routing metadata only."
+    },
+    {
+      "path": "services/litellm/custom_callbacks.py",
+      "observed_at": "2026-09-09",
+      "excerpt": "ChatTemplateThinkingPolicy maps public effort and thinking controls into chat_template_kwargs; a thinking-off request removes stale reasoning_effort values. The Unsloth lane receives its checkpoint-specific xhigh default only when controls are absent.",
+      "note": "Request-transform behavior read from source; no request was sent."
+    },
+    {
+      "path": "images/vllm-fastokens/Dockerfile",
+      "observed_at": "2026-09-09",
+      "excerpt": "The derived image starts from the pinned vLLM v0.28.0 digest, installs fastokens 0.2.0, and copies the Qwen Froggeric v22.5 template.",
+      "note": "Image definition only; the mutable published image tag was not resolved or pulled."
+    },
+    {
+      "path": "research/vllm-qwen38-dflash-prefix-cache-tuning.md",
+      "observed_at": "2026-09-08",
+      "excerpt": "Historical control: eight isolated 2,048-token decodes averaged 277.253 output tokens/s; a 58.8K-token shared prefix reduced time to first token from 12.414 seconds cold to 1.018 and 1.010 seconds warm.",
+      "note": "Exact dated local observation preserved from the superseded source. It was not rerun."
+    },
+    {
+      "path": "research/ninfer-mtp-portability-vllm-sglang.md",
+      "observed_at": "2026-09-08",
+      "excerpt": "Historical canary: SGLang DFlash2 K8 averaged 266.966 output tokens/s across eight isolated sequential requests; an eight-stream run recorded 768.220 aggregate output tokens/s.",
+      "note": "Exact dated local observation preserved from the superseded source. It is not comparable to the vLLM control because engine and configuration changed."
+    },
+    {
+      "path": "research/qwen3-8-unsloth-nvfp4-vs-fp8-daily-drive.md",
+      "observed_at": "2026-09-03",
+      "excerpt": "The local cache contained unsloth/Qwen3.8-27B-NVFP4 snapshot 57926ba; community comparisons associated that checkpoint with reasoning loops, unexpected stops, tool-call failures, and instruction-following regressions.",
+      "note": "Snapshot existence and community reports are historical. They do not establish general NVFP4 behavior."
+    },
+    {
+      "path": "research/local-agent-model-tool-calling-sanity-check.md",
+      "observed_at": "2026-09-07",
+      "excerpt": "The prior audit rejected unpublished 93-97 percent MCP rankings, separated model reasoning from parser compatibility and OpenCode skill discovery, and retained Muse Glimmer, GLM-4.7-Flash, Gemma 4 31B, and gpt-oss-120b as comparison arms.",
+      "note": "Historical audit conclusion retained after current OpenCode skill documentation and model revisions were checked."
+    },
+    {
+      "path": "services/llama-swap-vllm/AGENTS.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "The service instructions say the bundled vllm-wrapper sleep/wake path is unused and sleep/wake remains disabled pending upstream vLLM fixes.",
+      "note": "Current configured operating policy only. The exact upstream wake-fix status is not established by this evidence snapshot."
+    },
+    {
+      "path": "services/llama-swap-vllm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "The service config sets an eight-hour global TTL and stops each Qwen backend container on unload.",
+      "note": "Current configured lifecycle only; no backend unload was triggered for this briefing."
+    }
+  ]
+}
