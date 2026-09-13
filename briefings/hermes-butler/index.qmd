@@ -1,0 +1,138 @@
+---
+title: "Hermes Butler architecture and readiness"
+type: architecture
+diataxis: guide
+audience: self
+question: "What is implemented versus still planned?"
+decision: "Understand Butler readiness and its remaining prerequisites without deploying it."
+status: reviewed
+created: 2026-09-09
+updated: 2026-09-09
+bibliography: references.bib
+---
+
+::: {.brief-meta}
+**Question.** What is implemented versus still planned?
+**Decision.** Understand Butler readiness and its remaining prerequisites without deploying it.
+**Reader.** self.
+:::
+
+## Summary
+
+Butler is implemented as pinned repository configuration and published image artifacts, but it is not ready for use because the target TrueNAS environment has no Mealie or Hermes stack and no matching containers as of the read-only inspection on 2026-09-09 [@repoevidence20260909].
+
+- The repository contains separate Mealie and Hermes stacks, owned images, a first-boot seed, filtered MCP tools, Signal ingress and sharing allowlists, and configured Muse and Qwen model routes [@repoevidence20260909].
+- The configured request path is internally consistent from Signal to Hermes, LiteLLM, llama-swap, vLLM, and Mealie, but no end-to-end request was sent or observed [@repoevidence20260909].
+- The setup plan's git-sync, git-crypt, shared-repository state, bootstrap container, and vendored skills were superseded by ZFS-only state, immutable image seeds, and Mealie as the food system [@repoevidence20260909].
+- Remaining gates include both stack deployments, Mealie owner and API-token creation, Signal linking, required secrets, host persistence checks, and functional requests [@repoevidence20260909].
+- The highest-value read-only check, a GHCR manifest lookup for the two exact Compose references, confirmed that both tags resolve to the configured digests; deployment and credential state remain the decision boundary [@butlerimage20260909; @signalimage20260909].
+
+```{mermaid}
+flowchart TB
+  S[Signal Note to Self<br/>configured, not exercised] -->|sync envelope| C[signal-cli<br/>configured, not deployed]
+  C -->|SSE event| H[Hermes<br/>configured, not deployed]
+  H -->|OpenAI chat request| I[Inference control plane<br/>LiteLLM → llama-swap → vLLM<br/>route configured]
+  H -->|filtered MCP call| M[Mealie MCP]
+  M -->|HTTP API| A[Mealie and PostgreSQL<br/>configured, not deployed]
+  H -->|JSON-RPC reply| C
+```
+
+The diagram reconstructs configured edges from repository files and upstream protocols. It does not represent a captured trace [@repoevidence20260909; @hermessignal20260907; @signaljsonrpc0147].
+
+## Glossary
+
+[Hermes home]{#glossary-hermes-home}
+: The profile directory selected by `HERMES_HOME`; Hermes stores configuration, credentials, identity, memories, skills, schedules, sessions, and logs beneath it [@hermesconfig20260907].
+
+[Ingress allowlist]{#glossary-ingress-allowlist}
+: The `SIGNAL_ALLOWED_USERS` and `SIGNAL_GROUP_ALLOWED_USERS` values that determine which Signal senders or groups may start an inbound Hermes turn [@hermessignal20260907].
+
+[Share allowlist]{#glossary-share-allowlist}
+: The separate `HERMES_SIGNAL_SHARE_USERS` and `HERMES_SIGNAL_SHARE_GROUPS` values checked by the local outbound-sharing tool before it emits a Signal JSON-RPC request [@repoevidence20260909].
+
+[MCP tool filter]{#glossary-mcp-tool-filter}
+: A Hermes `tools.include` list that registers only named server-native MCP tools; `include` takes precedence when both include and exclude lists exist [@hermesmcp20260907].
+
+## Repository state implements the design, not the deployment
+
+The current implementation replaces the plan's general-purpose Hermes image with `ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8`, pinned by image digest. Its Dockerfile pins Hermes v2026.9.7 and the Mealie MCP server to commit `02183a84b92ba88e69fa11ded8b8235cc01771eb`, runs the local boundary tests during the image build, and makes the baked seed and MCP code read-only [@repoevidence20260909]. The image build workflow publishes version tags from `main`; read-only GHCR inspection confirmed both Compose image indexes at their declared digests, with Butler manifests for `linux/amd64` and `linux/arm64` and signal-cli for `linux/amd64` [@butlerimage20260909; @signalimage20260909].
+
+The two Compose stacks separate persistence and failure domains. Mealie uses PostgreSQL and joins the external `home-butler` network. Hermes joins that network plus its private Signal network, publishes only the dashboard on the TrueNAS LAN, keeps the gateway API bound inside the container, and waits for signal-cli's health check before starting [@repoevidence20260909]. Compose's `service_healthy` condition waits for the dependency health check, while plain startup order waits only for a running container [@dockercomposeorder20260909].
+
+| Area | Current repository state | Classification |
+|---|---|---|
+| Agent and image | Pinned owned Butler image; pinned upstream Hermes base; `gateway run` | Configured, not deployed [@repoevidence20260909] |
+| Signal | Pinned native signal-cli image, automatic link-on-empty entrypoint, persistent `/data`, explicit inbound policy | Implemented, not linked [@repoevidence20260909; @signalcli0147] |
+| Food data | Mealie and PostgreSQL stack; Mealie is the policy's sole food record | Configured, not initialized [@repoevidence20260909] |
+| Model route | Muse is the Butler default; LiteLLM and llama-swap contain Muse and manual Qwen fallback routes | Configured, runtime unverified [@repoevidence20260909; @musemodelcard20260909] |
+| State | `/mnt/tank/container-configs/hermes` is the persistent [Hermes home](#glossary-hermes-home); seed files copy only when absent | Implemented, host contents unverified [@repoevidence20260909] |
+
+The table separates repository facts from live facts. The upstream Muse card describes Hermes compatibility, tool use, and local-agent intent, but its published evaluations do not prove this quantized lane or this Butler workflow [@musemodelcard20260909].
+
+## Evidence stops at each runtime boundary
+
+The Butler configuration sends model traffic to LiteLLM at `http://192.168.1.98:4000/v1`, selects `muse-glimmer-30b`, and leaves streaming enabled. Hermes documents `model.streaming: false` as a session-wide escape hatch for self-hosted OpenAI-compatible servers with broken streaming tool-call paths [@repoevidence20260909; @hermesconfigexample20260907]. The Qwen fallback exists in LiteLLM and llama-swap configuration, but the Butler seed does not define a Qwen alias and no live switch was attempted [@repoevidence20260909].
+
+The food boundary uses three controls. The upstream Mealie MCP server exposes both constructive and destructive operations at its pinned revision, while Butler's [MCP tool filter](#glossary-mcp-tool-filter) admits selected recipe, meal-plan, and shopping-list reads and writes but no delete tools [@mealiemcp02183a8; @repoevidence20260909]. A local feedback server adds bounded rating, favorite, and comment operations. The policy forbids parallel food records and direct HTTP bypass, and Mealie's own documentation confirms that user-created API tokens authorize local API access [@repoevidence20260909; @mealieapi3251].
+
+Signal has two independent authorization checks. The [ingress allowlist](#glossary-ingress-allowlist) gates who may invoke Hermes; the [share allowlist](#glossary-share-allowlist) gates agent-initiated messages to a different person or group. The share server also rejects wildcard targets, pins its HTTP destination to the sibling `signal-cli:8080`, marks the tool destructive, and runs as an untrusted MCP server so Hermes asks for approval before a write-capable call [@repoevidence20260909; @hermesmcp20260907]. signal-cli's HTTP daemon exposes SSE events, JSON-RPC send, and a health endpoint matching those configured paths [@signaljsonrpc0147].
+
+## The setup plan is historical input
+
+The plan correctly selected TrueNAS, Note to Self, a native signal-cli sidecar, the Muse default, the Qwen fallback, bind-mounted state, and an explicit inbound Signal allowlist. Those choices remain in the current files [@repoevidence20260909]. Its categorical VoIP conclusion is not retained: the rechecked signal-cli documentation requires a number that can receive SMS or calls and documents both account linking and registration, but it does not establish a general ban on all VoIP ranges [@signalcli0147].
+
+| Plan component | Current disposition | Reason |
+|---|---|---|
+| `hermes-git-sync`, `hermes/truenas`, git-crypt, PAT, bootstrap clone | Superseded | Writable state stays on TrueNAS ZFS; no state repository or session-end push exists [@repoevidence20260909] |
+| Root `SOUL.md`, `config.yaml`, `skills/`, `memories/` | Superseded | Config and policy seed from the owned image into an otherwise persistent home [@repoevidence20260909] |
+| Vendored grocery-list, Feast, and Family skills | Superseded | Mealie and its filtered MCP surface became the authoritative food integration [@repoevidence20260909] |
+| `latest` images and `pull_policy: always` | Superseded | Compose uses version tags and immutable digests [@repoevidence20260909] |
+| Published gateway port `8642` | Superseded | The gateway API listens on loopback for health and internal use; only dashboard port `9119` is published on the TrueNAS LAN [@repoevidence20260909] |
+| Manual secrets, Signal link, owner/token setup, smoke tests | Still required | Repository placeholders and startup checks cannot prove secret presence or account state [@repoevidence20260909] |
+| Auxiliary model slots set to `auto` | Historical | The current Butler seed has no auxiliary-model setting; inference lifecycle belongs to the [Inference control plane](../inference-control-plane/index.qmd) [@repoevidence20260909] |
+
+The public repository remains a fact, but removing git-synced Hermes state changes the risk. Personal memories and Signal account state now target host bind mounts rather than a public branch [@githubhomeservices20260909; @repoevidence20260909]. Host snapshots remain a planned operational prerequisite; no repository file or read-only Portainer response proves they exist.
+
+## Readiness depends on staged external state
+
+The strongest design tradeoff is a smaller write surface at the cost of more setup dependencies. Mealie centralizes recipes, plans, shopping lists, favorites, ratings, comments, and made history. The agent can create and update that data, but it cannot delete through the registered MCP surface. Local terminal access remains available inside the Hermes container; the baked policy and deny globs configure constraints against direct `signal-cli` and Mealie HTTP commands, not process isolation [@repoevidence20260909].
+
+Portainer must supply `HERMES_DASHBOARD_USER`, `HERMES_DASHBOARD_PASSWORD`, `HERMES_DASHBOARD_SECRET`, `HERMES_API_SERVER_KEY`, `LITELLM_KEY`, `MEALIE_API_KEY`, `SIGNAL_ACCOUNT`, and `SIGNAL_ALLOWED_USERS`; optional group and outbound-share allowlists remain empty unless explicitly set [@repoevidence20260909]. No secret value appears in repository evidence.
+
+The remaining sequence has hard prerequisites: create or confirm the external Docker network, deploy Mealie and PostgreSQL, create the Mealie owner and API token, supply the required Portainer secrets, deploy Hermes and signal-cli, scan the Signal link QR code, and verify functional requests. The current read-only Portainer inspection found the external network but no Mealie or Hermes stacks, no matching containers, and no cached matching images; separate GHCR inspection found both declared images at the exact Compose digests [@repoevidence20260909; @butlerimage20260909; @signalimage20260909]. Implementation and release artifacts exist, but deployment readiness remains unproved and user readiness is false today.
+
+## The registry manifest check changed the decision
+
+The read-only GHCR check resolved both exact image references without touching TrueNAS. `hermes-butler:v2026.9.7-mealie-02183a8` resolved to `sha256:d6e980e597468358614847e9893bb4120b472b1d8852be71d47facf91cd61e77`, and `signal-cli:v0.14.7` resolved to `sha256:f4ecbdbfab555c1836135d84d14935fa5918ed3e827b8666489a7b84ce94b951`, matching Compose [@butlerimage20260909; @signalimage20260909; @repoevidence20260909].
+
+That result moves image publication from unverified to observed. It does not prove source provenance, secret presence, host ownership, snapshots, Signal linking, Mealie initialization, or model behavior. With no deployed stacks to inspect, another read-only Portainer query cannot cross those mutation and user-interaction boundaries [@repoevidence20260909].
+
+## Worked example
+
+This trace is a static reconstruction. No Signal message, model request, Mealie mutation, or account action was performed.
+
+| Step | Concrete request: `Add milk to my grocery list` | Evidence boundary |
+|---|---|---|
+| 1 | A Note-to-Self message reaches the linked signal-cli device as a `syncMessage.sentMessage` event. | Supported by Hermes and signal-cli protocols; link state unverified [@hermessignal20260907; @signaljsonrpc0147] |
+| 2 | Hermes accepts the sender only if the account appears in `SIGNAL_ALLOWED_USERS`. | Configured; no sender was exercised [@repoevidence20260909; @hermessignal20260907] |
+| 3 | Hermes sends the turn and filtered tool schemas through LiteLLM using the Muse model name. LiteLLM routes that name to llama-swap, which names a vLLM Muse lane. | Configured across three files; no completion observed [@repoevidence20260909] |
+| 4 | The model may choose `mcp__mealie__create_shopping_list_item`. Hermes registered that tool because it appears in the Mealie include list. | Registration is expected from documented filter semantics; MCP discovery was not run [@repoevidence20260909; @hermesmcp20260907] |
+| 5 | The MCP server calls `http://mealie:9000` with the configured API token; Mealie persists the item through PostgreSQL. | Endpoint and persistence are configured; owner, token, and database state are unverified [@repoevidence20260909; @mealieapi3251] |
+| 6 | Hermes returns the model's response through signal-cli's JSON-RPC send endpoint to Note to Self. | Protocol exists; delivery was not attempted [@signaljsonrpc0147] |
+
+A sender absent from the inbound allowlist stops at step 2, before model or food access. An unavailable Mealie service stops at step 5 with a tool error; policy forbids silently creating a file-backed grocery list [@repoevidence20260909]. A request to share `Milk is on the list` with another person takes a different branch: the target must appear in the outbound share allowlist, and the untrusted destructive tool must show the exact target and content for approval before JSON-RPC delivery. An unlisted target raises a permission error before network access [@repoevidence20260909].
+
+## Limitations
+
+Repository inspection proves declared configuration, code paths, pins, and static boundaries. Registry inspection proves that both configured image indexes are published. Neither proves that Portainer secrets are populated, host paths have safe ownership, ZFS snapshots run, Mealie accepts the pinned MCP calls, Signal remains linked, or the model returns valid tool calls. The Portainer observations prove absence of matching stacks and containers only at the inspection time; they do not explain whether deployment was never attempted or was removed [@repoevidence20260909].
+
+The setup plan also cited model benchmarks and historical runtime observations. This briefing keeps the model-selection rationale but does not convert vendor benchmarks or old observations into local capability claims. See [Muse context](../muse-context/index.qmd) for model limits, [Inference control plane](../inference-control-plane/index.qmd) for the routing layer, and [Private inference access](../private-inference-access/index.qmd) for access-path decisions.
+
+## Next action
+
+Treat the repository and image-release work as complete inputs to a staged deployment. Before deploying, confirm the host bind-mount directories, ZFS snapshot policy, and private Portainer secret values. Mealie must then start before its owner and API token can be created, followed by Hermes, Signal linking, and functional verification [@repoevidence20260909].
+
+## References
+
+::: {#refs}
+:::

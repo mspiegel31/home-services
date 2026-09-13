@@ -1,0 +1,259 @@
+{
+  "repository_revision": "a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+  "source_coverage": [
+    {
+      "path": "research/hermes-butler-setup-plan.md",
+      "sha256": "b19c025ae7368231e79f2863cabad5c9f2d77f5e5cf89ababdcdc04ef856d44a",
+      "topics": [
+        {
+          "topic": "D1 agent image and update policy",
+          "section": "Repository state implements the design, not the deployment; The setup plan is historical input",
+          "status": "corrected",
+          "note": "The current Compose file uses a versioned owned Butler image and immutable digest, not the upstream latest tag with pull-always policy."
+        },
+        {
+          "topic": "D2 TrueNAS host and remote inference",
+          "section": "Repository state implements the design, not the deployment; Readiness depends on staged external state",
+          "status": "retained",
+          "note": "The Compose bind address and model provider URL retain the TrueNAS and remote-AI-host split; live capacity figures from the plan are not repeated."
+        },
+        {
+          "topic": "D3 Muse default and Qwen fallback",
+          "section": "Evidence stops at each runtime boundary",
+          "status": "retained",
+          "note": "Muse remains the seed default and both routing layers name the Qwen fallback. No live model switch or completion is claimed."
+        },
+        {
+          "topic": "D4 streaming and escape hatch",
+          "section": "Evidence stops at each runtime boundary",
+          "status": "retained",
+          "note": "Streaming is enabled in the current seed. The upstream config documents disabling it, but the old local leak observation is not treated as current evidence."
+        },
+        {
+          "topic": "D5 Note to Self and phone-number assumptions",
+          "section": "The setup plan is historical input; Worked example",
+          "status": "corrected",
+          "note": "Note to Self remains the intended path. The categorical VoIP-block claim was not supported by the primary sources rechecked and is omitted."
+        },
+        {
+          "topic": "D6 native signal-cli image",
+          "section": "Repository state implements the design, not the deployment",
+          "status": "retained",
+          "note": "The image now exists with a pinned signal-cli version, release checksum, base image digest, non-root runtime, and explicit entrypoint checks."
+        },
+        {
+          "topic": "D7-D8 git-sync, git-crypt, and state branch",
+          "section": "The setup plan is historical input",
+          "status": "corrected",
+          "note": "The current design deliberately keeps writable Hermes state on TrueNAS ZFS and contains no git-sync plugin, git-crypt key, PAT, or state branch."
+        },
+        {
+          "topic": "D9 data volumes",
+          "section": "Repository state implements the design, not the deployment",
+          "status": "retained",
+          "note": "Hermes and signal-cli still use the planned TrueNAS bind-mount roots; Mealie adds app-data and PostgreSQL bind mounts."
+        },
+        {
+          "topic": "D10 vendored grocery, Feast, and Family skills",
+          "section": "The setup plan is historical input",
+          "status": "corrected",
+          "note": "Those skills are absent by design. Mealie and filtered MCP tools replaced parallel file-backed food skills."
+        },
+        {
+          "topic": "D11 auxiliary model slots",
+          "section": "Evidence stops at each runtime boundary",
+          "status": "historical",
+          "note": "The current Butler seed does not configure auxiliary model slots. Model lifecycle policy belongs to the inference-control-plane briefing."
+        },
+        {
+          "topic": "model-card rationale and benchmark table",
+          "section": "Repository state implements the design, not the deployment; Limitations",
+          "status": "retained",
+          "note": "The vendor's agentic-use rationale is retained. Vendor benchmark scores are not promoted to local capability or readiness evidence."
+        },
+        {
+          "topic": "target architecture and request links",
+          "section": "Summary; Worked example",
+          "status": "corrected",
+          "note": "The diagram and trace reflect the current two-stack Mealie design. The old bootstrap and two-way Git path are removed."
+        },
+        {
+          "topic": "planned hermes-gitops image and bootstrap init service",
+          "section": "The setup plan is historical input",
+          "status": "corrected",
+          "note": "Neither exists in the current design. The Butler image uses an s6 first-boot seed script that copies only absent files."
+        },
+        {
+          "topic": "planned signal-cli Dockerfile",
+          "section": "Repository state implements the design, not the deployment",
+          "status": "corrected",
+          "note": "The implementation pins signal-cli 0.14.7 and its release checksum, uses Debian rather than Alpine, and links automatically when state is empty."
+        },
+        {
+          "topic": "planned Hermes Compose service, ports, health, and limits",
+          "section": "Repository state implements the design, not the deployment; Readiness depends on staged external state",
+          "status": "corrected",
+          "note": "The current Compose file removes bootstrap, does not publish gateway port 8642, adds the Mealie network and secrets, and preserves health and resource limits."
+        },
+        {
+          "topic": "repo-root config, persona, memory, skills, and ignore policy",
+          "section": "The setup plan is historical input",
+          "status": "corrected",
+          "note": "The repository root remains free of Butler state. Config and policy are immutable image seeds; mutable profile data stays under the host-mounted Hermes home."
+        },
+        {
+          "topic": "security policy, allowlists, secrets, and sharing",
+          "section": "Evidence stops at each runtime boundary; Readiness depends on staged external state; Worked example",
+          "status": "corrected",
+          "note": "Current controls separate inbound Signal authorization from approval-gated outbound sharing, filter MCP tools, declare denial patterns against direct service bypass commands, and inject credentials through Portainer variables."
+        },
+        {
+          "topic": "manual setup steps",
+          "section": "Readiness depends on staged external state",
+          "status": "corrected",
+          "note": "Git-crypt, PAT, and state-branch steps are obsolete. Image publication, network, Mealie owner/token, secrets, staged deployments, and Signal linking remain."
+        },
+        {
+          "topic": "verification checklist",
+          "section": "Worked example; Limitations; Next action",
+          "status": "corrected",
+          "note": "The old git-sync and encrypted-branch checks are obsolete. Health, model, MCP discovery, Signal, Mealie, persistence, and sharing checks remain unperformed."
+        },
+        {
+          "topic": "risks and known issues",
+          "section": "The setup plan is historical input; Readiness depends on staged external state; Limitations",
+          "status": "corrected",
+          "note": "Public-repository exposure no longer applies to mutable Butler state. Image churn is reduced by pins. Host snapshots, linked-device state, secrets, and the remote model path remain external dependencies."
+        },
+        {
+          "topic": "implementation order",
+          "section": "The registry manifest check changed the decision; Next action",
+          "status": "corrected",
+          "note": "Both configured image indexes are published at the Compose digests. Remaining work starts with host prerequisites and staged Mealie then Hermes/Signal deployment."
+        }
+      ]
+    }
+  ],
+  "local_evidence": [
+    {
+      "path": "services/hermes/docker-compose.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "Hermes uses pinned hermes-butler and signal-cli images, requires dashboard, API, LiteLLM, Mealie, and Signal variables, binds /mnt/tank/container-configs/hermes, and publishes only 192.168.1.39:9119.",
+      "note": "Configured state. The manifest does not prove a deployed stack or populated secrets. sha256 50c28a69cab07baecc035ef83964486df95a1892a566f39a6d3b18778fefbb4e."
+    },
+    {
+      "path": "images/hermes-butler/Dockerfile",
+      "observed_at": "2026-09-09",
+      "excerpt": "The image pins the Hermes base digest and mealie-mcp revision 02183a84b92ba88e69fa11ded8b8235cc01771eb, runs boundary tests during build, and installs read-only seed and MCP files.",
+      "note": "Implemented build recipe; the matching registry image index was verified separately. sha256 8e3e7bab3e28033586db6421a6efbf8ece467dee6092702359240856f0493d13."
+    },
+    {
+      "path": "images/hermes-butler/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "The seed config selects muse-glimmer-30b through http://192.168.1.98:4000/v1, enables streaming, configures smart approvals and deny rules, and allowlists Mealie and Signal MCP tools.",
+      "note": "Configured seed only. Existing persistent homes are not overwritten. sha256 09070e2758dac949c9a18ff6acbca6b8904cae64c21f7aa9fac5024a2e25607e."
+    },
+    {
+      "path": "images/hermes-butler/00-home-butler-seed",
+      "observed_at": "2026-09-09",
+      "excerpt": "The init script refuses symlinked home or workspace paths and copies config.yaml and workspace/AGENTS.md only when each destination is absent.",
+      "note": "Implemented first-boot behavior; host filesystem state remains unverified. sha256 00ee7a293d7a8db468ae5788831541aa13b0340817845e82fefdf807e8049780."
+    },
+    {
+      "path": "images/hermes-butler/AGENTS.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "Policy makes Mealie the sole food record, forbids delete bypass and purchases, and requires the dedicated approval-gated Signal share tool for new outbound conversations.",
+      "note": "Configured agent policy, not proof that a model obeys it. sha256 f6855292fb5253a986ed34b257528c1d1c587ff9621bbba079da622738efb5e7."
+    },
+    {
+      "path": "images/hermes-butler/mcp/signal_share_server.py",
+      "observed_at": "2026-09-09",
+      "excerpt": "The tool rejects wildcard and unlisted targets, limits messages to 4096 characters, pins the RPC endpoint to http://signal-cli:8080/api/v1/rpc, and annotates sharing as destructive.",
+      "note": "Implemented outbound boundary; no message was sent. sha256 85a58dd037c7d732f059280e270d1d275b6781354802ff9bc742427a2a95b5e6."
+    },
+    {
+      "path": "images/hermes-butler/mcp/mealie_feedback_server.py",
+      "observed_at": "2026-09-09",
+      "excerpt": "The server pins requests to http://mealie:9000, requires a bearer token, validates recipe and comment inputs, and exposes rating, favorite, and comment operations without deletion.",
+      "note": "Implemented local integration; no Mealie response was observed. sha256 813ab9ce15b75ef4f90a26add8c7a594992ce59e195d0ad19705283a2942fe19."
+    },
+    {
+      "path": "images/signal-cli/Dockerfile",
+      "observed_at": "2026-09-09",
+      "excerpt": "The image pins signal-cli 0.14.7, the release archive checksum, and the Debian base digest; it runs the daemon as uid 10000 and declares an HTTP health check.",
+      "note": "Implemented build recipe; the matching registry image index was verified separately. sha256 c980505db7f76367de18838db0bdc5ad8a8cb326847b14cbd946a58cf43e65d3."
+    },
+    {
+      "path": "images/signal-cli/entrypoint.sh",
+      "observed_at": "2026-09-09",
+      "excerpt": "The entrypoint starts an already-linked matching account, refuses mismatched state, and otherwise prompts for device linking before starting the HTTP daemon.",
+      "note": "Implemented lifecycle logic; linked-account state remains unverified. sha256 76f07e7596c63b8c41d483aa68ba5779ca4dc5d56b99841849c31cb7677c7ddd."
+    },
+    {
+      "path": "services/mealie/docker-compose.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "The stack pins Mealie v3.25.1 and PostgreSQL 17.10, uses TrueNAS bind mounts, disables signup, requires database and identity variables, and joins the external home-butler network.",
+      "note": "Configured state; no owner, token, database, or running service was observed. sha256 c69e08851483175c019c863be6eb8083793c2d5178ca56e8b22bd6746866b2a0."
+    },
+    {
+      "path": "services/litellm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "LiteLLM names muse-glimmer-30b and qwen3.8-27b-nvfp4-bf16-lmhead and forwards both to the llama-swap host endpoint with an environment-provided key.",
+      "note": "Configured routing, not a live model discovery or completion. sha256 8d5b8fd542270f29acc8c3ca2c25c709c25a4ccd91d39db66efdec3f3d8ab56f."
+    },
+    {
+      "path": "services/llama-swap-vllm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "llama-swap defines Muse and Qwen model lanes, container commands, parser settings, and vLLM proxy targets.",
+      "note": "Configured model lifecycle, not proof that either backend is currently loaded or responsive. sha256 6bc13345047b50b7d25f7adde04b13ea1be28769b11e0936bfd258d810614d7f."
+    },
+    {
+      "path": ".github/workflows/build-images.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "The workflow discovers image Dockerfiles, tags latest, commit SHA, and VERSION values, pushes only from main, and builds signal-cli only for linux/amd64.",
+      "note": "Configured CI behavior; no workflow run was inspected, but matching registry indexes were verified. sha256 ac875d9f8ca902de00f12251383846e7f9ee92642113b254f012bfcc2257d270."
+    },
+    {
+      "path": ".slim/deepwork/hermes-home-butler.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "The execution record settles ZFS-only writable state, no git-sync, separate Mealie and Hermes stacks, filtered non-delete MCP tools, approval-gated sharing, and staged deployment.",
+      "note": "Historical design record, not current runtime proof. It remains untouched. sha256 0c2970c3160cea77ab7c4e852b2c4cdce76fe521ebd848de3cbe35bca67e914b."
+    },
+    {
+      "path": "registry://ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8",
+      "observed_at": "2026-09-09",
+      "excerpt": "The tag resolved to OCI index digest sha256:d6e980e597468358614847e9893bb4120b472b1d8852be71d47facf91cd61e77 with linux/amd64 and linux/arm64 image manifests.",
+      "note": "Current read-only registry observation; the index digest exactly matches services/hermes/docker-compose.yml."
+    },
+    {
+      "path": "registry://ghcr.io/mspiegel31/signal-cli:v0.14.7",
+      "observed_at": "2026-09-09",
+      "excerpt": "The tag resolved to OCI index digest sha256:f4ecbdbfab555c1836135d84d14935fa5918ed3e827b8666489a7b84ce94b951 with a linux/amd64 image manifest.",
+      "note": "Current read-only registry observation; the index digest exactly matches services/hermes/docker-compose.yml."
+    },
+    {
+      "path": "portainer://environment/18",
+      "observed_at": "2026-09-09",
+      "excerpt": "The direct Docker environment named truenas reported status 1. Its stack list contained neither hermes nor mealie.",
+      "note": "Current read-only observation. Direct-agent status indicates Portainer reachability, not Butler health."
+    },
+    {
+      "path": "portainer://environment/18/containers?all=true",
+      "observed_at": "2026-09-09",
+      "excerpt": "Filtering all containers for hermes, mealie, or signal-cli returned an empty list.",
+      "note": "Current read-only observation; no container was started or changed."
+    },
+    {
+      "path": "portainer://environment/18/images",
+      "observed_at": "2026-09-09",
+      "excerpt": "Filtering cached images for hermes-butler, signal-cli, or mealie returned an empty list.",
+      "note": "Current read-only observation; registry publication was not checked."
+    },
+    {
+      "path": "portainer://environment/18/networks",
+      "observed_at": "2026-09-09",
+      "excerpt": "The local bridge network home-butler exists; no hermes or mealie project network exists.",
+      "note": "Current read-only observation. A surviving external network does not prove either stack was deployed."
+    }
+  ]
+}
