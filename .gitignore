@@ -228,3 +228,9 @@ node_modules/
 .slim/worktrees/
 .slim/worktrees.json
 # END oh-my-opencode-slim worktrees
+
+# Quarto briefing build artifacts
+/briefings/_site/
+/briefings/.quarto/
+/briefings/_freeze/
+/briefings/*/index_files/
