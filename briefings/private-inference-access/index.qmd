@@ -1,0 +1,144 @@
+---
+title: "Private inference access"
+type: architecture
+diataxis: guide
+audience: self
+question: "Which access architecture satisfies the privacy requirements?"
+decision: "Assess the selected tunnel and proxy trust boundaries and identify any unresolved prerequisites before choosing the private inference access architecture."
+status: reviewed
+created: 2026-09-09
+updated: 2026-09-09
+bibliography: references.bib
+---
+
+::: {.brief-meta}
+**Question.** Which access architecture satisfies the privacy requirements?
+**Decision.** Assess the selected tunnel and proxy trust boundaries and identify any unresolved prerequisites before choosing the private inference access architecture.
+**Reader.** self.
+:::
+
+## Summary
+
+A DNS-only public FQDN terminating TLS on a self-hosted Pangolin node is the best fit only when the DigitalOcean VPS belongs inside the [trusted endpoint](#trust-boundary); it cannot make prompts opaque to that VPS or its hosting boundary [@pangolinArchitecture2026; @digitaloceanDroplets2026].
+
+- **Path:** Git currently exposes LiteLLM on host port `4000` and contains no Newt service; the Pangolin route remains a proposal from the public FQDN through the VPS and WireGuard to `litellm:4000` [@repoEvidence2026].
+- **Evidence:** TLS protects the client-to-node wire and WireGuard protects the node-to-site wire, while Traefik, Pangolin's auth layer, Newt, and LiteLLM see plaintext at their respective endpoints [@pangolinArchitecture2026; @repoEvidence2026].
+- **Corrections:** the old plan overstates Community Edition session logging, key pass-through, automatic health recovery, internal-only ports, and the currency of Cloudflare's 12-month retention statement [@pangolinSessionLogs2026; @pangolinProviderConfig2026; @dockerRestart2026; @cloudflarePrivacy2021; @cloudflarePrivacy2025].
+- **Tradeoff:** moving [TLS termination](#tls-termination) from the VPS to the home-site connector keeps a relaying VPS blind to the payload, but requires the Pangolin client and gives up the zero-client requirement [@pangolinPrivateHttp2026; @pangolinArchitecture2026].
+- **Next check:** a read-only export of DNS proxy status and the Pangolin resource, provider, node, and failover settings would determine which termination and authentication path actually exists [@pangolinRemoteNodes2026; @cloudflareTlsModes2026].
+
+```text
+Proposed public path, if DNS is unproxied
+
+client
+  == HTTPS + client credential ==>  DigitalOcean VPS
+                                      Traefik terminates TLS
+                                      Pangolin authenticates and can inspect HTTP
+  <== response ====================  |
+                                     == WireGuard ==> Newt
+                                                        -- HTTP/Docker --> LiteLLM
+```
+
+The two encrypted segments meet at a plaintext-capable VPS endpoint; they do not form client-to-home end-to-end encryption [@pangolinArchitecture2026].
+
+## Glossary
+
+**[Wire encryption]{#wire-encryption}.** Encryption protects bytes while they cross one connection; Pangolin uses TLS at public ingress and WireGuard between a node and a site connector [@pangolinArchitecture2026].
+
+**[TLS termination]{#tls-termination}.** The endpoint that presents the certificate decrypts the TLS session and can process the HTTP headers and body; a proxied Cloudflare hostname therefore creates visitor-to-Cloudflare and Cloudflare-to-origin connections [@cloudflareTlsModes2026].
+
+**[Public resource]{#public-resource}.** A Pangolin HTTP/HTTPS resource exposes a public FQDN, terminates TLS on the node, applies authentication, and proxies an accepted request to a site target [@pangolinHttp2026].
+
+**[Site connector]{#site-connector}.** Newt maintains outbound control and WireGuard connections, then forwards only configured resources into its local network [@pangolinArchitecture2026].
+
+**[Trust boundary]{#trust-boundary}.** This briefing treats every system that can read a prompt, completion, or credential in plaintext as trusted; encrypted relays that never terminate the protected session stay outside that payload boundary [@pangolinArchitecture2026; @cloudflareTlsModes2026].
+
+## Configured path versus proposed path
+
+At repository revision `a4a45cbe68c4eaef67f45bf8807605475fb23efa`, LiteLLM joins a Docker network named `litellm` and publishes `4000:4000` on the host. The Cloudflared stack contains a token-based, remotely managed connector but no hostname routes in Git. `services/pangolin-newt/` does not exist [@repoEvidence2026].
+
+| State | Request path supported by evidence | Consequence |
+|---|---|---|
+| **Configured in Git** | unknown external ingress → host port `4000` → LiteLLM | Git does not prove which public hostname, tunnel rule, firewall, or NAT rule reaches the port [@repoEvidence2026]. |
+| **Proposed** | DNS-only FQDN → self-hosted Pangolin node on a VPS → WireGuard → Newt → `litellm:4000` | The plan still needs a VPS, DNS, certificates, a site, a resource/provider, credentials, Newt, and cutover work [@repoEvidence2026; @pangolinSelfHost2026]. |
+| **Configured after LiteLLM** | LiteLLM → `http://<LAN host>:11437/v1` → llama-swap | The prompt and `LLAMA_SWAP_API_KEY` cross a plaintext LAN hop; llama-swap also publishes host port `11437` [@repoEvidence2026]. |
+
+The proposal also leaves the Pangolin resource type unsettled. A public HTTP resource uses a target and Pangolin's HTTP authentication. A public AI Gateway authenticates a virtual key, then routes through an attached Custom provider whose **Site Targets** point at LiteLLM [@pangolinHttp2026; @pangolinPublicAI2026; @pangolinProviderConfig2026].
+
+## Encryption ends where inspection begins
+
+For the proposed public AI Gateway variant, [wire encryption](#wire-encryption) and plaintext visibility follow different boundaries:
+
+| Hop | Authentication decision | Protection on the wire | Plaintext visibility |
+|---|---|---|---|
+| Client → Pangolin VPS | Pangolin checks its virtual API key [@pangolinPublicAI2026]. | TLS terminates at Traefik on the node [@pangolinArchitecture2026]. | The node can read the API key, path, prompt, and response. |
+| Pangolin VPS → Newt | The accepted resource and provider select the site target [@pangolinProviderConfig2026]. | Gerbil and Newt carry data through WireGuard [@pangolinArchitecture2026]. | The node has already decrypted HTTP; Newt receives the tunneled request. |
+| Newt → LiteLLM | LiteLLM checks a separate upstream credential. | The proposed target is plain HTTP on the shared Docker network [@repoEvidence2026]. | Newt and LiteLLM can read the request. |
+| LiteLLM → storage/backend | LiteLLM stores prompts in spend logs and adds the llama-swap key [@repoEvidence2026]. | Current backend routing is plain HTTP over the LAN [@repoEvidence2026]. | LiteLLM, Postgres, the LAN path, and llama-swap join the payload boundary. |
+
+Pangolin strips its own virtual key before the upstream call and sends the provider credential configured for the Custom provider. The old claim that Pangolin presents the client's virtual key to LiteLLM does not match the current AI Gateway contract [@pangolinProviderConfig2026].
+
+## Claims requiring correction
+
+| Plan claim | Current assessment |
+|---|---|
+| Self-hosted CE supplies AI session transcripts. | Session logs are available in Pangolin Cloud or self-hosted Enterprise Edition. Their default retention is `0` days, which leaves transcript logging off [@pangolinSessionLogs2026]. |
+| Mode B has “no third party in any path.” | Self-hosting removes the Fossorial SaaS control plane from the application path. The TLS endpoint still runs in a DigitalOcean VM on DigitalOcean virtualized hardware [@digitaloceanDroplets2026]. |
+| Mode A traffic content never reaches Pangolin Cloud. | Remote-node traffic normally stays on that node, but optional cloud failover can move traffic to cloud infrastructure. Newt's `NO_CLOUD` setting defaults to `false`; the draft does not set it [@pangolinRemoteNodes2026; @pangolinNewtConfig2026]. |
+| Newt's health check makes Docker restart a dropped tunnel. | The health file reports tunnel state. Docker's `unless-stopped` policy reacts when the container exits or the daemon restarts, not when a health check alone turns unhealthy [@pangolinNewtConfig2026; @dockerRestart2026]. |
+| Docker discovery is enabled. | The draft names `DOCKER_SOCKET` but omits the required socket mount; Newt disables Docker integration when the socket is unavailable [@repoEvidence2026; @pangolinNewtConfig2026]. |
+| LiteLLM and llama-swap stay internal. | Both services publish host ports in the current Compose files. Actual internet exposure depends on unobserved host firewall and router state [@repoEvidence2026]. |
+| Cloudflare keeps sampled HTTP for up to 12 months. | A 2021 whitepaper made that claim. The current privacy policy says Cloudflare processes content transiting its services and uses purpose-based retention criteria, without that fixed period [@cloudflarePrivacy2021; @cloudflarePrivacy2025]. |
+| The Marketplace image needs a `1 vCPU / 1 GB` minimum. | The current listing confirms Pangolin CE on Ubuntu `24.04`, but it does not state that minimum. Treat the sizing as unverified [@digitaloceanMarketplace2026]. |
+
+The Cloudflare rejection otherwise holds for the stated zero-client goal: published non-HTTP TCP routes require `cloudflared` on each client. The open browser-direct pass-through issue is community evidence of demand, not a product commitment [@cloudflareProtocols2026; @cloudflaredIssue1654].
+
+## Trust-boundary choices
+
+| Choice | Payload terminator and observers | Auth and client cost | Operational cost |
+|---|---|---|---|
+| **DNS-only public Pangolin on self-hosted VPS** | Traefik/Pangolin on the DigitalOcean VPS; Newt and LiteLLM downstream [@pangolinArchitecture2026]. | Zero client software. Public AI Gateway uses a Pangolin virtual key plus a configured LiteLLM upstream key [@pangolinPublicAI2026; @pangolinProviderConfig2026]. | Own patching, database, backups, firewall, certificates, DNS, and single-node recovery [@pangolinSelfHost2026]. |
+| **Private HTTP with TLS at Newt** | Newt on the home site terminates TLS. A VPS relay carries encrypted WireGuard packets without HTTP plaintext [@pangolinPrivateHttp2026; @pangolinArchitecture2026]. | Requires the Pangolin client. Client identity controls private-resource access; LiteLLM can still validate its key [@pangolinPrivateHttp2026]. | Adds endpoint client installation and identity lifecycle; direct peer paths may fall back to the node relay [@pangolinArchitecture2026]. |
+| **Cloudflare HTTP Tunnel** | Cloudflare terminates visitor TLS; the connector or origin receives a second HTTP/TLS leg [@cloudflareTlsModes2026]. | Zero client software and Cloudflare policy options, with Cloudflare inside the payload boundary. | Existing connector remains, but this fails the requirement that the external proxy cannot inspect prompts. |
+| **Public raw Pangolin TCP** | An application TLS endpoint can remain at home, while Pangolin relays bytes. | Pangolin assigns no FQDN or certificate and enforces no auth on raw TCP; LiteLLM must supply the control [@pangolinRaw2026]. | Requires custom DNS, certificates, firewall ports, and a carefully secured public listener. |
+
+The public self-hosted path satisfies “no Cloudflare or Pangolin SaaS can read payloads” only with DNS proxying disabled and cloud failover absent. The private-client path satisfies the stronger “the VPS cannot read payloads” requirement. No documented option in this set supplies zero client software, L7 authentication on the VPS, and opacity from that same VPS.
+
+## Read-only checks that can change the decision
+
+1. Export the Cloudflare DNS row for the LLM hostname and record whether it is **DNS only** or **proxied**. A proxied row moves the first TLS endpoint to Cloudflare [@cloudflareTlsModes2026].
+2. Export the Pangolin edition, node assignment, resource type, Custom provider routing, upstream auth mode, transcript retention, and failover settings. These values decide whether the request uses HTTP targets or AI providers, which key LiteLLM receives, and whether cloud infrastructure can enter the data path [@pangolinProviderConfig2026; @pangolinSessionLogs2026; @pangolinRemoteNodes2026].
+3. Inspect Portainer's deployed stacks and Docker networks without changing them. Confirm whether Newt exists, whether it joins `litellm`, and whether its Docker socket is mounted [@pangolinNewtConfig2026; @repoEvidence2026].
+4. Read the host firewall, router forwarding, and listener state for ports `4000` and `11437`. Git proves publication to the host, not reachability from the internet [@repoEvidence2026].
+5. Export the remotely managed Cloudflare Tunnel ingress rules. The repository's token-only Compose file cannot establish whether a legacy LiteLLM hostname still routes to host port `4000` [@repoEvidence2026].
+6. Check `PROXY_BASE_URL` or trusted forwarded-header settings before using the LiteLLM UI behind TLS termination; neither appears in the current stack, and LiteLLM requires a trusted HTTPS signal for secure cookies behind a reverse proxy [@repoEvidence2026; @litellmSecurity2026].
+
+## Worked example
+
+Assume the proposed resource becomes a **public AI Gateway**, its DNS record remains unproxied, and a Custom provider uses a Site Target for `litellm:4000`. These are assumptions because no Pangolin account or deployment state was inspected.
+
+| Step | Input → output | Decision and visibility |
+|---|---|---|
+| 1 | `POST /v1/chat/completions` with a Pangolin virtual key and prompt → VPS | Traefik terminates TLS. Pangolin reads the request and validates the virtual key [@pangolinArchitecture2026; @pangolinPublicAI2026]. |
+| 2 | Accepted request → Custom provider and site target | Pangolin strips its client key, adds the configured LiteLLM provider credential, and may add identity headers [@pangolinProviderConfig2026]. |
+| 3 | Node → WireGuard → Newt → HTTP `litellm:4000` | The tunnel encrypts the inter-site wire. Newt forwards the authorized target; the final Docker hop is plaintext [@pangolinArchitecture2026; @repoEvidence2026]. |
+| 4 | LiteLLM → stored spend log and routed completion | LiteLLM validates its credential, stores the prompt, and returns the response along the reverse path [@repoEvidence2026]. |
+
+Move termination one hop inward by changing the resource to **private HTTP**. The same API request first enters a Pangolin client tunnel, reaches Newt directly or through an encrypted VPS relay, and terminates TLS at Newt. The LiteLLM credential stays inside that TLS session until the home site, so the VPS loses prompt and credential visibility. Client installation and private-resource identity become mandatory [@pangolinPrivateHttp2026; @pangolinArchitecture2026].
+
+Move termination one hop outward by enabling Cloudflare proxying on the public hostname. The browser or SDK terminates its first TLS connection at Cloudflare, Cloudflare opens a second connection toward Pangolin, and both endpoints can process plaintext. This breaks the opaque-third-party requirement even when both wires use TLS [@cloudflareTlsModes2026; @cloudflarePrivacy2025].
+
+## Limitations
+
+This briefing inspects Git and current public documentation. It does not inspect Portainer, DNS, firewall, Pangolin, DigitalOcean, or Cloudflare account state, and it does not claim that any proposed request succeeded. Vendor documentation describes intended behavior; it does not prove the local deployment or exclude infrastructure-administrator threats.
+
+The source plan's named home address is deliberately absent from durable evidence. The related [inference control plane briefing](../inference-control-plane/index.qmd) covers model-routing ownership after access reaches LiteLLM.
+
+## Next action
+
+Collect the six read-only exports above, then decide one sentence of policy: either “the self-hosted DigitalOcean VPS is a trusted plaintext endpoint” or “prompts stay opaque until the home network.” That answer selects the public zero-client path or the private client path without changing any service.
+
+## References
+
+::: {#refs}
+:::

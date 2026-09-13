@@ -1,0 +1,187 @@
+{
+  "repository_revision": "a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+  "source_coverage": [
+    {
+      "path": "litellm-tunnel-privacy-plan.md",
+      "sha256": "9e70b16cf4e429d3e0841b442daa7234aa7e5151761978f52a3850dc030e7781",
+      "topics": [
+        {
+          "topic": "Status, selected architecture, and zero-client goal",
+          "section": "Summary",
+          "status": "corrected",
+          "note": "The plan calls itself ready and selects self-hosted Pangolin CE. The briefing preserves the proposed choice but identifies the missing deployment and narrows the privacy claim to a trusted VPS endpoint."
+        },
+        {
+          "topic": "Cloudflare Tunnel rejection",
+          "section": "Where the plan aged",
+          "status": "corrected",
+          "note": "Current Cloudflare docs still require client-side cloudflared for published non-HTTP TCP. The 12-month sampled-traffic statement is retained only as a dated 2021 whitepaper claim, not current policy."
+        },
+        {
+          "topic": "Public Pangolin request path and component roles",
+          "section": "The repository stops at LiteLLM; Worked example",
+          "status": "retained",
+          "note": "The client-to-VPS-to-Newt-to-LiteLLM path remains the proposed public path. Current Pangolin docs confirm Traefik TLS termination, Badger authentication, Gerbil tunneling, and Newt delivery."
+        },
+        {
+          "topic": "No home ingress and deny-by-default site behavior",
+          "section": "Wire encryption and endpoint visibility",
+          "status": "retained",
+          "note": "Pangolin documents outbound site connections and deny-by-default resources. The repository does not prove firewall or DNS state."
+        },
+        {
+          "topic": "Self-hosted CE and Remote Node modes",
+          "section": "Where the plan aged; Trust-boundary choices",
+          "status": "corrected",
+          "note": "Remote-node payload locality is conditional on the node remaining in service and cloud failover being disabled. AI Gateway site targets behind remote nodes remain unsupported."
+        },
+        {
+          "topic": "AI Gateway virtual keys, budgets, analytics, and session logs",
+          "section": "Where the plan aged",
+          "status": "corrected",
+          "note": "Public virtual keys and gateway routing remain documented. Session transcript logs require Pangolin Cloud or self-hosted Enterprise Edition and default to zero-day retention. Pangolin strips its virtual key before the upstream request."
+        },
+        {
+          "topic": "DigitalOcean Marketplace deployment and sizing",
+          "section": "Trust-boundary choices; Limitations",
+          "status": "corrected",
+          "note": "The current Marketplace entry confirms Pangolin CE on Ubuntu 24.04 but does not substantiate the source plan's 1 vCPU and 1 GB minimum. DigitalOcean remains the infrastructure provider for the TLS endpoint."
+        },
+        {
+          "topic": "Proposed services/pangolin-newt files",
+          "section": "The repository stops at LiteLLM",
+          "status": "historical",
+          "note": "The proposed directory, Compose manifest, and AGENTS.md do not exist at the named repository revision."
+        },
+        {
+          "topic": "Proposed Newt environment, Docker discovery, network validation, and health check",
+          "section": "Where the plan aged",
+          "status": "corrected",
+          "note": "The variable names and health file remain documented. The draft omits the Docker socket mount required for discovery, and a Docker health check does not itself trigger restart under unless-stopped."
+        },
+        {
+          "topic": "LiteLLM and llama-swap exposure claimed unchanged",
+          "section": "The repository stops at LiteLLM; Where the plan aged",
+          "status": "corrected",
+          "note": "LiteLLM publishes host port 4000 and llama-swap publishes host port 11437. LiteLLM calls llama-swap over plaintext HTTP on the LAN, so neither endpoint is confined to the proposed shared Docker network."
+        },
+        {
+          "topic": "Manual VPS, Pangolin, site, resource, DNS, Newt, key, and client steps",
+          "section": "Read-only checks that can change the decision",
+          "status": "historical",
+          "note": "All manual steps remain prerequisites. No account, cloud, DNS, certificate, site, resource, or key state was observed."
+        },
+        {
+          "topic": "Verification checklist",
+          "section": "Read-only checks that can change the decision",
+          "status": "historical",
+          "note": "The source proposes live TLS, authentication, completion, DNS, port, egress, health, and regression checks. None is represented as executed evidence."
+        },
+        {
+          "topic": "Updates, recovery, failover, certificate renewal, and operating burden",
+          "section": "Trust-boundary choices; Limitations",
+          "status": "corrected",
+          "note": "Self-hosted operation still requires patching, database backup, DNS, certificate, firewall, and recovery ownership. Cloud failover changes the remote-node data path and must be an explicit choice."
+        },
+        {
+          "topic": "Master key and one-key-per-client caveats",
+          "section": "Wire encryption and endpoint visibility",
+          "status": "corrected",
+          "note": "LiteLLM's master key remains an environment secret. A Pangolin public AI Gateway validates its own virtual key, strips it, and sends the configured provider credential upstream; the two key domains must be designed separately."
+        }
+      ]
+    },
+    {
+      "path": "services/litellm/docker-compose.yml",
+      "sha256": "5ac6c5f429102e40e38f2b59756b37869da28cb1d38b4fb39133b6119210da4b",
+      "topics": [
+        {
+          "topic": "Named Docker network and published host port",
+          "section": "The repository stops at LiteLLM",
+          "status": "retained",
+          "note": "The stack names its network litellm and publishes host port 4000. Comments describe the Pangolin path as a future cutover and call the port a migration bridge."
+        }
+      ]
+    },
+    {
+      "path": "services/litellm/config.yaml",
+      "sha256": "8d5b8fd542270f29acc8c3ca2c25c709c25a4ccd91d39db66efdec3f3d8ab56f",
+      "topics": [
+        {
+          "topic": "LiteLLM authentication, prompt storage, and upstream routing",
+          "section": "Wire encryption and endpoint visibility",
+          "status": "retained",
+          "note": "The config loads the master key from the environment, enables prompt storage in spend logs, and sends authenticated requests over HTTP to llama-swap on the LAN."
+        }
+      ]
+    },
+    {
+      "path": "services/cloudflared/docker-compose.yml",
+      "sha256": "52bd7271010d5e7215cf7929f846e3b1b6d82ab743b37e8c06b8288f909b8ad6",
+      "topics": [
+        {
+          "topic": "Repository-visible Cloudflare connector configuration",
+          "section": "The repository stops at LiteLLM",
+          "status": "retained",
+          "note": "The repository starts a remotely managed token tunnel. It contains no hostname-to-service ingress rules, so the claimed legacy LiteLLM route cannot be confirmed from Git."
+        }
+      ]
+    },
+    {
+      "path": "services/llama-swap-vllm/docker-compose.yml",
+      "sha256": "bb3e6aa88439a224165de1df6dacc66b6d532c82e995c4142bac2bea30e8e7c8",
+      "topics": [
+        {
+          "topic": "llama-swap host publication and upstream key",
+          "section": "Where the plan aged",
+          "status": "retained",
+          "note": "The router publishes host port 11437, listens on all container interfaces, and receives its API key from the environment."
+        }
+      ]
+    }
+  ],
+  "local_evidence": [
+    {
+      "path": "litellm-tunnel-privacy-plan.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "Status: ready for implementation\nChosen mode: self-hosted CE on the VPS\nclient -> public FQDN -> Pangolin node on the VPS (TLS terminates here) -> WireGuard tunnel -> Newt site connector -> LiteLLM :4000",
+      "note": "Proposed architecture and source status. No deployment state is implied."
+    },
+    {
+      "path": "litellm-tunnel-privacy-plan.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "services/pangolin-newt/docker-compose.yml (draft, verify against live Newt)\nimage: fosrl/newt:latest\nenvironment: PANGOLIN_ENDPOINT, NEWT_ID, NEWT_SECRET, DOCKER_SOCKET, DOCKER_ENFORCE_NETWORK_VALIDATION, HEALTH_FILE\nnetworks: litellm (external: true)",
+      "note": "Sanitized summary of the proposed manifest. Secret names are retained; no values are present. The proposed directory is absent."
+    },
+    {
+      "path": "litellm-tunnel-privacy-plan.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "Manual steps: deploy VPS; initialize Pangolin; create site; create public resource targeting litellm:4000; configure DNS; deploy Newt with site credentials; create client key; point clients at the public FQDN.",
+      "note": "Manual prerequisites preserved as proposed work. None was executed during this briefing."
+    },
+    {
+      "path": "services/litellm/docker-compose.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "networks:\n  litellm:\n    name: litellm\n...\nlitellm:\n  ports:\n    - \"4000:4000\"\n  environment:\n    LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in Portainer}",
+      "note": "The host port is a configured migration bridge. The environment expression contains no secret value."
+    },
+    {
+      "path": "services/litellm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "general_settings:\n  master_key: os.environ/LITELLM_MASTER_KEY\n  store_model_in_db: true\n  store_prompts_in_spend_logs: true\n...\napi_base: http://192.168.1.98:11437/v1\napi_key: os.environ/LLAMA_SWAP_API_KEY",
+      "note": "LiteLLM validates an environment-supplied key, stores prompts in spend logs, and uses a plaintext LAN hop to llama-swap."
+    },
+    {
+      "path": "services/cloudflared/docker-compose.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "image: cloudflare/cloudflared:latest\nenvironment:\n  - TUNNEL_TOKEN=$TUNNEL_TOKEN\ncommand: tunnel --no-autoupdate run",
+      "note": "The token is referenced but not present. Remotely managed ingress rules are outside the repository."
+    },
+    {
+      "path": "services/llama-swap-vllm/docker-compose.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "llama-swap:\n  ports:\n    - \"11437:8080\"\n  environment:\n    - LLAMA_SWAP_API_KEY=${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}\n  command: [\"--config\", \"/config/current/services/llama-swap-vllm/config.yaml\", \"--listen\", \"0.0.0.0:8080\"]",
+      "note": "The expression names a secret without exposing its value."
+    }
+  ]
+}

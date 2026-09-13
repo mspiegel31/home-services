@@ -5,7 +5,7 @@
 # Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
 # ref main, path services/litellm/docker-compose.yml, poll 5 min.
 #
-# Access (Pangolin; see litellm-tunnel-privacy-plan.md at repo root):
+# Access (Pangolin; see briefings/private-inference-access/index.qmd at repo root):
 # - Public: client -> llm.electricgarage.net -> Pangolin node (DO VPS: TLS + auth)
 #   -> WireGuard -> Newt (services/pangolin-newt/) -> litellm:4000 on the
 #   `litellm` network below. No inbound ports on the home box for this path.
