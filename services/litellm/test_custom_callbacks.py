@@ -198,25 +198,37 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         self.assertEqual(result["top_p"], 0.4)
         self.assertEqual(result["presence_penalty"], 0.0)
 
-    def test_ornith_is_a_target(self):
-        # The policy spans the whole qwen3 reasoning-parser family, not just
-        # the Qwen3.8 line: Ornith shares the same chat_template_kwargs
-        # contract.
-        result = call_hook(chat({"model": "ornith-1.5-9b-nvfp4", "reasoning_effort": "xhigh"}))
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {"enable_thinking": True, "reasoning_effort": "xhigh"},
-        )
+    def test_ornith_effort_normalizes_to_binary_thinking(self):
+        for model in ("ornith-1.5-9b-nvfp4", "ornith-1.5-35b-a3b-nvfp4"):
+            for effort, enabled in (("high", True), ("none", False)):
+                for nested in (False, True):
+                    with self.subTest(model=model, effort=effort, nested=nested):
+                        controls = {"reasoning_effort": effort}
+                        if nested:
+                            controls = {"chat_template_kwargs": controls}
+                        result = call_hook(chat({"model": model, **controls}))
+                        self.assertEqual(
+                            result["chat_template_kwargs"], {"enable_thinking": enabled}
+                        )
+                        self.assertNotIn("reasoning_effort", result)
 
-
-    def test_ornith_high_effort_is_not_condensed(self):
-        result = call_hook(
-            chat({"model": "ornith-1.5-9b-nvfp4", "reasoning_effort": "high"})
-        )
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {"enable_thinking": True, "reasoning_effort": "high"},
-        )
+    def test_ornith_explicit_toggle_wins_over_conflicting_controls(self):
+        for model in ("ornith-1.5-9b-nvfp4", "ornith-1.5-35b-a3b-nvfp4"):
+            for enabled in (False, True):
+                with self.subTest(model=model, enabled=enabled):
+                    result = call_hook(chat({
+                        "model": model,
+                        "reasoning_effort": "none" if enabled else "high",
+                        "thinking_token_budget": 0 if enabled else 8192,
+                        "chat_template_kwargs": {
+                            "enable_thinking": enabled,
+                            "reasoning_effort": "high",
+                        },
+                    }))
+                    self.assertEqual(
+                        result["chat_template_kwargs"], {"enable_thinking": enabled}
+                    )
+                    self.assertNotIn("reasoning_effort", result)
 
     def test_untargeted_model_passes_through(self):
         # Models without a local template contract are untouched.

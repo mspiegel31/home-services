@@ -17,8 +17,8 @@ When the resolved state is thinking-off, a stale top-level
 has nothing to act on.
 
 The Froggeric template defaults to medium thinking when none of those controls
-is present, so this module deliberately does not invent a default. Gemma 4 is
-binary-only: it receives ``enable_thinking`` but never an effort tier.
+is present, so this module deliberately does not invent a default. Gemma 4,
+Laguna XS 2.1, and Ornith receive ``enable_thinking`` but never an effort tier.
 
 The Unsloth NVFP4 deployment loads its thinking-mode sampling defaults from
 the checkpoint. Its Froggeric template defaults to medium effort, so requests
@@ -59,6 +59,7 @@ class LocalReasoningModel(str, Enum):
     QWEN38_NINFER = "qwen3.8-27b-ninfer"
     QWEN38_QUASAR_NVFP4 = "qwen3.8-27b-quasar-nvfp4"
     ORNITH = "ornith-1.5-9b-nvfp4"
+    ORNITH_35B_A3B = "ornith-1.5-35b-a3b-nvfp4"
     LAGUNA_XS_2_1 = "laguna-xs-2.1"
 
 
@@ -76,18 +77,16 @@ class ModelCapabilities:
 
     Qwen3.8 collapses the public effort vocabulary into three tiers and
     expects the effort nested under ``chat_template_kwargs``. NInfer accepts
-    effort only at the top level. Ornith keeps its own public effort values.
-    Gemma 4 and Laguna XS 2.1 only accept ``enable_thinking``.
+    effort only at the top level. Gemma 4, Laguna XS 2.1, and Ornith only
+    accept ``enable_thinking``.
     """
 
     three_tier_effort: bool
     nested_effort: bool
 
 
-# Qwen3.8 exposes a three-tier effort vocabulary to clients. The other Qwen
-# models retain their public effort values, including Ornith's distinct high
-# tier. Gemma 4 and Laguna XS 2.1 are binary-only, so they must not receive
-# reasoning_effort.
+# Qwen3.8 exposes three effort tiers. Gemma 4, Laguna XS 2.1, and Ornith
+# are binary-only, so they must not receive reasoning_effort.
 _CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
     LocalReasoningModel.GEMMA4_31B: ModelCapabilities(
         three_tier_effort=False, nested_effort=False
@@ -111,7 +110,10 @@ _CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
         three_tier_effort=True, nested_effort=True
     ),
     LocalReasoningModel.ORNITH: ModelCapabilities(
-        three_tier_effort=False, nested_effort=True
+        three_tier_effort=False, nested_effort=False
+    ),
+    LocalReasoningModel.ORNITH_35B_A3B: ModelCapabilities(
+        three_tier_effort=False, nested_effort=False
     ),
     # Laguna's template takes only enable_thinking; it has no effort tiers.
     LocalReasoningModel.LAGUNA_XS_2_1: ModelCapabilities(
@@ -312,21 +314,35 @@ class ChatTemplateThinkingPolicy:
         if not isinstance(data.get("messages"), list):
             return None
 
-        controls = _extract_controls(data)
-        if controls.is_empty:
-            return None
-
         caps = _CAPABILITIES[model]
+        binary_thinking = not caps.three_tier_effort and not caps.nested_effort
         kwargs_in = data.get("chat_template_kwargs")
         kwargs: dict[str, Any] = dict(kwargs_in) if isinstance(kwargs_in, dict) else {}
+        controls = _extract_controls(data)
+        if (
+            binary_thinking
+            and controls.effort is None
+            and _KW_REASONING_EFFORT in kwargs
+        ):
+            controls = ThinkingControls(
+                effort=kwargs.get(_KW_REASONING_EFFORT),
+                explicit_enable=controls.explicit_enable,
+                thinking_token_budget=controls.thinking_token_budget,
+            )
+        if controls.is_empty:
+            return None
 
         changed = False
         if controls.explicit_enable is not None and _KW_ENABLE_THINKING not in kwargs:
             kwargs[_KW_ENABLE_THINKING] = controls.explicit_enable
             changed = True
-        changed |= self._apply_effort(kwargs, controls.effort, caps)
-        changed |= self._apply_budget(kwargs, controls.thinking_token_budget)
+        if not binary_thinking or controls.explicit_enable is None:
+            changed |= self._apply_effort(kwargs, controls.effort, caps)
+            changed |= self._apply_budget(kwargs, controls.thinking_token_budget)
         changed |= self._strip_stale_effort(data, kwargs, controls.effort)
+        if binary_thinking:
+            changed |= data.pop(_KW_REASONING_EFFORT, None) is not None
+            changed |= kwargs.pop(_KW_REASONING_EFFORT, None) is not None
 
         if not changed:
             return None
