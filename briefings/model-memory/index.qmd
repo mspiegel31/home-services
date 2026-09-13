@@ -1,0 +1,220 @@
+---
+title: "Larger models and memory expansion"
+type: technology
+diataxis: guide
+audience: self
+question: "Which model or hardware upgrade offers a worthwhile improvement?"
+decision: "Whether to run a larger-model or offload experiment instead of buying more system RAM or a DGX Spark, compared with the quality of the existing Qwen setup."
+status: reviewed
+created: 2026-09-09
+updated: 2026-09-09
+bibliography: references.bib
+engine: marimo
+pyproject: |
+  requires-python = ">=3.11"
+  dependencies = [
+    "marimo>=0.23.16",
+  ]
+---
+
+::: {.brief-meta}
+**Question.** Which model or hardware upgrade offers a worthwhile improvement?  
+**Decision.** Whether to run a larger-model or offload experiment instead of buying more system RAM or a DGX Spark, compared with the quality of the existing Qwen setup.  
+**Reader.** self.
+:::
+
+## Summary
+
+Keep Qwen3.8-27B as the control and prove one larger model's loading path before buying hardware; current evidence does not justify a DGX Spark or show that the proposed 128 GB RAM upgrade alone will produce a useful larger-model service [@local-host-20260909].
+
+- **Current state:** llama-swap configures Qwen3.8-27B lanes on the 72 GB GPU. The repository documents 64 GB host RAM; the dated OS-visible and cache observations provide the runtime baseline [@local-stack-20260909; @local-host-20260909].
+- **Candidate evidence:** Qwen3.8-Flash-Next shows broad gains over Qwen3.8-27B in Qwen's same-harness rows, while DeepSeek leads NL2Repo and GLM leads the independent four-model v4.3 comparison. The candidates still lack a proved local fit and quality result [@qwen-flash-card; @aa-glm53; @aa-qwen-flash].
+- **Corrections:** disk size, tensor payload, CPU/GPU [resident allocations](#glossary), [KV cache](#glossary), and transient allocations differ. A large download does not disprove mmap or [offload](#glossary) [@llama-server-readme].
+- **Tradeoff:** Spark supplies separate [unified memory](#glossary). vLLM/SGLang require explicit [TP or PP](#glossary); PAIR routes one complete request to one node [@spark-hardware; @vllm-parallelism; @sglang-pipeline; @pair-readme].
+- **Next evidence:** prove exact artifact/runtime compatibility, then compare one fixed-prompt canary with Qwen3.8-27B while recording memory, latency, decode, transfers, and output validity.
+
+## Glossary {#glossary}
+
+**Tensor payload.** Serialized tensor bytes before runtime workspace, caches, copies, and allocator behavior [@qwen-flash-card; @qwen-flash-nvfp4-card].
+
+**Resident allocation.** Model and runtime state backed by CPU or GPU memory during execution, as affected by mmap, locking, placement, and access [@llama-server-readme].
+
+**KV cache.** Runtime attention state sized by context, concurrency, precision, and engine policy [@vllm-parallelism].
+
+**Offload.** Placement of selected tensors, layers, or MoE components in CPU memory while other work remains on the GPU [@llama-server-readme].
+
+**Tensor parallelism (TP).** Tensor computation split across workers, with communication during affected operations [@vllm-parallelism].
+
+**Pipeline parallelism (PP).** Layer ranges assigned to workers, optionally with uneven manual partitions [@vllm-env; @sglang-pipeline].
+
+**Router.** A service that chooses one backend per request rather than splitting one request across nodes [@pair-readme].
+
+**Unified memory.** Spark memory shared by CPU, GPU, OS, model, runtime, and caches [@spark-hardware; @vllm-spark].
+
+## 1. Current baseline and memory limits
+
+The repository configures LiteLLM to call llama-swap, which starts distinct Qwen3.8-27B vLLM and SGLang backends. The lanes include FP8 and mixed NVFP4 variants, use a native 262,144-token model limit when served alone, and reserve cache policy per backend [@local-stack-20260909; @qwen-27b-fp8-card]. This is configured state, not proof that every lane was loaded successfully during this research.
+For serving implementation details, see [Qwen serving](../qwen-serving/index.qmd). For lifecycle and routing boundaries, see [the inference control plane](../inference-control-plane/index.qmd).
+
+| Quantity | Classification | Evidence and implication |
+|---|---|---|
+| RTX PRO 5000, 73,415 MiB reported GPU memory | Observed on 2026-09-09 | The current GPU is the fixed accelerator envelope for a single-host test [@local-host-20260909]. |
+| 64 GB host RAM | Documented configuration | Hardware metadata, not an OS observation [@local-host-20260909]. |
+| 53,591,838,720 bytes OS-visible total; 42,101,354,496 available | Observed on 2026-09-09 | Available memory is a dated snapshot, not a loading budget [@local-host-20260909]. |
+| 128 GB-class system RAM | Proposed | Installed capacity and post-boot availability have not been measured [@local-host-20260909]. |
+| Qwen3.8-27B-FP8, 30.9 GB cache entry | Observed on 2026-09-09 | The baseline artifact is present; seven cache inconsistencies were also reported [@local-host-20260909]. |
+| Qwen3.8-27B-FP8 license | Current primary evidence | The official FP8 card says Apache-2.0, correcting the older note that grouped it under the Qwen Community License [@qwen-27b-fp8-card]. |
+
+Two comparisons answer different questions. Artificial Analysis independently tests hosted provider endpoints; its current v4.3 index is a weighted suite of 10 evaluations, with 30% assigned to agent tasks, 20% to coding, 20% to scientific reasoning, and 30% to general tasks [@aa-methodology-v43]. It ranks the current candidates as follows:
+
+| Model | Current AA v4.3 index | Decision use |
+|---|---:|---|
+| GLM-5.3-Flash | 42 | Highest independent result among these four revalidated rows [@aa-glm53]. |
+| Qwen3.8-Flash-Next | 40 | Six points above the 27B control on this hosted-endpoint index [@aa-qwen-flash]. |
+| DeepSeek-V4-Flash-0731 | 35 | One point above the 27B control [@aa-deepseek-v4]. |
+| Qwen3.8-27B (`xhigh`) | 34 | Independent baseline, not a measurement of the local FP8 lane [@aa-qwen-27b]. |
+
+The earlier research recorded Qwen3.8-27B scores of 52 at `xhigh`, 44 at medium, and 35 without thinking under an older Artificial Analysis method [@historical-research-20260909]. Those values remain historical provenance. They cannot be compared with v4.3 because the current index uses a different evaluation mix and weighting [@aa-methodology-v43].
+
+Qwen's model card supplies the second view: a same-publisher, same-harness-within-row table with Qwen3.8-Flash-Next, Qwen3.8-27B, and DeepSeek-V4-Flash-0731. This shared table is cleaner for within-row comparisons than mixing model-card results.
+
+| Benchmark | Qwen 27B | Flash-Next | DeepSeek V4 Flash | Reading |
+|---|---:|---:|---:|---|
+| SWE-Bench Pro | 61.7 | 62.5 | 56.0 | Flash is close to Qwen; DeepSeek trails [@qwen-flash-card]. |
+| DeepSWE 1.1 | 42.2 | 58.7 | 54.4 | Both sparse candidates lead Qwen [@qwen-flash-card]. |
+| NL2Repo | 42.3 | 48.1 | 54.2 | DeepSeek leads this row [@qwen-flash-card]. |
+| CoWorkBench | 70.7 | 73.9 | 45.1 | DeepSeek trails sharply [@qwen-flash-card]. |
+| JobBench | 33.4 | 55.7 | 41.3 | Flash has the largest gain in this subset [@qwen-flash-card]. |
+| Toolathlon Verified | 67.1 | 73.5 | 70.3 | Both candidates lead Qwen [@qwen-flash-card]. |
+
+The Qwen card discloses row-specific harnesses and settings. These numbers remain publisher results, but the DeepSeek columns are same-harness evidence within each row rather than a cross-harness comparison [@qwen-flash-card]. The table names base models and does not establish scores for the locally cached FP8 or mixed NVFP4 artifacts. NVIDIA's separate NVFP4 table used B200/B300 hardware and a different benchmark subset, so it provides precision-preservation evidence rather than a local comparison [@qwen-flash-nvfp4-card].
+
+## 2. Candidate and offload evidence
+
+Model identity and license narrow the field before capacity modeling. Payload alone can reject obvious full-residency assumptions, but it cannot prove a runtime will load, fit, or perform acceptably.
+
+| Candidate | Identity and license | Serialized evidence | Decision use |
+|---|---|---|---|
+| Qwen3.8-Flash-Next | 125B main-model parameters, 6B active, plus 51B n-gram and 4B MTP components; Qwen Community License | 180.0 GB BF16 tensor payload [@qwen-flash-card] | Best direct quality comparison. The official tensors cannot reside fully in either current pool. |
+| NVIDIA Qwen3.8-Flash-Next NVFP4 | Quantized derivative under NVIDIA Open Model and Qwen terms | 119.6 GB tensor payload; 132.7 GB repository download [@qwen-flash-nvfp4-card] | Card support names vLLM on B200/B300. RTX PRO 5000 partial placement, residency, and loading duplication are unverified. |
+| GLM-5.3-Flash | 320B total, 18B active; MIT | 321.3 GB tensor payload [@glm-flash-card] | The official tensors cannot reside fully in a 128 GB host tier. A compact quantized path could reopen the family, but none is validated here. |
+| DeepSeek-V4-Flash-0731 | 284B total, 13B active; MIT | 304.2 GB tensor payload [@deepseek-v4-card] | The official tensors exceed the proposed host tier. A smaller exact quant and supported placement path would require a separate fit test. |
+| gpt-oss-120b | 116.8B total, 5.1B active; Apache-2.0 | 60.8 GiB MXFP4 checkpoint [@gpt-oss-report] | Artifact-level canary; runtime and KV headroom remain unproved on the 72 GB GPU. |
+| Nemotron-3-Super-120B-A12B NVFP4 | 120B total, 12B active; NVIDIA license | 67.2 GB tensor payload [@nemotron-card] | Near the GPU envelope and not a strict permissive-license substitute. |
+| Mistral-Small-4-119B NVFP4 | 119B total, 6.5B active; Apache-2.0 | 70.8 GB artifact [@mistral-small-card] | Nominal payload leaves little GPU margin; no local runtime fit is established. |
+
+**GLM's separately configured agent evidence.** Z.ai's current figure reports Terminal-Bench 2.1 at 84.3, DeepSWE 1.1 at 63.4, Agents' Last Exam at 26.3, AutomationBench at 48.8, HLE with tools at 55.3, and GDPval-AA v2 at 1773 [@glm-benchmark-figure]. These values establish a capability profile, but Z.ai documents different harnesses, sampling, context, timeouts, tools, and judges from Qwen's shared table, so they cannot be placed numerically beside the Qwen rows [@glm-flash-card]. GLM also exposes `low`, `high`, and `max` reasoning effort, defaults to `max`, and recommends `clear_thinking=true` for chat [@glm-flash-card].
+
+**Deferred families from the original survey.** These exclusions describe the artifacts recorded in the earlier research, not permanent model-family bans:
+
+| Family | Historical triage reason | Reopen condition |
+|---|---|---|
+| MiniMax M2/M2.7/M3 | The notes recorded about 229 GB for M2/M2.7 FP8, 427 GB for M3 BF16, and a noncommercial M2.7 license [@historical-research-20260909]. | Verify a compact checkpoint, its license, and a supported offload path. |
+| MiMo-V2.5-Pro | The notes recorded about 554 GB even for a published FP4/DFlash form [@historical-research-20260909]. | Verify a materially smaller exact artifact and runtime support. |
+| Kimi-K3 | The notes recorded a roughly 2.78 TB artifact and related deployments starting near 650 GB RAM [@historical-research-20260909]. | Revisit only with a compact artifact sized for this homelab. |
+| Full GLM-5.3 | The notes recorded about 753 GB for the official artifact [@historical-research-20260909]. | Treat a future compact quant as a new fit candidate. |
+| DeepSeek-V4 Pro | The notes recorded a roughly 1.6T-parameter class [@historical-research-20260909]. | Require exact artifact bytes and a validated serving path. |
+| Qwen3-Coder 480B; Mistral Large 3 675B | The notes recorded hundreds of gigabytes even when quantized [@historical-research-20260909]. | Reopen only for an exact compact quant with measured quality and fit. |
+
+Official tensor sets rule out full residency at the stated tier. They do not rule out a family if a compact quantized artifact later appears. Any such artifact needs its own byte count, license check, parser support, placement controls, memory measurement, and quality canary.
+
+llama.cpp documents CPU MoE placement, per-tensor overrides, GPU-layer limits, tensor splits, mmap or mlock loading, automatic fit targets, and KV offload controls [@llama-server-readme]. Those mechanisms establish that partial residency is technically possible in that runtime. They do not establish compatibility with NVIDIA's Qwen NVFP4 artifact or the current vLLM/SGLang deployment.
+
+A llama.cpp issue supplies bounded community measurements, not a general performance law. On one 117.6B IQ4_NL MoE workload using two RTX 3090 GPUs, prefetch changed 10K-token prefill from 902.5 to 1,035.3 tokens/s, worsened time to first token from 1,085 to 1,604 ms, reduced decode from 38.40 to 36.55 tokens/s, and increased host-to-device traffic from 13,668 to 28,128 MiB [@llama-prefetch-pr]. The result shows why offload must be measured across latency, decode, and data movement rather than reduced to “more RAM fits a model.”
+
+## 3. Corrected, historical, and unverified claims
+
+The earlier notes treated a 128 GB RAM upgrade as making Qwen Flash quantization broadly plausible. Current evidence supports a narrower statement: the 119.6 GB tensor payload is small enough to justify checking a partial CPU/GPU path, but the current sources do not show that this exact NVFP4 artifact supports one. Nominal capacity says nothing conclusive about resident pages, runtime copies, KV cache, or compatibility [@qwen-flash-nvfp4-card; @llama-server-readme]. Its 132.7 GB repository total is a storage requirement, not a memory allocation.
+
+The 2026-09-09 cache list and memory snapshot are now preserved local observations, replacing undated inventory language. They should age as observations, not become defaults [@local-host-20260909]. The official Qwen3.8-27B-FP8 card also corrects the baseline license to Apache-2.0 [@qwen-27b-fp8-card].
+
+Three conclusions remain unverified: the exact larger artifact's offload implementation, its quality on the existing agent tasks, and acceptable latency under the homelab's actual memory traffic. Qwen's table supports within-row comparisons among Qwen, Flash-Next, and DeepSeek; GLM's separate card and DeepSeek's own harness report do not belong in that numerical comparison [@qwen-flash-card; @glm-flash-card; @deepseek-v4-card]. Community issue measurements describe their named hardware, quantization, prompts, and branch only [@llama-prefetch-pr].
+
+One third-party experiment did run a roughly 136 GB Qwen 2.5 72B checkpoint across a 128 GB DGX Spark and a 96 GB RTX PRO 6000 using Ray, NCCL, vLLM, and 100 Gb/s RoCE [@devquasar-heterogeneous]. Treat it as compatibility evidence for that exact Arm/x86 pair. It does not validate this 72 GB RTX PRO 5000, its network path, current images, candidate model formats, or expected speed.
+
+## 4. Upgrade tradeoffs
+
+| Path | Capacity and data movement | Software support | Decision |
+|---|---|---|---|
+| Keep Qwen3.8-27B | Fits the existing configured lanes and preserves GPU-local execution assumptions [@local-stack-20260909]. | Already routed through llama-swap to vLLM/SGLang. | Control and lowest operational risk. |
+| Larger model with CPU offload | Adds host capacity but moves selected data over the CPU/GPU path; context and concurrency still consume GPU memory [@llama-server-readme]. | Strong controls in llama.cpp; exact model-format support on this stack is unknown. | Best next experiment after compatibility proof. |
+| Upgrade to 128 GB-class host RAM | May hold a larger CPU-resident portion; post-boot usable memory and runtime duplication remain unknown [@local-host-20260909]. | Does not add GPU compute or remove transfer costs. | Buy only after a canary shows host capacity is the limiting variable. |
+| One DGX Spark | Separate 128 GB coherent pool at 273 GB/s shared by CPU, GPU, OS, model, runtime, and KV cache [@spark-hardware; @vllm-spark]. | NVIDIA validates single-Spark vLLM/SGLang recipes for selected models [@spark-sglang]. | Cleaner unified system, but current evidence does not show a Qwen-task gain. |
+| Spark plus RTX workstation | No transparent combined memory pool. TP uses coordinated shards; PP can assign unequal layer ranges [@vllm-parallelism; @vllm-env; @sglang-pipeline]. | NVIDIA's documented stacked-vLLM path is Spark-to-Spark; heterogeneous Arm/x86 Spark plus RTX remains unvalidated here [@spark-vllm-stacked]. | High integration risk before any purchase. |
+| PAIR across nodes | Routes each complete request to one eligible node, with no model or in-flight request splitting [@pair-readme]. | Current project documents Ollama and LM Studio engines, not this vLLM/SGLang stack [@pair-readme]. | Useful for request distribution, irrelevant to single-model capacity. |
+
+NVIDIA's “up to 200B parameters” single-Spark statement is a platform limit conditioned by model architecture, precision, and available headroom, not a guarantee that any 200B artifact will run [@spark-hardware]. A Spark therefore cannot be counted as “128 GB plus 72 GB” [@spark-hardware; @local-host-20260909]. Only a tested distributed runtime can divide one model across the two systems, and each engine's documented partitioning and network assumptions still apply [@vllm-parallelism; @sglang-pipeline].
+
+## 5. Next read-only check and bounded experiment
+
+First build an artifact-to-runtime matrix for Qwen Flash NVFP4 without downloading or loading it: parser and quantization support, mmap or CPU residency, selectable MoE placement, and GPU KV headroom. Unknown implementation behavior stays unknown.
+
+If a path exists, run a fixed-revision, fixed-prompt canary against Qwen3.8-27B at one context and concurrency. Record load success, peak RAM/VRAM, time to first token, decode rate, host-to-device bytes, output validity, and tool-call validity. Apply the acceptance criteria preserved from the original survey:
+
+| Requirement | Acceptance criterion |
+|---|---|
+| Decode speed | At least 8 tokens/s at batch one after warm-up. This is a proposed user-specific bar, not a measured capability [@historical-research-20260909]. |
+| Tool use | No malformed calls across the representative agent task set [@historical-research-20260909]. |
+| Open-ended work | Better completion quality on ambiguous tasks without clarification loops [@historical-research-20260909]. |
+| Reasoning control | Stable behavior at the reasoning effort intended for daily use [@historical-research-20260909]. |
+| Memory margin | Enough measured RAM and VRAM for the target KV cache and runtime workspace [@historical-research-20260909]. |
+| Operations | Repeatable cold load and model swapping through a separate llama-swap lane [@historical-research-20260909]. |
+
+Buy hardware only if the canary passes the quality and operations gates and shows that capacity, rather than format support or transfer cost, is the measured constraint.
+
+## Worked example
+
+**Scenario.** Model the NVIDIA Qwen Flash NVFP4 tensor payload on the observed host, without loading it. Reserve a proposed 8 GiB of GPU space for runtime and KV state, then calculate the tensor bytes placed elsewhere.
+
+```python {.marimo echo="true"}
+import marimo as mo
+
+gib = 1024**3
+mib = 1024**2
+
+# Literal evidence-backed inputs. No model is downloaded or loaded.
+tensor_bytes = 119_602_003_859          # NVIDIA Qwen Flash NVFP4 tensor payload
+gpu_total_mib = 73_415                  # read-only nvidia-smi observation
+host_total_bytes = 53_591_838_720       # read-only free -b observation
+host_available_bytes = 42_101_354_496   # read-only free -b observation
+proposed_gpu_reserve_gib = 8.0          # sensitivity input, not a runtime default
+
+tensor_gib = tensor_bytes / gib
+gpu_total_gib = gpu_total_mib * mib / gib
+host_total_gib = host_total_bytes / gib
+host_available_gib = host_available_bytes / gib
+minimum_spill_gib = max(tensor_gib - gpu_total_gib, 0)
+reserved_spill_gib = minimum_spill_gib + proposed_gpu_reserve_gib
+payload_slack_gib = host_available_gib - minimum_spill_gib
+
+mo.md(
+    f"""
+| Modeled or observed quantity | GiB |
+|---|---:|
+| Modeled tensor payload | {tensor_gib:.2f} |
+| Observed total GPU memory | {gpu_total_gib:.2f} |
+| Observed OS-visible host memory | {host_total_gib:.2f} |
+| Observed available host memory | {host_available_gib:.2f} |
+| Modeled minimum tensor spill | {minimum_spill_gib:.2f} |
+| Modeled spill with 8 GiB GPU reserve | {reserved_spill_gib:.2f} |
+| Payload-only slack at minimum spill | {payload_slack_gib:.2f} |
+"""
+)
+```
+
+The cell yields 111.39 GiB of tensors, a 71.69 GiB GPU pool, 49.91 GiB of OS-visible host memory, 39.69 GiB of minimum spill, and 39.21 GiB of observed available host RAM [@qwen-flash-nvfp4-card; @local-host-20260909]. The 8 GiB GPU reserve raises modeled spill to 47.69 GiB. Payload-only slack is -0.48 GiB even before mmap pages, allocator behavior, runtime workspace, KV state, and loading copies.
+
+The changed parameter is the GPU reserve, from 0 to 8 GiB. Measure peak CPU/GPU residency and transfer traffic under that placement. The result can justify more host RAM only if capacity binds before data movement or runtime support. Spark contributes nothing to this single-host model unless a validated distributed partition replaces it.
+
+## Limitations
+
+No candidate was downloaded, loaded, or benchmarked. Local memory is one dated snapshot. Tensor metadata is not runtime residency. Artificial Analysis scores come from hosted provider endpoints; Qwen's shared table and GLM's separate table remain vendor evidence [@aa-methodology-v43; @qwen-flash-card; @glm-flash-card]. The excluded-family sizes and older Qwen scores remain historical, unverified leads from the original survey [@historical-research-20260909]. Current documentation does not establish a supported heterogeneous Spark plus RTX PRO 5000 vLLM/SGLang deployment.
+
+## Next action
+
+Complete the read-only Qwen Flash NVFP4 compatibility matrix. If one engine exposes an explicit partial-residency path for that artifact, schedule the fixed-prompt canary against Qwen3.8-27B; otherwise test gpt-oss-120b as the smaller 60.8 GiB larger-model control before purchasing RAM or DGX Spark [@gpt-oss-report].
+
+## References
+
+::: {#refs}
+:::

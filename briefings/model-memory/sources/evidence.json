@@ -1,0 +1,169 @@
+{
+  "repository_revision": "a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+  "source_coverage": [
+    {
+      "path": "research/oss-sota-moe-ram-offload-vs-qwen38-27b.md",
+      "sha256": "65f2f2c5980d4302f90b0317e9e2423ca6333f076687465150da23ad89ab216f",
+      "topics": [
+        {
+          "topic": "Current host, serving path, model cache, and cache inconsistencies",
+          "section": "1. Current baseline and memory limits",
+          "status": "historical",
+          "note": "The original snapshot was preserved as historical context and replaced in the briefing by a fresh 2026-09-09 read-only observation. Cache contents and available RAM remain dated, variable state."
+        },
+        {
+          "topic": "Candidate identity, active parameters, licenses, and artifact sizes",
+          "section": "2. Candidate and offload evidence",
+          "status": "corrected",
+          "note": "Candidates were rechecked against current official model cards. Qwen3.8-27B-FP8 is Apache-2.0. Qwen Flash BF16 tensor payload, NVIDIA NVFP4 tensor payload, and full repository storage remain distinct quantities."
+        },
+        {
+          "topic": "Independent Artificial Analysis comparison and methodology change versus older Qwen scores",
+          "section": "1. Current baseline and memory limits; 3. Corrected, historical, and unverified claims",
+          "status": "corrected",
+          "note": "Current v4.3 hosted-provider index values are 42 for GLM-5.3-Flash, 40 for Qwen3.8-Flash-Next, 35 for DeepSeek-V4-Flash-0731, and 34 for Qwen3.8-27B at xhigh. The older local record of 52, 44, and 35 for Qwen at different effort levels is preserved as historical and non-comparable because v4.3 changed the evaluation suite and weighting."
+        },
+        {
+          "topic": "Qwen same-harness benchmark comparison including DeepSeek columns",
+          "section": "1. Current baseline and memory limits",
+          "status": "corrected",
+          "note": "Representative Qwen3.8-27B, Qwen3.8-Flash-Next, and DeepSeek-V4-Flash-0731 columns are retained from the same Qwen model-card table. They are labeled same-table publisher evidence with row-specific settings, not local measurements. DeepSeek's own separately configured harness report is not mixed into this comparison."
+        },
+        {
+          "topic": "GLM separately labeled agent evidence and reasoning-effort controls",
+          "section": "2. Candidate and offload evidence",
+          "status": "restored",
+          "note": "The official GLM benchmark figure is represented separately from Qwen's shared table. The briefing records the low, high, and max reasoning-effort controls, the max default, the chat clear_thinking recommendation, and the documented harness differences."
+        },
+        {
+          "topic": "Official large tensor sets versus potential compact quantized offload paths",
+          "section": "2. Candidate and offload evidence; Worked example",
+          "status": "corrected",
+          "note": "Official tensor sizes reject full-residency assumptions at the stated memory tier. They do not permanently reject a model family. Any later compact quant needs an exact byte count, license, parser and placement support, measured residency, and a quality canary."
+        },
+        {
+          "topic": "Deferred MiniMax, MiMo, Kimi, full GLM, DeepSeek Pro, Qwen3-Coder, and Mistral Large families",
+          "section": "2. Candidate and offload evidence; Limitations",
+          "status": "historical",
+          "note": "All excluded families are named with substantive artifact-size or licensing reasons from the original survey. Their older figures remain explicitly historical and unverified; each family can be reconsidered if an exact compact artifact and supported serving path are established."
+        },
+        {
+          "topic": "llama.cpp expert prefetch and offload observations",
+          "section": "2. Candidate and offload evidence",
+          "status": "retained",
+          "note": "Exact configuration-specific measurements are retained as community evidence. They are not generalized into a throughput forecast for this homelab."
+        },
+        {
+          "topic": "Concrete replacement acceptance criteria and proposed 8 tokens per second bar",
+          "section": "5. Next read-only check and bounded experiment",
+          "status": "restored",
+          "note": "The six original gates for decode speed, tool use, open-ended work, reasoning control, memory margin, and operations are retained. Eight tokens per second is labeled a proposed user-specific acceptance bar, not a measured capability or forecast."
+        },
+        {
+          "topic": "RAM upgrade scorecard and next experiment",
+          "section": "4. Upgrade tradeoffs; 5. Next read-only check and bounded experiment",
+          "status": "corrected",
+          "note": "A 128 GB-class upgrade is not treated as sufficient from capacity alone. The gate is exact artifact/runtime compatibility followed by a bounded resident-memory, data-movement, quality, and operations canary."
+        }
+      ]
+    },
+    {
+      "path": "research/dgx-spark-rtx5000-heterogeneous-vllm-sglang.md",
+      "sha256": "46df0b0c5bd7fcdf47c43aa2991ccc6eb479caf03fde21e6178763a33be37c65",
+      "topics": [
+        {
+          "topic": "DGX Spark 128 GB unified-memory capacity and bandwidth",
+          "section": "4. Upgrade tradeoffs",
+          "status": "retained",
+          "note": "Current NVIDIA hardware documentation confirms a 128 GB coherent pool at 273 GB/s, shared by CPU, GPU, OS, runtime, model, and caches."
+        },
+        {
+          "topic": "Transparent approximately 200 GB Spark plus RTX pool",
+          "section": "4. Upgrade tradeoffs",
+          "status": "corrected",
+          "note": "No transparent additive pool is claimed. Spark and the workstation remain separate systems unless an explicit distributed runtime partitions the model."
+        },
+        {
+          "topic": "vLLM tensor and pipeline parallelism on mixed nodes",
+          "section": "4. Upgrade tradeoffs",
+          "status": "retained",
+          "note": "Current vLLM documents TP, PP, identical execution environments, Ray, and network requirements. Uneven PP layer partitions exist, but heterogeneous Spark plus RTX support is not established."
+        },
+        {
+          "topic": "SGLang pipeline parallelism and uneven layer partitioning",
+          "section": "4. Upgrade tradeoffs",
+          "status": "retained",
+          "note": "Current SGLang docs retain manual PP layer partition controls. NVIDIA's Spark playbook validates a single-Spark setup, not this heterogeneous two-host combination."
+        },
+        {
+          "topic": "PAIR as a model or memory pooling layer",
+          "section": "4. Upgrade tradeoffs",
+          "status": "corrected",
+          "note": "Current PAIR documentation explicitly describes routing each independent request to one node and disclaims model, memory, and in-flight request splitting. Its documented engines are Ollama and LM Studio."
+        },
+        {
+          "topic": "Third-party heterogeneous Spark and RTX feasibility report",
+          "section": "3. Corrected, historical, and unverified claims",
+          "status": "historical",
+          "note": "The report remains compatibility evidence for its own hardware and network only. It is not used as primary evidence for RTX PRO 5000 support, performance, or quality."
+        },
+        {
+          "topic": "Recommendation and bounded experiment design",
+          "section": "5. Next read-only check and bounded experiment; Worked example",
+          "status": "corrected",
+          "note": "The revised sequence proves exact artifact/runtime placement first, then measures one fixed canary. No deployment or model load was performed for this briefing."
+        }
+      ]
+    }
+  ],
+  "local_evidence": [
+    {
+      "path": "AGENTS.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "GPU: RTX PRO 5000 Blackwell 72GB | RAM: 64GB | CPU: Ryzen 5700G",
+      "note": "Repository hardware metadata. The RAM figure is documented configuration, distinct from the dated OS-visible total and available-memory observation."
+    },
+    {
+      "path": "services/llama-swap-vllm/docker-compose.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "llama-swap vLLM router for RTX PRO 5000 Blackwell 72GB; router starts backends and exposes an OpenAI-compatible service.",
+      "note": "Configured repository state at the recorded revision; not a runtime health observation."
+    },
+    {
+      "path": "services/llama-swap-vllm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "Configured Qwen3.8-27B lanes include Qwen/Qwen3.8-27B-FP8 and RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead, served through vLLM or SGLang backends.",
+      "note": "Secrets and private network addresses are omitted. Configuration is evidence of intent, not successful model loading."
+    },
+    {
+      "path": "services/litellm/config.yaml",
+      "observed_at": "2026-09-09",
+      "excerpt": "client -> LiteLLM -> llama-swap -> vLLM; Qwen quantizations are exposed under distinct model identifiers.",
+      "note": "Configured request path with credentials and private endpoint values excluded."
+    },
+    {
+      "path": "ssh://inference-box/free -b",
+      "observed_at": "2026-09-09",
+      "excerpt": "Mem total 53591838720 bytes; available 42101354496 bytes; swap total 8589930496 bytes.",
+      "note": "Fresh read-only snapshot. Available memory is transient and is not an installed-capacity guarantee."
+    },
+    {
+      "path": "ssh://inference-box/nvidia-smi --query-gpu=name,memory.total,memory.free",
+      "observed_at": "2026-09-09",
+      "excerpt": "NVIDIA RTX PRO 5000 72GB Blackwell, 73415 MiB total, 4259 MiB free.",
+      "note": "Fresh read-only snapshot. Free VRAM reflects concurrent workload state and is not used as a permanent capacity figure."
+    },
+    {
+      "path": "ssh://inference-box/hf cache list --cache-dir /mnt/models/huggingface/hub --format json",
+      "observed_at": "2026-09-09",
+      "excerpt": "Qwen/Qwen3.8-27B-FP8 30.9G; RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead 23.8G; unsloth/Qwen3.8-27B-NVFP4 23.4G; warning: 7 cache inconsistencies.",
+      "note": "Fresh read-only cache inventory excerpt. The full command returned 15 entries; only decision-relevant Qwen rows are preserved here."
+    },
+    {
+      "path": "research/oss-sota-moe-ram-offload-vs-qwen38-27b.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "Historical survey recorded older Qwen Artificial Analysis scores of 52 at xhigh, 44 at medium, and 35 without thinking; deferred MiniMax, MiMo, Kimi, full GLM, DeepSeek Pro, Qwen3-Coder, and Mistral Large artifacts on then-recorded size or license grounds; and proposed replacement gates for decode speed, tool use, open-ended work, reasoning control, memory margin, and operations, including an 8 tokens/s batch-one user acceptance bar.",
+      "note": "Historical local research provenance only. These older model-size and index claims were not all independently revalidated in this correction. They remain explicitly unverified and must not be treated as current artifact facts or local measurements."
+    }
+  ]
+}
