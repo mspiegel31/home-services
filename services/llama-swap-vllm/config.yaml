@@ -46,10 +46,11 @@ macros:
   # ── vLLM engine flags ──────────────────────────────────────────
   # Docs: https://docs.vllm.ai/en/stable/configuration/engine_args/
   #
-  # Let vLLM's interactivity profile select hardware-aware batching defaults.
-  # Model-specific MAX_NUM_SEQS caps remain explicit in those models' commands.
+  # vLLM's automatic 1024-sequence limit OOMs Qwen3.8 DFlash2 warmup on 72GB.
+  # 64 matches the desired concurrency ceiling; model-specific 32 limits remain.
+  MAX_NUM_SEQS: "64"
   # vllm-openai runs `vllm serve`; keep the model as its first positional argument.
-  VLLM_COMMON: "${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching --performance-mode interactivity"
+  VLLM_COMMON: "${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching --performance-mode interactivity --max-num-seqs ${MAX_NUM_SEQS}"
   QWEN38_COMMON: "--reasoning-parser qwen3 --tool-call-parser qwen3_xml --enable-auto-tool-choice"
 
 models:
@@ -77,7 +78,6 @@ models:
       --name vllm-muse-glimmer
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-seqs ${MAX_NUM_SEQS}
       --max-model-len 131072
       --gpu-memory-utilization 0.92
       --reasoning-parser muse_glimmer
@@ -114,7 +114,6 @@ models:
       --name vllm-muse-glimmer-nvidia
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-seqs ${MAX_NUM_SEQS}
       --hf-overrides '{"text_config":{"max_position_embeddings":262144,"rope_parameters":{"rope_type":"yarn","factor":2.0,"original_max_position_embeddings":131072,"rope_theta":500000.0}}}'
       --max-model-len 262144
       --gpu-memory-utilization 0.80
@@ -406,7 +405,6 @@ models:
       --name vllm-laguna-xs-2-1
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-seqs ${MAX_NUM_SEQS}
       --max-model-len 262144
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8
@@ -472,7 +470,6 @@ models:
       --name vllm-nemotron-3-5
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-seqs ${MAX_NUM_SEQS}
       --max-model-len auto
       --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
@@ -508,7 +505,6 @@ models:
       --name vllm-ornith-1-5-9b
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-seqs ${MAX_NUM_SEQS}
       --max-model-len auto
       --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
@@ -546,7 +542,6 @@ models:
       --env MAX_JOBS=4
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-seqs ${MAX_NUM_SEQS}
       --max-model-len auto
       --gpu-memory-utilization 0.9
       --kv-cache-dtype bfloat16
