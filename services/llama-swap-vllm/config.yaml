@@ -109,14 +109,14 @@ models:
       # command uses 64. Keep the canary scheduler identical to production.
       MAX_NUM_SEQS: "32"
     proxy: http://vllm-muse-glimmer-nvidia:8000
+    # Experimental 2x extension. vLLM applies this nested override before
+    # validating --max-model-len, so the Hugging Face cache stays immutable.
+    # YaRN only affects the 39 local RoPE layers; the 13 global layers are NoPE.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-muse-glimmer-nvidia
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      # Experimental 2x extension. vLLM applies this nested override before
-      # validating --max-model-len, so the Hugging Face cache stays immutable.
-      # YaRN only affects the 39 local RoPE layers; the 13 global layers are NoPE.
       --hf-overrides '{"text_config":{"max_position_embeddings":262144,"rope_parameters":{"rope_type":"yarn","factor":2.0,"original_max_position_embeddings":131072,"rope_theta":500000.0}}}'
       --max-model-len 262144
       --gpu-memory-utilization 0.80
