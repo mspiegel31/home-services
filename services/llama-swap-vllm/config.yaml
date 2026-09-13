@@ -187,6 +187,8 @@ models:
     # FP8 lm_head. Cap first-run FlashInfer compilation on the 64 GB host.
     # The qwen3_5 loader does not yet apply this checkpoint's calibrated FP8
     # KV scales (vllm#54623); bfloat16 KV remains the quality canary.
+    # Interactivity still defaults to 8K prefill batches on this GPU.
+    # A 1K budget cut worst decode gaps from 1.94s to 0.35s beside a 65K prefill.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b-nvfp4
@@ -194,6 +196,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-batched-tokens 1024
       --max-model-len auto
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
