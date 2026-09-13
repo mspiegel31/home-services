@@ -59,7 +59,8 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 whose chat templates need them before LiteLLM forwards Chat Completions
 requests. The policy covers Gemma 4 31B (binary thinking), Qwen3.8
 (`qwen3.8-27b-fp8`, `-nvfp4`, `-nvfp4-bf16-lmhead`,
-`-nvfp4-bf16-lmhead-sglang`, `-quasar-nvfp4`, `-ninfer`), and Ornith. NInfer
+`-nvfp4-bf16-lmhead-sglang`, `-quasar-nvfp4`, `-ninfer`), Laguna XS 2.1,
+and both Ornith NVFP4 routes (9B and 35B-A3B). NInfer
 has a separate wire-compatibility branch because
 it accepts top-level Chat Completions effort but not nested effort, and it
 intentionally omits Responses API summaries and encrypted reasoning output.
@@ -91,19 +92,21 @@ discovery therefore directs OMP to Chat Completions, where its thinking controls
 reach this callback. No client-side transport or compatibility override is
 required.
 
-- Gemma 4: a positive `thinking_token_budget` or `enable_thinking=true` maps
-  to `chat_template_kwargs.enable_thinking=true`; zero or `false` disables it.
-  It never receives `reasoning_effort` because Gemma's template has no tiers.
+- Gemma 4, Laguna XS 2.1, and Ornith use binary thinking. Their templates
+  receive only `chat_template_kwargs.enable_thinking`; neither discovery
+  metadata nor backend requests should contain an effort ladder.
+- For binary models, explicit toggles win over budgets and effort. Otherwise,
+  zero budgets or `none`/`off` disable thinking; positive budgets or effort
+  enable it. Unsupported effort fields are removed at both request levels.
 - `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
-- vLLM/SGLang `minimal`/`low` -> `enable_thinking=true`, nested `reasoning_effort=low`
-- vLLM/SGLang `medium` -> `enable_thinking=true`, nested `reasoning_effort=medium`
+- vLLM/SGLang Qwen3.8 `minimal`/`low` -> `enable_thinking=true`, nested `reasoning_effort=low`
+- vLLM/SGLang Qwen3.8 `medium` -> `enable_thinking=true`, nested `reasoning_effort=medium`
 - vLLM/SGLang Qwen3.8 `high`/`xhigh`/`max` -> nested `reasoning_effort=xhigh`
 - NInfer Chat Completions keeps `reasoning_effort` top-level and adds only
   `chat_template_kwargs.enable_thinking`
 - NInfer Responses requests drop `reasoning.summary` and
   `include: ["reasoning.encrypted_content"]`; NInfer returns raw reasoning text
   but cannot produce either requested representation
-- other Qwen models preserve their requested effort tier
 - zero `thinking_token_budget` -> `enable_thinking=false`
 - positive `thinking_token_budget` -> `enable_thinking=true`
 - explicit `enable_thinking` wins over effort
