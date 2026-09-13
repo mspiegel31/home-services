@@ -240,14 +240,19 @@ model_list:
       supports_reasoning: true
       vision: true
       supports_vision: true
+      supports_function_calling: true
+      supports_parallel_function_calling: true
+      supports_tool_choice: true
       # Ornith templates support enable_thinking only, not effort tiers.
-      supported_parameters:
+      supported_openai_params:
         - temperature
         - top_p
         - top_k
         - repetition_penalty
         - max_tokens
         - stream
+        - tools
+        - tool_choice
       input_cost_per_token: 0.0
       output_cost_per_token: 0.0
 
