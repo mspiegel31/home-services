@@ -496,7 +496,7 @@ models:
       reasoning: true
       thinking: true
       vision: true
-      reasoning_effort: [low, medium, high, xhigh]
+      # Binary thinking: the publisher's template has no effort tiers.
     macros:
       USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
@@ -517,6 +517,42 @@ models:
       --performance-mode throughput
     cmdStop: docker stop --time 90 vllm-ornith-1-5-9b
 
+  "ornith-1.5-35b-a3b-nvfp4":
+    name: Ornith 1.5 35B-A3B NVFP4
+    description: Ornith 1.5 35B-A3B MoE with jzinno DFlash2, vision, binary thinking, and auto-fit context (native 262,144)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      # Binary thinking: the publisher's template has no effort tiers.
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      MAX_NUM_SEQS: "32"
+      checkpoint: "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
+    proxy: http://vllm-ornith-1-5-35b-a3b:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-ornith-1-5-35b-a3b
+      --env MAX_JOBS=4
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-model-len auto
+      --max-num-batched-tokens 16384
+      --gpu-memory-utilization 0.9
+      --kv-cache-dtype bfloat16
+      --speculative-config '{"method":"dflash","model":"jzinno/Ornith-1.5-35B-A3B-DFlash2","num_speculative_tokens":7}'
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_xml
+      --enable-auto-tool-choice
+      --performance-mode throughput
+    cmdStop: docker stop --time 90 vllm-ornith-1-5-35b-a3b
+
 
 routing:
   router:
@@ -526,4 +562,5 @@ routing:
         sets:
           gemma: "gemma-4-31b"
           laguna-xs-2.1: "laguna-xs-2.1"
+          ornith-35b: "ornith-1.5-35b-a3b-nvfp4"
           co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | qwen3.8-27b-quasar-nvfp4 | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
