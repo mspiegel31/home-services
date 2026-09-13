@@ -1,0 +1,181 @@
+{
+  "repository_revision": "a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+  "source_coverage": [
+    {
+      "path": "research/inference-control-plane-sync.md",
+      "sha256": "6c1e124de8aa795887c9ed6c80d548781bc3ea37bb71816c73237d316e8d3791",
+      "topics": [
+        {
+          "topic": "current LiteLLM and llama-swap split",
+          "section": "The configured catalog surface",
+          "status": "retained",
+          "note": "Rechecked against the repository configuration. LiteLLM owns the client gateway and callback; llama-swap owns model process lifecycle and matrix routing. Runtime execution was not observed."
+        },
+        {
+          "topic": "control-plane replacement survey",
+          "section": "Authority belongs close to the mechanism",
+          "status": "corrected",
+          "note": "Dropped ad-hoc numeric fit scores. Current primary documentation still separates lifecycle managers from request routers and Kubernetes or Ray control planes."
+        },
+        {
+          "topic": "llama-swap as the catalog source and LiteLLM generation target",
+          "section": "Authority belongs close to the mechanism",
+          "status": "retained",
+          "note": "Kept as a proposal, not implemented state. The current files remain hand-authored duplicates."
+        },
+        {
+          "topic": "static schema and cross-file contract gate",
+          "section": "Authority belongs close to the mechanism",
+          "status": "retained",
+          "note": "Current llama-swap publishes a JSON Schema, but its metadata object is intentionally open-ended, so reasoning and effort invariants still need a repository-specific checker."
+        },
+        {
+          "topic": "post-deploy Hurl checks",
+          "section": "The decisive read-only snapshot",
+          "status": "retained",
+          "note": "Narrowed the immediate check to no-load GET snapshots. Behavioral requests remain a later opt-in check because they can start or evict a backend."
+        },
+        {
+          "topic": "LiteLLM database reconciliation",
+          "section": "Authority belongs close to the mechanism",
+          "status": "corrected",
+          "note": "Current LiteLLM documentation says DB and config models can coexist and DB settings overlay YAML. The local stack enables DB model storage, but this briefing did not query the server database."
+        },
+        {
+          "topic": "OMP auto-classifier failure and xhigh task execution",
+          "section": "Drift is visible at both client boundaries",
+          "status": "historical",
+          "note": "Preserved only as a dated observation from the source. The current local and tiny roles are explicitly pinned to medium and low, and task agents override to the local role, so the old automatic-classifier path is no longer the configured path."
+        }
+      ]
+    },
+    {
+      "path": "research/gateway-thinking-levels.md",
+      "sha256": "0633441e6ee21ce01acaa5c13b349625ea3a674cf9476f73337fa74590bbc7fc",
+      "topics": [
+        {
+          "topic": "OMP and OpenCode provider differences",
+          "section": "The configured catalog surface",
+          "status": "corrected",
+          "note": "Rechecked current OMP source, OMP cache, OpenCode docs, AI SDK source, and local client files. OpenCode's current variants place reasoningEffort directly in each variant; the four configured none variants are disabled."
+        },
+        {
+          "topic": "engine thinking-control matrix",
+          "section": "Evidence from files, upstream source, and client cache",
+          "status": "corrected",
+          "note": "Limited claims to configured callback branches and pinned vLLM 0.28.0 documentation. SGLang and NInfer behavior was not re-executed."
+        },
+        {
+          "topic": "LiteLLM as the translation seam",
+          "section": "Evidence from files, upstream source, and client cache",
+          "status": "retained",
+          "note": "The callback registration and request transformation are implemented. Current hosted_vllm source accepts reasoning_effort and thinking, but does not by itself normalize arbitrary model_info metadata for OMP."
+        },
+        {
+          "topic": "9router and other gateway options",
+          "section": "Authority belongs close to the mechanism",
+          "status": "corrected",
+          "note": "Revalidated the current 9Router repository under decolua/9router. It targets coding-client provider routing, quota fallback, and format translation rather than this stack's model process lifecycle."
+        },
+        {
+          "topic": "single-ladder design and client generation",
+          "section": "Authority belongs close to the mechanism",
+          "status": "corrected",
+          "note": "The desired single authority remains proposed. Current OMP discovery and OpenCode configuration still hold divergent projections."
+        },
+        {
+          "topic": "validation and generation roadmap",
+          "section": "Authority belongs close to the mechanism",
+          "status": "retained",
+          "note": "Preserved the static-checker-first ordering and deferred mutable DB reconciliation."
+        }
+      ]
+    },
+    {
+      "path": "research/omp-litellm-reasoning-discovery.md",
+      "sha256": "28a9e942198170285fa0b107d2ee9592a906628eb553a77027a4f37a9c5b6b72",
+      "topics": [
+        {
+          "topic": "OMP 18.1.10 generic effort ladder observation",
+          "section": "Drift is visible at both client boundaries",
+          "status": "historical",
+          "note": "The 2026-09-04 observation remains historical. A 2026-09-09 local cache independently shows generic ladders for most affected models, while one model receives an exact ladder from bundled reference metadata."
+        },
+        {
+          "topic": "mapLiteLLMRichEntry ignores reasoning_effort",
+          "section": "Evidence from files, upstream source, and client cache",
+          "status": "retained",
+          "note": "Revalidated against current upstream main: the mapper reads supports_reasoning and supported_openai_params, then assigns thinking from the bundled reference rather than parsing reasoning_effort."
+        },
+        {
+          "topic": "thinking off is separate from the effort tier list",
+          "section": "The configured catalog surface",
+          "status": "retained",
+          "note": "Current local clients represent off separately: OpenCode has a disabled none variant, and OMP cache records requiresEffort independently of effort names."
+        },
+        {
+          "topic": "upstream OMP parser proposal",
+          "section": "Authority belongs close to the mechanism",
+          "status": "corrected",
+          "note": "Still a valid upstream direction, but it cannot repair current key mismatches by itself. LiteLLM must first emit the exact fields OMP reads."
+        },
+        {
+          "topic": "no upstream issue or pull request filed",
+          "section": "Limitations",
+          "status": "historical",
+          "note": "Recorded only as the source's 2026-09-04 state. This briefing did not claim a current issue or pull-request status."
+        }
+      ]
+    }
+  ],
+  "local_evidence": [
+    {
+      "path": "services/llama-swap-vllm/config.yaml",
+      "observed_at": "repository revision a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+      "excerpt": "Parsed YAML: 12 model keys; no aliases; capabilities.tools=true on all 12. reasoning_effort groups are [low] for qwen3.8-27b-fp8; [low, medium, xhigh] for five other Qwen3.8 lanes; [low, medium, high, xhigh] for two Muse lanes and Ornith; absent for Gemma, Laguna, and Nemotron. QWEN38_COMMON expands to --reasoning-parser qwen3 --tool-call-parser qwen3_xml --enable-auto-tool-choice. routing.router.use is matrix.",
+      "note": "Configured serving and lifecycle authority. This is file evidence, not proof that the deployed router loaded the revision or that every backend behaves as declared."
+    },
+    {
+      "path": "services/litellm/config.yaml",
+      "observed_at": "repository revision a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+      "excerpt": "Parsed YAML: 12 model_list entries and custom_llm_provider=hosted_vllm on every entry. All model names equal their llama-swap IDs. Only qwen3.8-27b-nvfp4 and qwen3.8-27b-quasar-nvfp4 set supports_function_calling, supports_tool_choice, and supported_openai_params containing tools and tool_choice. Muse Glimmer's two entries and Nemotron set reasoning but not supports_reasoning. general_settings.store_model_in_db=true; litellm_settings.callbacks includes custom_callbacks.local_thinking_policy.",
+      "note": "Configured client projection. The file duplicates the llama-swap catalog and enables a second DB-backed model-definition path."
+    },
+    {
+      "path": "services/litellm/custom_callbacks.py",
+      "observed_at": "repository revision a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+      "excerpt": "LocalReasoningRequestAdapter handles nine named local models. Control precedence is nested enable_thinking, top-level enable_thinking, thinking_token_budget, then reasoning_effort. Qwen3.8 aliases minimal/low to low, medium/moderate to medium, and high/xhigh/max to xhigh. NInfer keeps effort top-level; the other Qwen3.8 lanes nest it. Off aliases set enable_thinking=false and remove stale effort fields.",
+      "note": "Implemented request adaptation. No callback execution or backend request capture was performed for this briefing."
+    },
+    {
+      "path": "services/litellm/docker-compose.yml",
+      "observed_at": "repository revision a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+      "excerpt": "git-sync checks out services/litellm; LiteLLM starts with --config /config/current/services/litellm/config.yaml; STORE_MODEL_IN_DB=True; host port 4000 maps to container port 4000.",
+      "note": "Configured deployment wiring only. Deployed git-sync revision and database rows were not queried."
+    },
+    {
+      "path": "services/llama-swap-vllm/docker-compose.yml",
+      "observed_at": "repository revision a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+      "excerpt": "git-sync checks out services/llama-swap-vllm; llama-swap starts with --config /config/current/services/llama-swap-vllm/config.yaml; host port 11437 maps to container port 8080; the Docker socket is mounted for backend container lifecycle.",
+      "note": "Configured lifecycle wiring only. No router or container API was called."
+    },
+    {
+      "path": "~/.omp/profiles/personal/agent/config.yml",
+      "observed_at": "2026-09-09",
+      "excerpt": "modelRoles.local=litellm/qwen3.8-27b-nvfp4:medium; modelRoles.tiny=litellm/qwen3.8-27b-nvfp4:low; task.agentModelOverrides maps sonic, scout, and task to @local.",
+      "note": "Current workstation configuration. This supersedes the old source's auto-classifier path for these task agents."
+    },
+    {
+      "path": "~/.omp/profiles/personal/agent/models.db",
+      "observed_at": "2026-09-09T22:37:04.277Z",
+      "excerpt": "Read-only SQL query of provider_id=litellm:litellm-rich-v4 returned 12 models. supportsTools=true only for qwen3.8-27b-nvfp4 and qwen3.8-27b-quasar-nvfp4. muse-glimmer-30b, muse-glimmer-30b-nvidia-nvfp4, and nemotron-3.5-lightning cached reasoning=false. qwen3.8-27b-nvfp4-bf16-lmhead cached efforts=[low, medium, xhigh] with requiresEffort=false; the other reasoning models cached the generic [minimal, low, medium, high] ladder.",
+      "note": "Current client cache evidence, not a live LiteLLM response capture. No secret columns were read."
+    },
+    {
+      "path": "~/.config/opencode/opencode.jsonc",
+      "observed_at": "2026-09-09",
+      "excerpt": "The litellm provider uses @ai-sdk/openai-compatible and declares 8 model IDs. It omits laguna-xs-2.1, muse-glimmer-30b-nvidia-nvfp4, qwen3.8-27b-nvfp4, and qwen3.8-27b-quasar-nvfp4 from the 12-ID LiteLLM list. Four Qwen entries define direct reasoningEffort variants none, low, medium, xhigh; every none variant is disabled.",
+      "note": "Current workstation configuration. API credentials were deliberately excluded from evidence."
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+---
+title: "Inference control plane and reasoning"
+type: architecture
+diataxis: guide
+audience: self
+question: "How should model catalogs, thinking controls, and clients stay synchronized?"
+decision: "Choose the authoritative catalog and the synchronization and capability contract, while distinguishing implemented behavior from proposed work."
+status: reviewed
+created: 2026-09-09
+updated: 2026-09-09
+bibliography: references.bib
+---
+
+::: {.brief-meta}
+**Question.** How should model catalogs, thinking controls, and clients stay synchronized?
+**Decision.** Choose the authoritative catalog and the synchronization and capability contract, while distinguishing implemented behavior from proposed work.
+**Reader.** self.
+:::
+
+## Summary
+
+Keep one human-owned [model catalog](#model-catalog) in llama-swap, generate LiteLLM and client [projections](#projection) from it, and reject drift with one [capability contract](#capability-contract) before considering another router.
+
+- **Configured surface:** llama-swap and LiteLLM each list the same 12 IDs, OMP caches all 12, and OpenCode declares 8; the matching ID sets hide material differences in tools, reasoning, vision, and effort metadata [@localEvidence2026].
+- **Evidence:** repository files establish the configured path, current upstream source establishes what each mapper accepts, and the OMP cache records current client interpretation; no live inference request was captured [@localEvidence2026; @ompLiteLLM2026; @liteLLMHostedVLLM2026].
+- **Conflicts:** current OMP source still ignores LiteLLM's `reasoning_effort` list, but the effect is model-specific: the cache has an exact ladder for one Qwen lane, generic ladders for most reasoning lanes, and no reasoning control for three configured reasoning models [@ompLiteLLM2026; @localEvidence2026].
+- **Authority:** llama-swap should own identity, declared capability, and lifecycle; LiteLLM should own authentication and request adaptation through a generated model list; clients and LiteLLM's database should consume or mirror that contract, never co-author it [@llamaSwapSchema2026; @liteLLMModelManagement2026].
+- **Decisive check:** compare no-load snapshots from llama-swap and LiteLLM with the OMP cache, OpenCode config, and LiteLLM's config-versus-database ownership before building generation [@llamaSwapReadme2026; @hurlManual2026; @liteLLMModelManagement2026].
+
+```{mermaid}
+flowchart TB
+  O["OMP local role<br/>qwen3.8-27b-nvfp4:medium"] -->|"model + reasoning_effort=medium"| L["LiteLLM :4000<br/>auth, routing, callback"]
+  L -->|"model + enable_thinking=true<br/>nested reasoning_effort=medium"| S["llama-swap :11437<br/>matrix + lifecycle"]
+  S -->|"OpenAI Chat Completions"| V["vLLM 0.28.0 backend<br/>Qwen parser + tool parser"]
+  V -->|"reasoning + content or tool_calls"| L
+  L -->|"streamed response"| O
+```
+
+This is the configured request path, reconstructed from files and upstream behavior. It is not an observed trace of a deployed request [@localEvidence2026; @llamaSwapReadme2026; @vllmReasoning028].
+
+## Glossary
+
+- <span id="model-catalog">**Model catalog.**</span> The public model IDs and client-facing context, modality, tool, and reasoning metadata exposed by a serving or client configuration [@llamaSwapSchema2026; @openCodeModels2026].
+- <span id="thinking-control">**Thinking control.**</span> A request field that selects a reasoning state, effort name, or token budget, such as `reasoning_effort`, `enable_thinking`, or `thinking_token_budget` [@liteLLMHostedVLLM2026; @vllmReasoning028].
+- <span id="projection">**Projection.**</span> A derived copy of the canonical model contract shaped for one consumer, such as LiteLLM `model_info` or OpenCode variants; the current copies are hand-authored rather than generated [@localEvidence2026].
+- <span id="capability-contract">**Capability contract.**</span> The cross-file invariant that a model's advertised fields agree with its backend flags, gateway adapter, and client controls [@localEvidence2026; @llamaSwapSchema2026].
+
+## The configured catalog surface
+
+Configured effort values fall into four groups [@localEvidence2026]:
+
+| Serving group | Configured effort values | Client state |
+|---|---|---|
+| Two Muse lanes and Ornith | `low`, `medium`, `high`, `xhigh` | No OpenCode variants; OMP recognizes Ornith reasoning but not either Muse lane [@localEvidence2026]. |
+| Five Qwen3.8 lanes | `low`, `medium`, `xhigh` | OpenCode exposes variants on three present lanes; OMP has one exact ladder and four generic ladders [@localEvidence2026]. |
+| Qwen3.8 FP8 | `low` | OpenCode adds `medium` and `xhigh`; OMP uses its generic four-level ladder [@localEvidence2026]. |
+| Gemma, Laguna, Nemotron | No effort list | Gemma and Laguna use binary thinking; OMP caches Nemotron as non-reasoning [@localEvidence2026]. |
+
+OpenCode puts `reasoningEffort` directly in variants, and the AI SDK serializes it as top-level `reasoning_effort`; all four local `none` variants are disabled [@openCodeModels2026; @aiSdkOpenAICompat2026; @localEvidence2026]. OMP builds models from LiteLLM discovery and applies reference and fallback policy. Its local and tiny roles pin Qwen NVFP4 to `medium` and `low`; task agents select the local role [@localEvidence2026].
+
+## Evidence from files, upstream source, and client cache
+
+Repository files show intended wiring; upstream source shows accepted fields; the OMP cache shows one client's interpretation. No deployed revision or inference request was observed [@localEvidence2026; @ompLiteLLM2026; @liteLLMHostedVLLM2026].
+
+| Boundary | Implemented behavior | Authority limit |
+|---|---|---|
+| llama-swap | Reads the model ID, applies matrix scheduling, starts or stops the configured process, and proxies the OpenAI request; its schema covers `capabilities`, lifecycle, filters, and routing [@llamaSwapReadme2026; @llamaSwapSchema2026]. | `metadata` permits arbitrary fields, so the upstream schema cannot prove the local reasoning vocabulary. |
+| LiteLLM | Every local model uses `hosted_vllm`, and the registered pre-call callback handles nine named models, including nested Qwen effort, binary thinking, and NInfer-specific stripping [@localEvidence2026]. | The callback adapts requests. It does not establish whether advertised metadata is true. |
+| `hosted_vllm` | The current adapter accepts `reasoning_effort` and `thinking`; enabled `thinking` can become `reasoning_effort` before the OpenAI-compatible mapping [@liteLLMHostedVLLM2026]. | That adapter does not normalize arbitrary `model_info` aliases or construct a client effort ladder. |
+| OMP | The rich mapper reads `supports_reasoning`, `supports_vision`, `supports_function_calling`, and `supported_openai_params`; it takes `thinking` from a bundled reference, then the resolver supplies fallbacks [@ompLiteLLM2026; @ompThinkingPolicy2026]. | It does not parse the server's `reasoning_effort` list, `reasoning`, `vision`, or `supported_parameters` aliases. |
+| OpenCode | A custom provider supplies an explicit model map and variants; `baseURL` selects the gateway [@openCodeProviders2026; @openCodeModels2026]. | It does not consume this LiteLLM catalog, so private IDs and ladders remain workstation configuration. |
+
+`hosted_vllm` adapts requests; it does not synchronize catalogs. Any replacement must still publish the metadata its clients read [@liteLLMHostedVLLM2026; @ompLiteLLM2026].
+
+## Drift is visible at both client boundaries
+
+The 2026-09-04 OMP observation remains historical. Current mapper source and the 2026-09-09 cache show where its generic fallback still applies and where bundled reference metadata changes the result [@ompLiteLLM2026; @localEvidence2026].
+
+| Contract | Configured or observed finding | Status |
+|---|---|---|
+| Native tools | llama-swap declares tools on 12 models; LiteLLM and OMP advertise them on only the Qwen NVFP4 and QUASAR lanes [@localEvidence2026]. | Current drift |
+| Reasoning and vision aliases | Both Muse entries use `reasoning` and `vision`, while OMP reads `supports_reasoning` and `supports_vision`; the cache reports both as non-reasoning and text-only. Nemotron also lacks the reasoning alias OMP reads [@localEvidence2026; @ompLiteLLM2026]. | Current drift |
+| Effort ladders | llama-swap and LiteLLM lists agree, but OMP caches the exact three-tier list only for the BF16-lm-head lane. Most other reasoning entries receive `minimal`, `low`, `medium`, `high` [@localEvidence2026; @ompThinkingPolicy2026]. | Current, model-specific |
+| OpenCode membership | Four serving IDs are absent: Laguna, the NVIDIA Muse canary, Qwen NVFP4, and Qwen QUASAR [@localEvidence2026]. | Current drift |
+| Task effort | Earlier research observed automatic classification falling through to an unavailable hosted role and preserving a high effort. Current task agents select `@local`, whose role is pinned to `medium` [@localEvidence2026]. | Historical, superseded |
+
+Parsing server effort lists in OMP and generating client catalogs both remain proposed. The parser cannot fix the alias mismatches; LiteLLM must first emit the exact client contract.
+
+## Authority belongs close to the mechanism
+
+llama-swap remains the best authority for this host because one record already joins the public ID, capability declaration, engine command, parser flags, Docker lifecycle, and matrix placement [@localEvidence2026; @llamaSwapReadme2026]. The alternatives solve adjacent problems. vLLM Router forwards among vLLM workers; Ray Serve LLM adds a Ray deployment and autoscaling plane; KServe requires Kubernetes, certificate management, and a network controller; LocalAI's distributed mode adds PostgreSQL and NATS while dynamically installing backends [@vllmRouter2026; @rayServeLLM2026; @kserveDeploy2026; @localAIDistributed2026]. 9Router routes coding clients across hosted or API providers with quota fallback and format translation, rather than owning these heterogeneous backend processes [@nineRouter2026].
+
+| Concern | Proposed authority | Derived or checked consumers |
+|---|---|---|
+| ID, context, modalities, tools, reasoning, effort list | Human-owned `services/llama-swap-vllm/config.yaml` | LiteLLM model list, OpenCode model block, OMP discovery |
+| Authentication, accounting, public routing | Human-owned LiteLLM base settings | Generated committed `services/litellm/config.yaml` |
+| Wire adaptation | LiteLLM callback plus the selected backend's flags | Static checker verifies callback membership and parser/tool flags |
+| Runtime model rows | Config-owned models only, unless restart-free updates become a requirement | DB rows must be absent or a reconciled projection, never a second hand-edited catalog |
+
+The migration order keeps failure surfaces visible:
+
+1. Pin the llama-swap schema to the deployed image revision, validate it with `check-jsonschema`, and add a small checker for IDs, contexts, modalities, tools, tiers, callback membership, and parser flags [@llamaSwapSchema2026; @checkJsonschema2026].
+2. Correct the current aliases and tool advertisements before generating anything. The checker should fail on today's mismatches.
+3. Split LiteLLM's non-model settings from `model_list`, generate the committed deployment file from llama-swap, and generate or validate the OpenCode fragment in the dotfiles repository. OMP discovery remains a consumer; its effort-list parser is a separate upstream change.
+4. Reconcile the database boundary. LiteLLM allows DB-owned and config-owned models to coexist, while DB settings can override YAML, and the local stack currently enables DB model storage [@liteLLMModelManagement2026; @localEvidence2026]. Keep file ownership and reject DB-only model IDs unless restart-free catalog changes become a stated requirement.
+5. Add no-load metadata checks first. Add an opt-in behavioral request only for a changed model because llama-swap can start or evict a backend on inference [@llamaSwapReadme2026].
+
+## The decisive read-only snapshot
+
+The next check should capture one authenticated, no-load inventory from llama-swap `/v1/models` and LiteLLM `/v2/model/info`, then compare it with the committed files, the OMP cache, and OpenCode's model map. Query LiteLLM's management surface for config-owned versus DB-owned rows in the same snapshot; LiteLLM exposes those origins separately [@llamaSwapReadme2026; @liteLLMModelManagement2026]. Hurl can sequence the GETs, capture fields, and assert response data without embedding credentials in the scenario [@hurlManual2026].
+
+Stale git-sync content, DB-only rows, or provider-side metadata synthesis could change which artifact already acts as runtime authority. Otherwise, the static checker and one-way generator remain the smallest repair.
+
+## Worked example: medium effort and an unsupported public tier
+
+This unexecuted trace uses the current OMP local role, `qwen3.8-27b-nvfp4` [@localEvidence2026].
+
+| Step | Supported `medium` path | Contrast: client selects `high` |
+|---:|---|---|
+| 1. Client policy | OMP selects the cached LiteLLM model and `medium`. The server catalog includes `medium` [@localEvidence2026]. | OMP's generic fallback currently offers `high`, although the server catalog omits it [@localEvidence2026; @ompThinkingPolicy2026]. |
+| 2. Client wire | The reconstructed Chat Completions body carries the model ID and top-level `reasoning_effort: medium` [@localEvidence2026; @ompLiteLLM2026]. | The same body carries `reasoning_effort: high`; no client-side exact-list check prevents it [@localEvidence2026; @ompLiteLLM2026]. |
+| 3. Gateway policy | The registered callback maps the request to `chat_template_kwargs.enable_thinking: true` and nested `reasoning_effort: medium` [@localEvidence2026]. | The callback deliberately collapses `high` to nested `xhigh` instead of rejecting the unsupported public value [@localEvidence2026]. |
+| 4. Lifecycle route | LiteLLM forwards to llama-swap's `/v1` base. llama-swap selects the model, applies its matrix, and starts the vLLM command if needed [@localEvidence2026; @llamaSwapReadme2026]. | Routing is identical; the mismatch has already been hidden by normalization. |
+| 5. Backend | The Qwen command expands the configured reasoning parser, tool parser, and automatic tool choice. vLLM gives request-level chat-template kwargs precedence [@localEvidence2026; @vllmReasoning028]. | vLLM receives a valid native `xhigh` template value, so the configured path contains no rejection point for the original mismatch [@localEvidence2026]. |
+| 6. Response | vLLM may return separate `reasoning` and final `content`, which LiteLLM streams back to OMP [@vllmReasoning028]. | The response cannot tell the client that its `high` selection was rewritten to `xhigh` without explicit observability. |
+
+A model marked non-reasoning at the client boundary follows a different failure path. The current OMP cache marks both Muse entries non-reasoning even though their serving records declare reasoning, so normal OMP selection hides the [thinking control](#thinking-control); a raw effort request may still pass through `hosted_vllm`, but this briefing did not execute that case [@localEvidence2026; @liteLLMHostedVLLM2026].
+
+## Limitations
+
+No deployed endpoint, LiteLLM database, request log, or backend was queried. The trace proves configuration reachability, not execution. Deployed llama-swap and LiteLLM revisions were not recovered from `/versions.txt` or container metadata [@localEvidence2026].
+
+The vLLM lane is grounded in pinned `v0.28.0` documentation. SGLang and NInfer behavior is recorded only as configured callback and command policy, so their current runtime semantics remain unverified [@localEvidence2026; @vllmReasoning028]. Current upstream OMP still ignores the effort list, but the local cache demonstrates why the old bug should not be stated as one uniform outcome across every model [@ompLiteLLM2026; @localEvidence2026].
+
+## Next action
+
+Capture the no-load inventory and DB ownership snapshot, preserve it as evidence, then land the static checker before changing catalog ownership or generating files.
+
+## References
+
+::: {#refs}
+:::
