@@ -46,14 +46,11 @@ macros:
   # ── vLLM engine flags ──────────────────────────────────────────
   # Docs: https://docs.vllm.ai/en/stable/configuration/engine_args/
   #
-  # --max-num-seqs: max concurrent sequences. vLLM default = 1024 (≥70GB GPU).
-  #   Co-residency on 72GB: at 0.40 util, ~241 linear-attention blocks available
-  #   for hybrid SSM models → 128 is a safe shared cap. Solo models can go higher.
-  #   Override per-model by setting MAX_NUM_SEQS in the model's macros.
-  MAX_NUM_SEQS: "128"
+  # Let vLLM's interactivity profile select hardware-aware batching defaults.
+  # Model-specific MAX_NUM_SEQS caps remain explicit in those models' commands.
   # vllm-openai runs `vllm serve`; keep the model as its first positional argument.
-  VLLM_COMMON: "${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching --max-num-seqs ${MAX_NUM_SEQS}"
-  QWEN38_COMMON: "--reasoning-parser qwen3 --tool-call-parser qwen3_xml --enable-auto-tool-choice --performance-mode throughput"
+  VLLM_COMMON: "${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching --performance-mode interactivity"
+  QWEN38_COMMON: "--reasoning-parser qwen3 --tool-call-parser qwen3_xml --enable-auto-tool-choice"
 
 models:
   "muse-glimmer-30b":
@@ -72,8 +69,7 @@ models:
     macros:
       checkpoint: "Inferact/Muse-Glimmer-30B-NVFP4-W4A4"
       # The vLLM recipe caps DFlash at 32 concurrent sequences. With 15
-      # speculative tokens, this uses 512 scheduler slots and stays well below
-      # v0.28.0's 16,384-token default budget.
+      # speculative tokens, this uses 512 scheduler slots.
       MAX_NUM_SEQS: "32"
     proxy: http://vllm-muse-glimmer:8000
     cmd: >-
@@ -81,6 +77,7 @@ models:
       --name vllm-muse-glimmer
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-seqs ${MAX_NUM_SEQS}
       --max-model-len 131072
       --gpu-memory-utilization 0.92
       --reasoning-parser muse_glimmer
@@ -117,6 +114,7 @@ models:
       --name vllm-muse-glimmer-nvidia
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-seqs ${MAX_NUM_SEQS}
       --hf-overrides '{"text_config":{"max_position_embeddings":262144,"rope_parameters":{"rope_type":"yarn","factor":2.0,"original_max_position_embeddings":131072,"rope_theta":500000.0}}}'
       --max-model-len 262144
       --gpu-memory-utilization 0.80
@@ -198,7 +196,6 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --max-num-batched-tokens 16384
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
       --generation-config auto
@@ -239,7 +236,6 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --max-num-batched-tokens 16384
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
@@ -270,7 +266,6 @@ models:
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-model-len auto
-      --max-num-batched-tokens 16384
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
@@ -411,6 +406,7 @@ models:
       --name vllm-laguna-xs-2-1
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-seqs ${MAX_NUM_SEQS}
       --max-model-len 262144
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8
@@ -476,10 +472,10 @@ models:
       --name vllm-nemotron-3-5
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-seqs ${MAX_NUM_SEQS}
       --max-model-len auto
       --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
-      --max-num-batched-tokens 16384
       --mamba-backend flashinfer
       --mamba-ssm-cache-dtype float16
       --enable-mamba-cache-stochastic-rounding
@@ -512,13 +508,13 @@ models:
       --name vllm-ornith-1-5-9b
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-seqs ${MAX_NUM_SEQS}
       --max-model-len auto
       --gpu-memory-utilization 0.4
       --kv-cache-dtype fp8
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
-      --performance-mode throughput
     cmdStop: docker stop --time 90 vllm-ornith-1-5-9b
 
   "ornith-1.5-35b-a3b-nvfp4":
@@ -550,14 +546,13 @@ models:
       --env MAX_JOBS=4
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-seqs ${MAX_NUM_SEQS}
       --max-model-len auto
-      --max-num-batched-tokens 16384
       --gpu-memory-utilization 0.9
       --kv-cache-dtype bfloat16
       --reasoning-parser qwen3
       --tool-call-parser qwen3_xml
       --enable-auto-tool-choice
-      --performance-mode throughput
     cmdStop: docker stop --time 90 vllm-ornith-1-5-35b-a3b
 
 
