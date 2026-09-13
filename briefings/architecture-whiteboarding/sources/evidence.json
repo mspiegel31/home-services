@@ -1,0 +1,157 @@
+{
+  "repository_revision": "a4a45cbe68c4eaef67f45bf8807605475fb23efa",
+  "source_coverage": [
+    {
+      "path": "research/ai-native-architecture-diagramming-tools.md",
+      "sha256": "1b0ecb076c9e55b08602f56c9372a5cb5fbdafa70d1c2b2407075bf53ea5b3ce",
+      "topics": [
+        {
+          "topic": "Verdict favoring Miro for a Crit-like collaborative loop, Eraser for the architecture artifact, and tldraw for a custom interaction",
+          "section": "Summary",
+          "status": "retained",
+          "note": "Current first-party sources retain this ordering for the stated priorities, but the verdict is conditional on hosted-board exposure and does not claim measured local-model reliability."
+        },
+        {
+          "topic": "Six properties of a Crit-like diagram review loop",
+          "section": "The loop needs an inspectable artifact and an explicit gate",
+          "status": "retained",
+          "note": "Reframed as a review protocol: bounded inspect, durable identity, proposal, attached feedback, approval-gated mutation, and reread. The gate is a process rule rather than a documented Miro transaction."
+        },
+        {
+          "topic": "Shortlist comparison across Miro, Eraser, Figma or FigJam, Lucid, Whimsical, tldraw, draw.io, IcePanel, Penpot, and Excalidraw",
+          "section": "Current tools expose different parts of the loop",
+          "status": "corrected",
+          "note": "Every retained capability was revalidated. Whimsical's current documentation establishes a fuller edit and comment surface than the source's partly verified label."
+        },
+        {
+          "topic": "Miro structured inspection and SVG patch workflow with stable object IDs",
+          "section": "The loop needs an inspectable artifact and an explicit gate",
+          "status": "corrected",
+          "note": "The workflow now uses current canvas_search, canvas_read_as_svg, and canvas_update_from_svg names. Deprecated layout tool names are preserved only as migration history."
+        },
+        {
+          "topic": "Miro comment-driven ACCEPT or REVISE protocol and reread after update",
+          "section": "The loop needs an inspectable artifact and an explicit gate",
+          "status": "retained",
+          "note": "Comment list, reply, and resolve operations are documented. ACCEPT or REVISE and proposal-before-write remain a proposed human-agent convention."
+        },
+        {
+          "topic": "Miro OAuth, one-team connection, curated MCP surface, and daily call limits",
+          "section": "Miro buys review fidelity at privacy and operating cost",
+          "status": "retained",
+          "note": "Current FAQ and limits pages confirm these constraints. No AI-credit claims were needed for the decision."
+        },
+        {
+          "topic": "Eraser architecture generation, editing, CRUD, export, private-file, and pricing behavior",
+          "section": "Current tools expose different parts of the loop",
+          "status": "corrected",
+          "note": "Current pricing uses three AI diagrams rather than the source's three AI credits wording. MCP generation and CRUD remain verified; a board-comment API is not documented."
+        },
+        {
+          "topic": "Figma or FigJam native-object creation and editing, seat requirements, and beta quality",
+          "section": "Current documentation changes the old comparison",
+          "status": "corrected",
+          "note": "Remote MCP access now spans seats and plans, while modifying an existing file still requires a Full seat plus edit permission. Beta cleanup guidance remains current."
+        },
+        {
+          "topic": "Lucid read and write MCP, read-only endpoint, comments, data handling, and static output",
+          "section": "Current tools expose different parts of the loop",
+          "status": "retained",
+          "note": "Current Lucid documentation verifies the read-only endpoint, comments, and static rather than data-linked diagram limitation."
+        },
+        {
+          "topic": "Whimsical remote and desktop MCP, object editing, local open-file focus, and comments",
+          "section": "Current documentation changes the old comparison",
+          "status": "corrected",
+          "note": "The current tool reference documents the complete comment lifecycle and a broad object edit surface. Desktop enablement still requires an open app and vendor support."
+        },
+        {
+          "topic": "draw.io hosted, local MCP, and assistant-plugin paths with local-file ownership and privacy",
+          "section": "Miro buys review fidelity at privacy and operating cost",
+          "status": "retained",
+          "note": "The official repository now provides an explicit data-flow matrix. Local MCP and plugins keep diagram data local; end-to-end isolation also requires a local model."
+        },
+        {
+          "topic": "tldraw MCP App and Agent Starter Kit as interactive and custom-review paths",
+          "section": "Current documentation changes the old comparison",
+          "status": "corrected",
+          "note": "The MCP App supplies a quick interactive canvas in supporting hosts. A durable Crit-like review mode still depends on Starter Kit product work and production sync infrastructure."
+        },
+        {
+          "topic": "IcePanel, Penpot, and Excalidraw as narrower or specialized candidates",
+          "section": "Current tools expose different parts of the loop",
+          "status": "retained",
+          "note": "IcePanel still lacks diagram create, draft, version, and comment operations. Penpot supports focused-page read and write but no documented comment queue. Excalidraw supports an MCP App without a documented persistent review protocol."
+        },
+        {
+          "topic": "Napkin, Structurizr, and other artifact generators that do not meet the round-trip bar",
+          "section": "Current tools expose different parts of the loop",
+          "status": "retained",
+          "note": "Napkin remains asynchronous one-way generation. Structurizr documents AI-produced DSL followed by manual paste. No broader unsupported product claims were retained."
+        },
+        {
+          "topic": "Local-model compatibility and data-boundary comparison",
+          "section": "Miro buys review fidelity at privacy and operating cost",
+          "status": "corrected",
+          "note": "MCP separates model and board tooling, but hosted tools still process board data. draw.io provides the strongest documented local path. No local-model tool call was executed."
+        },
+        {
+          "topic": "Trial order, measurement dimensions, and confidence limits",
+          "section": "A read-only trial can settle the choice",
+          "status": "retained",
+          "note": "The first check was narrowed to stable IDs and comment attachment on one authorized frame. Output quality, latency, cleanup effort, call count, and local-model reliability remain unverified."
+        }
+      ]
+    },
+    {
+      "path": "research/inference-control-plane-sync.md",
+      "sha256": "6c1e124de8aa795887c9ed6c80d548781bc3ea37bb71816c73237d316e8d3791",
+      "topics": [
+        {
+          "topic": "Dated Mermaid diagram of the homelab inference control plane",
+          "section": "Worked example",
+          "status": "historical",
+          "note": "Used only as a complete, documented input for the unexecuted review comparison. This briefing did not inspect runtime state. The authoritative current treatment belongs to the Inference control plane briefing."
+        },
+        {
+          "topic": "Proposed static contract gate and generated LiteLLM projection",
+          "section": "Worked example",
+          "status": "retained",
+          "note": "Used as the concrete review question and proposed complete Mermaid output. It is a documented design, not an observed deployment."
+        },
+        {
+          "topic": "Control-plane survey, checker implementation, post-deploy tests, and OMP thinking-control findings",
+          "section": "Inference control plane briefing",
+          "status": "retained",
+          "note": "Out of scope here and mapped to ../inference-control-plane/index.qmd rather than duplicated."
+        }
+      ]
+    }
+  ],
+  "local_evidence": [
+    {
+      "path": "research/ai-native-architecture-diagramming-tools.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "Use Miro first for a Crit-like collaborative loop. No current product exactly reproduces Crit's review contract, but Miro is the closest operational fit today.",
+      "note": "Dated consolidation verdict retained only after current primary-source revalidation. SHA-256 1b0ecb076c9e55b08602f56c9372a5cb5fbdafa70d1c2b2407075bf53ea5b3ce."
+    },
+    {
+      "path": "research/inference-control-plane-sync.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "flowchart LR; C[OMP and OpenAI clients] --> L[LiteLLM :4000]; L --> S[llama-swap :11437]; S --> V[vLLM containers]; S --> G[SGLang container]; S --> N[NInfer container]; P[Portainer repository stacks] --> GS1[git-sync: LiteLLM]; P --> GS2[git-sync: llama-swap]; GS1 --> L; GS2 --> S",
+      "note": "Exact dated Mermaid topology normalized onto one line for JSON provenance. Used as documented input only; runtime state was not observed. SHA-256 6c1e124de8aa795887c9ed6c80d548781bc3ea37bb71816c73237d316e8d3791."
+    },
+    {
+      "path": "research/inference-control-plane-sync.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "services/llama-swap-vllm/config.yaml human-owned model and serving source; services/litellm/config.base.yaml human-owned non-model LiteLLM settings; services/litellm/config.yaml generated, committed deployment file; scripts/sync_inference_models.py projection and invariant checker",
+      "note": "Documented proposed ownership layout used to construct the worked example's proposed Mermaid revision. It is not an implementation or runtime observation."
+    },
+    {
+      "path": "briefings/architecture-whiteboarding/BRIEF.md",
+      "observed_at": "2026-09-09",
+      "excerpt": "Select an architecture-board trial or retain a Mermaid workflow, based on verified inspect, edit, and comment capabilities.",
+      "note": "Approved decision contract. Status remains draft until Main completes audit, render, and visual review."
+    }
+  ]
+}
