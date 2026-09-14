@@ -19,8 +19,34 @@ if [ -n "$accounts" ]; then
     exit 1
 fi
 
-printf '%s\n' "No linked signal-cli account found. Scan the QR code or URI below from Signal > Linked devices."
-signal-cli --config /data link --name "$SIGNAL_DEVICE_NAME"
+printf '%s\n' "No linked signal-cli account found. Scan the QR code below from Signal > Linked devices."
+
+link_tmp="$(mktemp -d)"
+link_fifo="$link_tmp/output"
+mkfifo "$link_fifo"
+cleanup_link() {
+    rm -rf "$link_tmp"
+}
+trap cleanup_link EXIT HUP INT TERM
+
+signal-cli --config /data link --name "$SIGNAL_DEVICE_NAME" </dev/null >"$link_fifo" 2>&1 &
+link_pid=$!
+while IFS= read -r line; do
+    printf '%s\n' "$line"
+    case "$line" in
+        sgnl://linkdevice\?*)
+            qrencode --type=ASCII --margin=1 --output=- "$line"
+            ;;
+    esac
+done <"$link_fifo"
+
+link_status=0
+wait "$link_pid" || link_status=$?
+trap - EXIT HUP INT TERM
+cleanup_link
+if [ "$link_status" -ne 0 ]; then
+    exit "$link_status"
+fi
 
 accounts="$(signal-cli --config /data listAccounts)"
 if ! printf '%s\n' "$accounts" | grep -Fqx "Number: $SIGNAL_ACCOUNT"; then

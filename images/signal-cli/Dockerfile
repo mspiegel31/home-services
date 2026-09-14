@@ -4,7 +4,7 @@ ARG SIGNAL_CLI_VERSION=0.14.7
 ARG SIGNAL_CLI_SHA256=0fe065294adcf35df4c249b635d0ce57de7765d4fec660bffaa2e7f0549d4e5f
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends ca-certificates curl gosu zlib1g \
+    && apt-get install --yes --no-install-recommends ca-certificates curl gosu qrencode zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl --fail --location --show-error --silent \
