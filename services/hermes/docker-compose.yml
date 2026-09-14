@@ -147,6 +147,106 @@ services:
           memory: 4G
           cpus: "2.0"
 
+  mealie-postgres:
+    image: postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_DB: mealie
+      POSTGRES_USER: mealie
+      POSTGRES_PASSWORD: "${MEALIE_POSTGRES_PASSWORD:?Set MEALIE_POSTGRES_PASSWORD in Portainer}"
+    volumes:
+      - /mnt/tank/container-configs/mealie/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mealie -d mealie"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - hermes
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+  mealie:
+    image: ghcr.io/mealie-recipes/mealie:v3.25.1@sha256:6066c29eca95a6cac640ecadf734799522f3b646ee4a714e0d13ce795d989ba2
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      mealie-postgres:
+        condition: service_healthy
+    ports:
+      - "192.168.1.39:9000:9000"
+    environment:
+      ALLOW_SIGNUP: "false"
+      BASE_URL: "${MEALIE_BASE_URL:?Set MEALIE_BASE_URL in Portainer}"
+      DB_ENGINE: postgres
+      POSTGRES_DB: mealie
+      POSTGRES_USER: mealie
+      POSTGRES_PASSWORD: "${MEALIE_POSTGRES_PASSWORD:?Set MEALIE_POSTGRES_PASSWORD in Portainer}"
+      POSTGRES_SERVER: mealie-postgres
+      POSTGRES_PORT: "5432"
+      PUID: "${MEALIE_PUID:?Set MEALIE_PUID in Portainer}"
+      PGID: "${MEALIE_PGID:?Set MEALIE_PGID in Portainer}"
+      TZ: "${TZ:?Set TZ in Portainer}"
+    volumes:
+      - /mnt/tank/container-configs/mealie/app-data:/app/data
+    healthcheck:
+      test: ["CMD", "/bin/bash", "/app/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    networks:
+      - hermes
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2.0"
+
+  babybuddy:
+    image: lscr.io/linuxserver/babybuddy:v2.10.1-ls250@sha256:985a2adc74c431271d0273db9d14196cd28a50aadc943fe3b36af3c45f7030a0
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "192.168.1.39:9001:80"
+    environment:
+      PUID: "${BABYBUDDY_PUID:?Set BABYBUDDY_PUID in Portainer}"
+      PGID: "${BABYBUDDY_PGID:?Set BABYBUDDY_PGID in Portainer}"
+      TZ: "${TZ:?Set TZ in Portainer}"
+    volumes:
+      - /mnt/tank/container-configs/babybuddy:/config
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:80/health/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - hermes
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+
 volumes:
   hermes-managed:
 
