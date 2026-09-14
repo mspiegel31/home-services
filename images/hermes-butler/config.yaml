@@ -8,7 +8,7 @@ providers:
     key_env: LITELLM_KEY
     transport: chat_completions
     default_model: muse-glimmer-30b
-    discover_models: false
+    discover_models: true
 
 model:
   default: muse-glimmer-30b
