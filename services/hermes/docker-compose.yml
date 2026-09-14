@@ -8,6 +8,7 @@ services:
     tty: true
     stdin_open: true
     environment:
+      LANG: C.UTF-8
       SIGNAL_ACCOUNT: ${SIGNAL_ACCOUNT:?Set SIGNAL_ACCOUNT in Portainer}
       SIGNAL_DEVICE_NAME: ${SIGNAL_DEVICE_NAME:-Hermes Agent}
     volumes:
