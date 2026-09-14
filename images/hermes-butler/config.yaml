@@ -105,6 +105,41 @@ mcp_servers:
       resources: false
       prompts: false
 
+  # Baby Buddy MCP (pinned upstream, stdio). Bounded household surface:
+  # stool/diaper changes, feedings, senna/laxative medications, care notes,
+  # weight/height. No sleep, pumping, timers, tummy times, or child
+  # management; list tools are the read surface for diet/stool questions.
+  babybuddy:
+    command: /opt/babybuddy-mcp/.venv/bin/python
+    args: [-m, babybuddy_mcp]
+    env:
+      BABYBUDDY_URL: "http://babybuddy:80"
+      BABYBUDDY_TOKEN: "${BABYBUDDY_API_KEY}"
+      MCP_TRANSPORT: stdio
+    trust: full
+    sampling:
+      enabled: false
+    tools:
+      include:
+        - diapers_list_diaper_changes
+        - diapers_create_diaper_change
+        - diapers_update_diaper_change
+        - feedings_list_feedings
+        - feedings_create_feeding
+        - feedings_update_feeding
+        - medications_list_medications
+        - medications_create_medication
+        - medications_update_medication
+        - notes_list_notes
+        - notes_create_note
+        - notes_create_tag
+        - measurements_list_weight
+        - measurements_create_weight
+        - measurements_list_height
+        - measurements_create_height
+      resources: false
+      prompts: false
+
   signal-share:
     command: /opt/mealie-mcp/.venv/bin/python
     args: [/opt/home-butler-mcp/signal_share_server.py]
