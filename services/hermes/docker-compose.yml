@@ -110,6 +110,7 @@ services:
       LITELLM_KEY: ${LITELLM_KEY:?Set LITELLM_KEY in Portainer}
       MEALIE_BASE_URL: http://mealie:9000
       MEALIE_API_KEY: ${MEALIE_API_KEY:?Set MEALIE_API_KEY in Portainer}
+      BABYBUDDY_API_KEY: ${BABYBUDDY_API_KEY:?Set BABYBUDDY_API_KEY in Portainer}
       SIGNAL_HTTP_URL: http://signal-cli:8080
       SIGNAL_ACCOUNT: ${SIGNAL_ACCOUNT:?Set SIGNAL_ACCOUNT in Portainer}
       SIGNAL_ALLOWED_USERS: ${SIGNAL_ALLOWED_USERS:?Set explicit SIGNAL_ALLOWED_USERS in Portainer}
@@ -124,7 +125,7 @@ services:
       - hermes
       - home-butler
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8642/health"]
+      test: ["CMD-SHELL", "/opt/hermes/.venv/bin/python3 /usr/local/bin/hermes-config-apply --check && curl --fail --silent --show-error http://127.0.0.1:8642/health"]
       interval: 30s
       timeout: 10s
       retries: 5

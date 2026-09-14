@@ -99,30 +99,65 @@ def apply() -> None:
         )
 
     # Managed leaves, in merge order. Later leaves win on conflict.
-    for leaf in ("policy.yaml", "profile-routes.yaml"):
+    # The profile and integrations leaves are mandatory: a missing leaf means
+    # the managed surface is incomplete (an actor deleted it), which is a
+    # policy loss, not a benign absence. Check before writing anything.
+    for name in ("spouse", "family"):
+        if not (managed / f"profile-{name}.yaml").exists():
+            raise RuntimeError(f"mandatory profile leaf profile-{name}.yaml missing")
+    if not (managed / "integrations.yaml").exists():
+        raise RuntimeError("mandatory integrations leaf integrations.yaml missing")
+    integrations = yaml.safe_load((managed / "integrations.yaml").read_text(encoding="utf-8"))
+    if not isinstance(integrations, dict) or not isinstance((integrations or {}).get("mcp_servers"), dict):
+        raise RuntimeError("managed integrations leaf defines no mcp_servers set")
+    for leaf in ("policy.yaml", "profile-routes.yaml", "integrations.yaml"):
         leaf_path = managed / leaf
         if leaf_path.exists():
             leaf_data = yaml.safe_load(leaf_path.read_text(encoding="utf-8")) or {}
             _deep_merge(config, leaf_data)
             print(f"[config-apply] Merged {leaf}")
 
-    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    # MCP server set is security-relevant. Deep merge is additive: it restores
+    # managed values but cannot reject a rogue server an actor added to a live
+    # config (root or per-profile). The managed leaves are the only source of
+    # the allowed set. A rogue entry is refused with a loud refusal: the
+    # healthcheck drops to unhealthy and the tamper is visible in logs. The
+    # live config is left untouched (the .yaml.bak written above is the
+    # recovery point); operator removes the rogue server from the live config
+    # (or restores the .bak) and the next apply re-validates. Legitimate
+    # tweaks to managed servers survive the merge above.
+    root_allowed = set((integrations["mcp_servers"] or {}).keys())
+    rogue = set((config.get("mcp_servers") or {}).keys()) - root_allowed
+    if rogue:
+        raise RuntimeError(
+            f"rogue MCP server(s) {sorted(rogue)} in root config; allowed {sorted(root_allowed)}"
+        )
 
-    # Per-profile restricted tool surfaces.
+    # Merge profile leaves in memory; validate each surface; then persist.
+    # The root check above ran before any write, so a root refusal leaves the
+    # live configs untouched (the .yaml.bak is the recovery point).
     profiles_dir = home / "profiles"
     profiles_dir.mkdir(parents=True, exist_ok=True)
+    merged_profiles = {}
     for name in ("spouse", "family"):
-        leaf_path = managed / f"profile-{name}.yaml"
-        if leaf_path.exists():
-            profile_home = profiles_dir / name
-            profile_home.mkdir(parents=True, exist_ok=True)
-            leaf_data = yaml.safe_load(leaf_path.read_text(encoding="utf-8")) or {}
-            pconfig_path = profile_home / "config.yaml"
-            pconfig = yaml.safe_load(pconfig_path.read_text(encoding="utf-8")) if pconfig_path.exists() else {}
-            pconfig = pconfig or {}
-            _deep_merge(pconfig, leaf_data)
-            pconfig_path.write_text(yaml.safe_dump(pconfig, sort_keys=False), encoding="utf-8")
-            print(f"[config-apply] Merged profile {name}")
+        leaf_data = yaml.safe_load((managed / f"profile-{name}.yaml").read_text(encoding="utf-8")) or {}
+        pconfig_path = profiles_dir / name / "config.yaml"
+        pconfig = yaml.safe_load(pconfig_path.read_text(encoding="utf-8")) if pconfig_path.exists() else {}
+        pconfig = pconfig or {}
+        _deep_merge(pconfig, leaf_data)
+        leaf_allowed = set(((leaf_data or {}).get("mcp_servers") or {}).keys())
+        rogue = set((pconfig.get("mcp_servers") or {}).keys()) - leaf_allowed
+        if rogue:
+            raise RuntimeError(
+                f"rogue MCP server(s) {sorted(rogue)} in profile {name}; allowed {sorted(leaf_allowed)}"
+            )
+        merged_profiles[name] = (pconfig, pconfig_path)
+
+    # All surfaces clean: persist root and profile configs.
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    for name, (pconfig, pconfig_path) in merged_profiles.items():
+        pconfig_path.write_text(yaml.safe_dump(pconfig, sort_keys=False), encoding="utf-8")
+        print(f"[config-apply] Merged profile {name}")
 
     # Canonical household skills: copy the managed skills tree into the home so
     # every profile can read the shared care entry point. User-added skills are
@@ -162,22 +197,61 @@ def _principals_path(managed: pathlib.Path) -> pathlib.Path:
 
 
 def check() -> int:
-    """Readiness check: validate the managed snapshot policy without applying.
+    """Readiness check: validate the managed snapshot and the live effective config.
 
-    Exit 0 only when the snapshot is present, its principal policy is valid, and
-    every restricted profile leaf is parseable. Used by the container healthcheck
-    so the gateway never reports ready on an invalid or unbound policy.
+    Exit 0 only when the snapshot is present, its principal policy is valid,
+    every restricted profile leaf is parseable, and the live config's MCP
+    servers (root and per-profile) are a subset of the managed allowed sets.
+    Used by the container healthcheck so the gateway never reports ready on
+    an invalid, unbound, or tampered policy.
     """
     home = pathlib.Path(os.environ.get("HERMES_HOME", "/opt/data"))
     managed = _managed_dir()
+    # Fail open when the snapshot is absent, matching the 03-managed-config
+    # gate: the sync loop only runs after the container boots, so a missing
+    # snapshot at first boot is "git-sync pending", not policy loss.
+    if not (managed / "policy.yaml").exists():
+        print("[config-apply] readiness OK (unmanaged: no managed snapshot yet)")
+        return 0
     try:
         _load_principals(_principals_path(managed))
-        for leaf in ("policy.yaml", "profile-routes.yaml", "profile-spouse.yaml", "profile-family.yaml"):
+        # Mandatory-leaf rule mirrors apply(): policy.yaml is required by the
+        # snapshot check; integrations and the per-profile leaves define the
+        # bounded MCP surfaces and are mandatory. profile-routes.yaml is
+        # optional. A missing mandatory leaf is policy loss.
+        for leaf in ("integrations.yaml", "profile-spouse.yaml", "profile-family.yaml"):
+            if not (managed / leaf).exists():
+                raise RuntimeError(f"mandatory leaf {leaf} missing")
+        for leaf in ("policy.yaml", "profile-routes.yaml", "integrations.yaml", "profile-spouse.yaml", "profile-family.yaml"):
             leaf_path = managed / leaf
             if leaf_path.exists():
                 data = yaml.safe_load(leaf_path.read_text(encoding="utf-8"))
                 if not isinstance(data, dict):
                     raise RuntimeError(f"{leaf} is not a mapping")
+        integrations = yaml.safe_load((managed / "integrations.yaml").read_text(encoding="utf-8")) or {}
+        if not isinstance((integrations or {}).get("mcp_servers"), dict):
+            raise RuntimeError("integrations.yaml defines no mcp_servers set")
+
+        # Live effective surfaces must stay inside the managed allowed sets.
+        # This catches a rogue server added at runtime (dashboard/CLI/direct
+        # edit) even when apply() has not run since the tamper.
+        root_allowed = set((integrations["mcp_servers"] or {}).keys())
+        root_config = yaml.safe_load((home / "config.yaml").read_text(encoding="utf-8")) if (home / "config.yaml").exists() else {}
+        rogue = set(((root_config or {}).get("mcp_servers") or {}).keys()) - root_allowed
+        if rogue:
+            raise RuntimeError(
+                f"rogue MCP server(s) {sorted(rogue)} in live root config; allowed {sorted(root_allowed)}"
+            )
+        for name in ("spouse", "family"):
+            leaf_data = yaml.safe_load((managed / f"profile-{name}.yaml").read_text(encoding="utf-8"))
+            leaf_allowed = set(((leaf_data or {}).get("mcp_servers") or {}).keys())
+            pconfig_path = home / "profiles" / name / "config.yaml"
+            pconfig = yaml.safe_load(pconfig_path.read_text(encoding="utf-8")) if pconfig_path.exists() else {}
+            rogue = set(((pconfig or {}).get("mcp_servers") or {}).keys()) - leaf_allowed
+            if rogue:
+                raise RuntimeError(
+                    f"rogue MCP server(s) {sorted(rogue)} in live profile {name}; allowed {sorted(leaf_allowed)}"
+                )
     except (RuntimeError, OSError, yaml.YAMLError) as exc:
         print(f"[config-apply] readiness FAILED: {exc}", file=sys.stderr)
         return 1
