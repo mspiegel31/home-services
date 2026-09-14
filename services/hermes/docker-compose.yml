@@ -2,13 +2,12 @@ name: hermes
 
 services:
   signal-cli:
-    image: ghcr.io/mspiegel31/signal-cli:v0.14.7@sha256:f4ecbdbfab555c1836135d84d14935fa5918ed3e827b8666489a7b84ce94b951
+    image: ghcr.io/mspiegel31/signal-cli:v0.14.7-qr1@sha256:315ac1bcb76e0c118b3211955133844c9710bb370cdac166d598ed878f0528ee
     container_name: signal-cli
     restart: unless-stopped
     tty: true
     stdin_open: true
     environment:
-      LANG: C.UTF-8
       SIGNAL_ACCOUNT: ${SIGNAL_ACCOUNT:?Set SIGNAL_ACCOUNT in Portainer}
       SIGNAL_DEVICE_NAME: ${SIGNAL_DEVICE_NAME:-Hermes Agent}
     volumes:
