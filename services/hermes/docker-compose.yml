@@ -36,12 +36,62 @@ services:
           memory: 1G
           cpus: "1.0"
 
+  git-sync:
+    image: ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8@sha256:d6e980e597468358614847e9893bb4120b472b1d8852be71d47facf91cd61e77
+    container_name: hermes-git-sync
+    restart: unless-stopped
+    command: ["/usr/local/bin/hermes-git-sync"]
+    environment:
+      GIT_SYNC_REPO: ${GIT_SYNC_REPO:?Set GIT_SYNC_REPO in Portainer}
+      GIT_SYNC_BRANCH: ${GIT_SYNC_BRANCH:-main}
+      GIT_SYNC_SUBPATH: ${GIT_SYNC_SUBPATH:-services/hermes/managed}
+      GIT_SYNC_TOKEN: ${GIT_SYNC_TOKEN:-}
+      GIT_SYNC_INTERVAL: ${GIT_SYNC_INTERVAL:-30}
+      HERMES_MANAGED_DIR: /opt/hermes-managed
+      HERMES_MANAGED_SCRATCH: /opt/hermes-managed-repo
+    volumes:
+      - hermes-managed:/opt/hermes-managed
+    networks:
+      - hermes
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  git-sync-init:
+    image: ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8@sha256:d6e980e597468358614847e9893bb4120b472b1d8852be71d47facf91cd61e77
+    container_name: hermes-git-sync-init
+    restart: "no"
+    command: ["/usr/local/bin/hermes-git-sync-init"]
+    environment:
+      GIT_SYNC_REPO: ${GIT_SYNC_REPO:?Set GIT_SYNC_REPO in Portainer}
+      GIT_SYNC_BRANCH: ${GIT_SYNC_BRANCH:-main}
+      GIT_SYNC_SUBPATH: ${GIT_SYNC_SUBPATH:-services/hermes/managed}
+      GIT_SYNC_TOKEN: ${GIT_SYNC_TOKEN:-}
+      HERMES_MANAGED_DIR: /opt/hermes-managed
+      HERMES_MANAGED_SCRATCH: /opt/hermes-managed-repo
+    volumes:
+      - hermes-managed:/opt/hermes-managed
+    networks:
+      - hermes
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
   hermes:
     image: ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8@sha256:d6e980e597468358614847e9893bb4120b472b1d8852be71d47facf91cd61e77
     container_name: hermes
     restart: unless-stopped
     command: ["gateway", "run"]
     depends_on:
+      git-sync-init:
+        condition: service_completed_successfully
       signal-cli:
         condition: service_healthy
     ports:
@@ -69,6 +119,7 @@ services:
       HERMES_SIGNAL_SHARE_GROUPS: ${HERMES_SIGNAL_SHARE_GROUPS:-}
     volumes:
       - /mnt/tank/container-configs/hermes:/opt/data
+      - hermes-managed:/opt/hermes-managed:ro
     networks:
       - hermes
       - home-butler
@@ -95,6 +146,9 @@ services:
         limits:
           memory: 4G
           cpus: "2.0"
+
+volumes:
+  hermes-managed:
 
 networks:
   hermes:
