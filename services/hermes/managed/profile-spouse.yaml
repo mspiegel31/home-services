@@ -1,0 +1,19 @@
+# Per-profile config for the spouse profile (/opt/data/profiles/spouse/config.yaml).
+# The default toolset is the full hermes-whatsapp set; agent.disabled_toolsets is a
+# global suppression applied at tool granularity, so these toolsets are removed from
+# the spouse surface. MCP tools (Mealie, Baby Buddy) are separate toolsets and remain
+# available, so the spouse can still record diet/stool data.
+#
+# Thinking text, display, and other preferences are NOT set here: they stay mutable
+# so the spouse can adapt her profile to her tastes. Only the security-critical
+# tool surface is pinned.
+agent:
+  disabled_toolsets:
+    - terminal
+    - code_execution
+    - coding
+    - computer_use
+    - delegation
+    - hermes-cli
+    - hermes-gateway
+    - debugging

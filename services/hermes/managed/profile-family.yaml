@@ -1,0 +1,14 @@
+# Per-profile config for the family profile (/opt/data/profiles/family/config.yaml).
+# Shared family conversation (diet, stool, care notes). Same restricted tool surface
+# as the spouse profile: no terminal, code execution, file editing, UI control, or
+# delegation. MCP care-app tools remain available so both adults can record data.
+agent:
+  disabled_toolsets:
+    - terminal
+    - code_execution
+    - coding
+    - computer_use
+    - delegation
+    - hermes-cli
+    - hermes-gateway
+    - debugging
