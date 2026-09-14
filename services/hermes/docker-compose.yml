@@ -118,6 +118,7 @@ services:
       SIGNAL_ALLOW_ALL_USERS: "false"
       HERMES_SIGNAL_SHARE_USERS: ${HERMES_SIGNAL_SHARE_USERS:-}
       HERMES_SIGNAL_SHARE_GROUPS: ${HERMES_SIGNAL_SHARE_GROUPS:-}
+      HERMES_HOUSEHOLD_PRINCIPALS: /opt/data/principals.yaml
     volumes:
       - /mnt/tank/container-configs/hermes:/opt/data
       - hermes-managed:/opt/hermes-managed:ro

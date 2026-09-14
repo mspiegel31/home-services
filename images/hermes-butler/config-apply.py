@@ -74,6 +74,118 @@ def _load_principals(path: pathlib.Path) -> dict:
     return principals
 
 
+def _hermes_uid_gid() -> tuple[int, int]:
+    # The gateway drops to this uid/gid (HERMES_UID/HERMES_GID); every file
+    # config-apply installs as root must be readable by it.
+    return (int(os.environ.get("HERMES_UID", "10000")), int(os.environ.get("HERMES_GID", "10000")))
+
+
+def _plugin_homes(home: pathlib.Path, profile_names) -> list:
+    # The gateway's plugin managers are keyed per home: the root home serves
+    # the default (owner) profile and each named profile its own home under
+    # profiles/. Every served home needs the plugin files in its own
+    # plugins/ directory, because each home-keyed manager only scans it.
+    return [home] + [home / "profiles" / name for name in profile_names]
+
+
+def _sha256(path: pathlib.Path) -> bytes:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).digest()
+
+
+def _install_managed_plugins(managed: pathlib.Path, homes) -> None:
+    """Install every managed plugin into every served home's plugins/ dir.
+
+    The plugin managers are home-keyed, so the managed plugin source must be
+    physically present in each served home. Idempotent: managed-owned files
+    are re-asserted on every apply, matching the managed-skills convention.
+    Runs as root under s6-overlay cont-init; files are chowned to the
+    gateway's hermes uid/gid so the dropped gateway process can read them.
+    """
+    import shutil
+
+    uid, gid = _hermes_uid_gid()
+    src_root = managed / "plugins"
+    if not src_root.is_dir():
+        raise RuntimeError("managed snapshot has no plugins/ directory")
+    for src in sorted(p for p in src_root.iterdir() if p.is_dir()):
+        for h in homes:
+            dst = h / "plugins" / src.name
+            dst.mkdir(parents=True, exist_ok=True)
+            for f in sorted(p for p in src.rglob("*") if p.is_file()):
+                target = dst / f.relative_to(src)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(f, target)
+                target.chmod(0o644)
+            dst.chmod(0o755)
+            if os.getuid() == 0:
+                os.chown(dst, uid, gid)
+                for f in sorted(p for p in src.rglob("*") if p.is_file()):
+                    os.chown(dst / f.relative_to(src), uid, gid)
+            for f in sorted(p for p in src.rglob("*") if p.is_file()):
+                if _sha256(f) != _sha256(dst / f.relative_to(src)):
+                    raise RuntimeError(f"plugin install verify failed: {dst / f.relative_to(src)}")
+            print(f"[config-apply] Installed plugin {src.name} into home {h}")
+
+
+def _verify_plugin_install(src_dir: pathlib.Path, dst_dir: pathlib.Path) -> None:
+    """Installed plugin files must exist and hash-match the managed source."""
+    for f in sorted(p for p in src_dir.rglob("*") if p.is_file()):
+        target = dst_dir / f.relative_to(src_dir)
+        if not target.is_file() or _sha256(f) != _sha256(target):
+            raise RuntimeError(f"managed plugin {src_dir.name} missing or tampered at {target}")
+
+
+def _probe_plugin_hooks(init_path: pathlib.Path, plugin_name: str) -> set:
+    """Import the installed plugin's __init__.py and run register() against a
+    recorder context. Returns the set of registered hook names.
+
+    The gateway's home-keyed manager does exactly this per home at load, so
+    a successful probe proves the gateway loads the hooks in that home.
+    Raises when the plugin is absent or register() fails (e.g. an
+    unreadable or unbound principals file).
+    """
+    import importlib.util
+
+    if not init_path.is_file():
+        raise RuntimeError(f"plugin {plugin_name} not installed at {init_path}")
+    import hashlib as _hashlib
+    module_name = f"_config_apply_probe_{plugin_name}_{_hashlib.sha1(str(init_path).encode()).hexdigest()[:10]}"
+    spec = importlib.util.spec_from_file_location(module_name, init_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    registered = set()
+
+    class _Recorder:
+        def register_hook(self, name: str, callback) -> None:
+            registered.add(name)
+
+    module.register(_Recorder())
+    return registered
+
+
+def _principals_readable_by_gateway(principals_live: pathlib.Path) -> bool:
+    if not principals_live.is_file():
+        return False
+    try:
+        with principals_live.open("r", encoding="utf-8") as fh:
+            fh.read()
+    except OSError:
+        return False
+    # A root reader cannot see the dropped gateway's permission problem, so
+    # verify structurally when running as root.
+    if os.getuid() == 0:
+        uid, gid = _hermes_uid_gid()
+        st = principals_live.stat()
+        return (
+            (st.st_uid == uid and bool(st.st_mode & 0o400))
+            or (st.st_gid == gid and bool(st.st_mode & 0o040))
+            or bool(st.st_mode & 0o004)
+        )
+    return True
+
+
 def apply() -> None:
     home = pathlib.Path(os.environ.get("HERMES_HOME", "/opt/data"))
     managed = _managed_dir()
@@ -174,13 +286,24 @@ def apply() -> None:
             shutil.copyfile(skill_dir, dst_dir / "SKILL.md")
             print(f"[config-apply] Installed skill {rel}")
 
-    # Principal policy: copy managed principals into place and validate.
+    # Principal policy: copy the managed principals into place, make them
+    # readable by the dropped gateway user, and validate. Runs as root under
+    # s6-overlay cont-init; without the chown the file is root-owned 0600 and
+    # the gateway's household-auth plugin cannot read it, so its
+    # enforcement hooks would die at load.
     principals_src = _principals_path(managed)
     principals_dst = home / "principals.yaml"
     principals_dst.write_text(principals_src.read_text(encoding="utf-8"), encoding="utf-8")
     os.chmod(principals_dst, 0o600)
+    if os.getuid() == 0:
+        os.chown(principals_dst, *_hermes_uid_gid())
     _load_principals(principals_dst)
     print("[config-apply] Principal policy validated and installed")
+
+    # The household-auth plugin enforces the principal policy and its
+    # managers are home-keyed: install it into the root home and every named
+    # profile home so each served profile's manager can load it.
+    _install_managed_plugins(managed, _plugin_homes(home, tuple(merged_profiles)))
 
     stamp.write_text(commit + "\n", encoding="utf-8")
     print(f"[config-apply] Applied snapshot {commit}")
@@ -200,10 +323,11 @@ def check() -> int:
     """Readiness check: validate the managed snapshot and the live effective config.
 
     Exit 0 only when the snapshot is present, its principal policy is valid,
-    every restricted profile leaf is parseable, and the live config's MCP
-    servers (root and per-profile) are a subset of the managed allowed sets.
-    Used by the container healthcheck so the gateway never reports ready on
-    an invalid, unbound, or tampered policy.
+    every restricted profile leaf is parseable, the live config's MCP servers
+    (root and per-profile) are a subset of the managed allowed sets, and the
+    household-auth plugin is installed, untampered, and hook-registering in
+    every served home. Used by the container healthcheck so the gateway never
+    reports ready on an invalid, unbound, or tampered policy.
     """
     home = pathlib.Path(os.environ.get("HERMES_HOME", "/opt/data"))
     managed = _managed_dir()
@@ -252,6 +376,35 @@ def check() -> int:
                 raise RuntimeError(
                     f"rogue MCP server(s) {sorted(rogue)} in live profile {name}; allowed {sorted(leaf_allowed)}"
                 )
+
+        # The household-auth plugin enforces the principal policy and its
+        # managers are home-keyed: it must be installed in every served home,
+        # hash-match the managed source, and actually register its hooks —
+        # probing exactly what the gateway's home-keyed manager does at load.
+        # A missing or tampered install, or an unreadable principals file,
+        # drops readiness here instead of letting the gateway run unenforced.
+        principals_live = home / "principals.yaml"
+        if not _principals_readable_by_gateway(principals_live):
+            raise RuntimeError(f"principals {principals_live} absent or unreadable by the gateway user")
+        managed_plugins = managed / "plugins"
+        if not managed_plugins.is_dir():
+            raise RuntimeError("managed snapshot has no plugins/ directory")
+        plugin_names = sorted(p.name for p in managed_plugins.iterdir() if p.is_dir())
+        if "household-auth" not in plugin_names:
+            raise RuntimeError("managed snapshot missing the household-auth plugin")
+        os.environ["HERMES_HOUSEHOLD_PRINCIPALS"] = str(principals_live)
+        required_hooks = {"pre_gateway_dispatch", "pre_tool_call"}
+        for h in _plugin_homes(home, ("spouse", "family")):
+            for pname in plugin_names:
+                _verify_plugin_install(managed_plugins / pname, h / "plugins" / pname)
+                if pname != "household-auth":
+                    continue
+                registered = _probe_plugin_hooks(h / "plugins" / pname / "__init__.py", f"{pname}@{h.name}")
+                missing = required_hooks - registered
+                if missing:
+                    raise RuntimeError(
+                        f"household-auth in home {h} registered {sorted(registered)}; missing hooks {sorted(missing)}"
+                    )
     except (RuntimeError, OSError, yaml.YAMLError) as exc:
         print(f"[config-apply] readiness FAILED: {exc}", file=sys.stderr)
         return 1
