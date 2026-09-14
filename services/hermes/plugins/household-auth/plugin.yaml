@@ -1,0 +1,3 @@
+name: household-auth
+version: "1.0"
+description: Sender-bound household principal policy for the pinned Hermes gateway.
