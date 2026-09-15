@@ -107,7 +107,7 @@ services:
       SIGNAL_GROUP_ALLOWED_USERS: ${SIGNAL_GROUP_ALLOWED_USERS:-}
       SIGNAL_ALLOW_ALL_USERS: "false"
       HERMES_HOUSEHOLD_PRINCIPALS: /opt/data/principals.yaml
-      HERMES_MANAGED_DIR: /opt/hermes-managed/current
+      HERMES_MANAGED_DIR: /opt/hermes-managed/current/services/hermes/managed
     configs:
       - source: household_mcp_tools_init
         target: /etc/cont-init.d/018-household-mcp-tools.py
@@ -124,7 +124,7 @@ services:
     networks:
       - hermes
     healthcheck:
-      test: ["CMD-SHELL", "/opt/hermes/.venv/bin/python3 /opt/hermes-managed/current/init/config-apply.py --check && curl --fail --silent --show-error http://127.0.0.1:8642/health"]
+      test: ["CMD-SHELL", "/opt/hermes/.venv/bin/python3 /opt/hermes-managed/current/services/hermes/managed/init/config-apply.py --check && curl --fail --silent --show-error http://127.0.0.1:8642/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -400,7 +400,7 @@ configs:
 
       LOG_PREFIX = "[household-config]"
       HERMES_HOME = Path(os.environ.get("HERMES_HOME", "/opt/data"))
-      MANAGED_DIR = Path(os.environ.get("HERMES_MANAGED_DIR", "/opt/hermes-managed/current"))
+      MANAGED_DIR = Path(os.environ.get("HERMES_MANAGED_DIR", "/opt/hermes-managed/current/services/hermes/managed"))
       CONFIG_APPLIER = MANAGED_DIR / "init" / "config-apply.py"
       PYTHON = "/opt/hermes/.venv/bin/python3"
 
@@ -434,9 +434,9 @@ configs:
   git_sync_sparse_checkout:
     content: |
       /*
-      __omp_shell("/*/")
+      !/*/
       /services/
-      __omp_shell("/services/*/")
+      !/services/*/
       /services/hermes/managed/
 
 volumes:
