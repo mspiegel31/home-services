@@ -32,7 +32,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 
 def _managed_dir() -> pathlib.Path:
-    return pathlib.Path(os.environ.get("HERMES_MANAGED_DIR", "/opt/hermes-managed/current"))
+    return pathlib.Path(os.environ.get("HERMES_MANAGED_DIR", "/opt/hermes-managed/current/services/hermes/managed"))
 
 
 def _stamp_path() -> pathlib.Path:
@@ -41,19 +41,31 @@ def _stamp_path() -> pathlib.Path:
 
 
 def _current_commit() -> str:
-    # The git-sync sidecar publishes its sparse-checked-out worktree under the
-    # volume's current/ symlink; the worktree's .git file names the metadata
-    # dir (relative to the worktree top) whose HEAD holds the resolved commit.
-    gitdir = _managed_dir() / ".git"
-    if gitdir.is_file():
-        target = gitdir.read_text(encoding="utf-8").strip().removeprefix("gitdir:").strip()
-        if not pathlib.Path(target).is_absolute():
-            # Resolve the snapshot's current/ symlink first: the relative gitdir
-            # is anchored at the real worktree top, not the symlink name.
-            gitdir = pathlib.Path(os.path.normpath(os.path.join(_managed_dir().resolve(), target)))
-    head = gitdir / "HEAD"
-    if head.exists():
-        return head.read_text(encoding="utf-8").strip()
+    # git-sync (v4.x public contract) publishes each synced revision under a
+    # "current" symlink whose target basename is the revision; .git layout is
+    # an implementation detail, so stamp from the symlink first.
+    managed = _managed_dir()
+    for d in (managed, *managed.parents):
+        link = d / "current"
+        if link.is_symlink():
+            target = os.readlink(link)
+            return os.path.basename(target) if target else "unversioned"
+    # Fallback for ordinary local checkouts. The lexical walk keeps a
+    # relative gitdir: target anchored at the worktree top, not the resolved path.
+    for d in (managed, *managed.parents):
+        marker = d / ".git"
+        if not marker.exists():
+            continue
+        if marker.is_file():
+            target = marker.read_text(encoding="utf-8").strip().removeprefix("gitdir:").strip()
+            if pathlib.Path(target).is_absolute():
+                marker = pathlib.Path(target)
+            else:
+                marker = pathlib.Path(os.path.normpath(os.path.join(d, target)))
+        head = marker / "HEAD"
+        if head.exists():
+            return head.read_text(encoding="utf-8").strip()
+        return "unversioned"
     return "unversioned"
 
 
