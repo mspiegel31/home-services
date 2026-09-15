@@ -1,5 +1,9 @@
 # Managed leaf policy applied to every profile via HERMES_MANAGED_DIR.
-# Managed values override user config; unpinned preferences stay mutable.
+# Docs:
+#   Managed Scope (HERMES_MANAGED_DIR + this file):
+#   https://hermes-agent.nousresearch.com/docs/user-guide/managed-scope
+#   Configuration reference (gateway.platforms.*.extra.* keys):
+#   https://hermes-agent.nousresearch.com/docs/user-guide/configuration
 #
 # Admission stays native: SIGNAL_ALLOWED_USERS/SIGNAL_GROUP_ALLOWED_USERS and
 # the WhatsApp equivalents (environment variables) own who is admitted, so no
@@ -18,29 +22,72 @@ gateway:
           - "__no_messaging_admin__"
         group_allow_admin_from:
           - "__no_messaging_admin__"
-        user_allowed_commands:
+        # Permissive: full session + workflow command surface. Deliberately
+        # excluded: the approval/dangerous set (yolo, approve, deny,
+        # commands, update, restart, debug). Shell access is unrelated here;
+        # it is controlled by platform_toolsets in base.yaml (terminal and
+        # code_execution toolsets omitted for messaging platforms).
+        user_allowed_commands: &messaging_allowed_commands
+          - agents
+          - bg
+          - blueprint
+          - branch
+          - bundles
+          - btw
+          - codex-runtime
+          - compress
+          - context
+          - curator
+          - diff
+          - egress
+          - fast
+          - footer
+          - goal
           - help
-          - whoami
-          - status
+          - heartbeat
+          - insights
+          - init
+          - kanban
+          - learn
+          - login
+          - loop
+          - memory
+          - model
+          - moa
           - new
-        group_user_allowed_commands:
-          - help
-          - whoami
+          - personality
+          - platform
+          - plan
+          - queue
+          - reasoning
+          - reload-mcp
+          - reload-skills
+          - resume
+          - retry
+          - review
+          - rollback
+          - sessions
+          - sethome
+          - skills
+          - start
           - status
-          - new
+          - steer
+          - stop
+          - subgoal
+          - suggestions
+          - title
+          - topup
+          - undo
+          - usage
+          - verbose
+          - voice
+          - whoami
+        group_user_allowed_commands: *messaging_allowed_commands
     whatsapp:
       extra:
         allow_admin_from:
           - "__no_messaging_admin__"
         group_allow_admin_from:
           - "__no_messaging_admin__"
-        user_allowed_commands:
-          - help
-          - whoami
-          - status
-          - new
-        group_user_allowed_commands:
-          - help
-          - whoami
-          - status
-          - new
+        user_allowed_commands: *messaging_allowed_commands
+        group_user_allowed_commands: *messaging_allowed_commands
