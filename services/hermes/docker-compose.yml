@@ -112,13 +112,13 @@ services:
       HERMES_MANAGED_DIR: /opt/hermes-managed/current
     configs:
       - source: household_mcp_tools_init
-        target: /etc/cont-init.d/018-household-mcp-tools
+        target: /etc/cont-init.d/018-household-mcp-tools.py
         mode: 0555
       - source: household_profiles_init
-        target: /etc/cont-init.d/021-household-profiles
+        target: /etc/cont-init.d/021-household-profiles.py
         mode: 0555
       - source: household_config_init
-        target: /etc/cont-init.d/022-household-config
+        target: /etc/cont-init.d/022-household-config.py
         mode: 0555
     volumes:
       - /mnt/tank/container-configs/hermes:/opt/data
@@ -251,11 +251,11 @@ services:
 
 configs:
   household_mcp_tools_init:
-    file: ./init/018-household-mcp-tools
+    file: ./init/018-household-mcp-tools.py
   household_profiles_init:
-    file: ./init/021-household-profiles
+    file: ./init/021-household-profiles.py
   household_config_init:
-    file: ./init/022-household-config
+    file: ./init/022-household-config.py
   git_sync_sparse_checkout:
     content: |
       /*
