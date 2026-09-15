@@ -58,6 +58,7 @@ class LocalReasoningModel(str, Enum):
     QWEN38_NVFP4_SGLANG = "qwen3.8-27b-nvfp4-bf16-lmhead-sglang"
     QWEN38_NINFER = "qwen3.8-27b-ninfer"
     QWEN38_QUASAR_NVFP4 = "qwen3.8-27b-quasar-nvfp4"
+    QWEN38_SWIFT_NVFP4 = "swift-qwen3.8-27b-nvfp4"
     ORNITH = "ornith-1.5-9b-nvfp4"
     ORNITH_35B_A3B = "ornith-1.5-35b-a3b-nvfp4"
     LAGUNA_XS_2_1 = "laguna-xs-2.1"
@@ -107,6 +108,11 @@ _CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
         three_tier_effort=True, nested_effort=False
     ),
     LocalReasoningModel.QWEN38_QUASAR_NVFP4: ModelCapabilities(
+        three_tier_effort=True, nested_effort=True
+    ),
+    # Swift's template is Froggeric-shaped: same three-tier nested-effort
+    # contract as the other vLLM Qwen3.8 lanes.
+    LocalReasoningModel.QWEN38_SWIFT_NVFP4: ModelCapabilities(
         three_tier_effort=True, nested_effort=True
     ),
     LocalReasoningModel.ORNITH: ModelCapabilities(
