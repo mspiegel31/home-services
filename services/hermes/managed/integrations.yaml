@@ -103,18 +103,3 @@ mcp_servers:
       resources: false
       prompts: false
 
-  signal-share:
-    command: /opt/data/mcp/mealie-mcp-server/.venv/bin/python
-    args: [/opt/hermes-managed/current/mcp/signal_share_server.py]
-    env:
-      SIGNAL_HTTP_URL: "${SIGNAL_HTTP_URL}"
-      SIGNAL_ACCOUNT: "${SIGNAL_ACCOUNT}"
-      HERMES_SIGNAL_SHARE_USERS: "${HERMES_SIGNAL_SHARE_USERS}"
-      HERMES_SIGNAL_SHARE_GROUPS: "${HERMES_SIGNAL_SHARE_GROUPS}"
-    trust: untrusted
-    sampling:
-      enabled: false
-    tools:
-      include: [share_signal_message]
-      resources: false
-      prompts: false
