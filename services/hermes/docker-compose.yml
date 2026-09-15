@@ -169,6 +169,12 @@ services:
       - hermes
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     deploy:
       resources:
         limits:
@@ -210,6 +216,12 @@ services:
       - hermes
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     deploy:
       resources:
         limits:
