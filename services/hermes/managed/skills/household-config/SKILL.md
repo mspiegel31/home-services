@@ -22,19 +22,18 @@ through the CLI (the `hermes-cli` toolset) or the dashboard.
 
 There are two classes of Hermes settings:
 
-1. **Managed policy.** The `services/hermes/managed` snapshot in git is the
-   source of truth for security-critical settings: the native Signal/WhatsApp
-   admission, the restricted messaging toolsets, the no-messaging-admin
-   sentinel and command allowlists, the skills write-approval setting, and the
-   bounded MCP server and tool sets. These values are re-asserted on every
-   config apply. If you change one directly on the machine, the next apply
-   restores it. To change managed policy durably, change it in git and push.
-   The admission allowlists themselves live in container environment variables
-   (Portainer values), not in git.
+1. **Managed defaults and policy.** The `services/hermes/managed` snapshot in
+   git is the source of truth for the default model and reasoning effort plus
+   security-critical settings: native Signal/WhatsApp admission, restricted
+   messaging toolsets, the no-messaging-admin sentinel and command allowlists,
+   skills write approval, and bounded MCP server and tool sets. Config apply
+   re-asserts these values. Durable changes go through git; admission identities
+   stay in Portainer environment variables.
 
-2. **User-set preferences.** Everything else (display preferences like thinking
-   text, model choice, personal skills) is yours to set from the CLI or
-   dashboard. These persist and are not overridden by config apply.
+2. **User-set preferences.** Display preferences, session-scoped model choices,
+   and personal skills may be changed from the CLI or dashboard. A session model
+   override lasts for that session; the managed model remains the default for
+   new sessions.
 
 ## The managed security contract
 
@@ -60,14 +59,12 @@ There are two classes of Hermes settings:
 
 ## Making a change
 
-- **Preferences** (thinking text, model, tone): just say so. I will update the
-  config and confirm what changed.
-- **Managed policy** (admission variables, toolsets, admin sentinels, command
-  allowlists, write approval, MCP sets): I will not edit these on the machine.
-  I will tell you what to change in `services/hermes/managed/` (or in the
-  admission environment variables for who is admitted) and that it takes effect
-  on the next config apply or gateway restart. I can prepare the exact diff for
-  you to review and commit.
+- **Preferences** (thinking text, session model, tone): update the active
+  session and report what changed.
+- **Managed defaults and policy** (default model/reasoning, admission variables,
+  toolsets, admin sentinels, command allowlists, write approval, MCP sets):
+  change `services/hermes/managed/` or the relevant Portainer admission value,
+  then apply through GitOps.
 
 ## Guardrails
 

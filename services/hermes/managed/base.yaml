@@ -11,13 +11,16 @@ providers:
     api: http://192.168.1.98:4000/v1
     key_env: LITELLM_KEY
     transport: chat_completions
-    default_model: muse-glimmer-30b
+    default_model: swift-qwen3.8-27b-nvfp4
     discover_models: true
 
 model:
-  default: muse-glimmer-30b
+  default: swift-qwen3.8-27b-nvfp4
   provider: custom:home-litellm
   streaming: true
+
+agent:
+  reasoning_effort: low
 
 terminal:
   backend: local
