@@ -111,7 +111,7 @@ mcp_servers:
   babybuddy:
     command: /opt/data/mcp/babybuddy-mcp/.venv/bin/babybuddy-mcp
     env:
-      BABYBUDDY_URL: "http://babybuddy:80"
+      BABYBUDDY_URL: "http://192.168.1.39:9001"
       BABYBUDDY_TOKEN: "${BABYBUDDY_API_KEY}"
       MCP_TRANSPORT: stdio
     trust: full

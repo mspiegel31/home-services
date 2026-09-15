@@ -26,14 +26,14 @@ def mealie_base_url(raw: str) -> str:
     parsed = urllib.parse.urlparse(raw.strip())
     if (
         parsed.scheme != "http"
-        or parsed.hostname != "mealie"
+        or parsed.hostname != "192.168.1.39"
         or parsed.port != 9000
         or parsed.path not in {"", "/"}
     ):
-        raise ValueError("MEALIE_BASE_URL must be http://mealie:9000")
+        raise ValueError("MEALIE_BASE_URL must be http://192.168.1.39:9000")
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ValueError("MEALIE_BASE_URL must not contain credentials, query, or fragment")
-    return "http://mealie:9000"
+    return "http://192.168.1.39:9000"
 
 
 def normalize_slug(slug: str) -> str:

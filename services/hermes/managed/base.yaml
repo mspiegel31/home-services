@@ -1,4 +1,4 @@
-_config_version: 41
+_config_version: 42
 
 # Managed baseline formerly seeded by the derivative Hermes image.
 # Security- and integration-specific leaves are merged after this file.
@@ -42,7 +42,7 @@ approvals:
   deny:
     - "*signal-cli*"
     - "*http://signal-cli:*"
-    - "*http://mealie:*"
+    - "*http://192.168.1.39:9000*"
 
 telemetry:
   shared_metrics:

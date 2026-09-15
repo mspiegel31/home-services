@@ -98,7 +98,7 @@ services:
       API_SERVER_HOST: 127.0.0.1
       API_SERVER_KEY: ${HERMES_API_SERVER_KEY:?Set HERMES_API_SERVER_KEY in Portainer}
       LITELLM_KEY: ${LITELLM_KEY:?Set LITELLM_KEY in Portainer}
-      MEALIE_BASE_URL: http://mealie:9000
+      MEALIE_BASE_URL: http://192.168.1.39:9000
       MEALIE_API_KEY: ${MEALIE_API_KEY:?Set MEALIE_API_KEY in Portainer}
       BABYBUDDY_API_KEY: ${BABYBUDDY_API_KEY:?Set BABYBUDDY_API_KEY in Portainer}
       SIGNAL_HTTP_URL: http://signal-cli:8080
@@ -123,7 +123,6 @@ services:
       - hermes-managed:/opt/hermes-managed:ro
     networks:
       - hermes
-      - home-butler
     healthcheck:
       test: ["CMD-SHELL", "/opt/hermes/.venv/bin/python3 /opt/hermes-managed/current/init/config-apply.py --check && curl --fail --silent --show-error http://127.0.0.1:8642/health"]
       interval: 30s
@@ -147,87 +146,6 @@ services:
         limits:
           memory: 4G
           cpus: "2.0"
-  mealie-postgres:
-    image: postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
-    restart: unless-stopped
-    init: true
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      POSTGRES_DB: mealie
-      POSTGRES_USER: mealie
-      POSTGRES_PASSWORD: "${MEALIE_POSTGRES_PASSWORD:?Set MEALIE_POSTGRES_PASSWORD in Portainer}"
-    volumes:
-      - /mnt/tank/container-configs/mealie/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mealie -d mealie"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    networks:
-      - hermes
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-      - SETGID
-      - SETUID
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "1.0"
-
-  mealie:
-    image: ghcr.io/mealie-recipes/mealie:v3.25.1@sha256:6066c29eca95a6cac640ecadf734799522f3b646ee4a714e0d13ce795d989ba2
-    restart: unless-stopped
-    init: true
-    security_opt:
-      - no-new-privileges:true
-    depends_on:
-      mealie-postgres:
-        condition: service_healthy
-    ports:
-      - "192.168.1.39:9000:9000"
-    environment:
-      ALLOW_SIGNUP: "false"
-      BASE_URL: "${MEALIE_BASE_URL:?Set MEALIE_BASE_URL in Portainer}"
-      DB_ENGINE: postgres
-      POSTGRES_DB: mealie
-      POSTGRES_USER: mealie
-      POSTGRES_PASSWORD: "${MEALIE_POSTGRES_PASSWORD:?Set MEALIE_POSTGRES_PASSWORD in Portainer}"
-      POSTGRES_SERVER: mealie-postgres
-      POSTGRES_PORT: "5432"
-      PUID: "${MEALIE_PUID:?Set MEALIE_PUID in Portainer}"
-      PGID: "${MEALIE_PGID:?Set MEALIE_PGID in Portainer}"
-      TZ: "${TZ:?Set TZ in Portainer}"
-    volumes:
-      - /mnt/tank/container-configs/mealie/app-data:/app/data
-    healthcheck:
-      test: ["CMD", "/bin/bash", "/app/healthcheck.sh"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 90s
-    networks:
-      - hermes
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-      - SETGID
-      - SETUID
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-          cpus: "2.0"
-
 
 configs:
   household_mcp_tools_init:
@@ -251,6 +169,3 @@ volumes:
 networks:
   hermes:
     driver: bridge
-  home-butler:
-    external: true
-    name: home-butler

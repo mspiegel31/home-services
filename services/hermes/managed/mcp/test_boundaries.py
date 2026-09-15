@@ -5,8 +5,8 @@ import mealie_feedback_server as mealie
 
 
 class MealieBoundaryTests(unittest.TestCase):
-    def test_rejects_non_sidecar_mealie_url(self) -> None:
-        for raw in ("https://mealie:9000", "http://example.com:9000", "http://mealie:9000/api"):
+    def test_rejects_wrong_mealie_url(self) -> None:
+        for raw in ("https://192.168.1.39:9000", "http://example.com:9000", "http://192.168.1.39:9000/api", "http://mealie:9000"):
             with self.subTest(raw=raw), self.assertRaises(ValueError):
                 mealie.mealie_base_url(raw)
 
