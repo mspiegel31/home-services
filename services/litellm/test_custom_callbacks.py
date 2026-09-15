@@ -51,6 +51,16 @@ def call_hook(data: dict[str, Any], call_type: str = "completion") -> dict[str, 
     )
 
 
+def call_deployment_hook(data: dict[str, Any]) -> dict[str, Any] | None:
+    """Invoke the post-routing hook used by current LiteLLM releases."""
+    return asyncio.run(
+        local_thinking_policy.async_pre_call_deployment_hook(
+            kwargs=dict(data),
+            call_type=None,
+        )
+    )
+
+
 def chat(controls: dict[str, Any]) -> dict[str, Any]:
     """A minimal chat-completion payload carrying the given request controls."""
     return {"messages": [{"role": "user", "content": "hi"}], **controls}
@@ -253,6 +263,20 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
 
     def test_effort_low(self):
         result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "low"}))
+        self.assertEqual(
+            result["chat_template_kwargs"],
+            {"enable_thinking": True, "reasoning_effort": "low"},
+        )
+
+    def test_deployment_hook_maps_minimal_effort_for_swift(self):
+        result = call_deployment_hook(
+            chat(
+                {
+                    "model": "swift-qwen3.8-27b-nvfp4",
+                    "reasoning_effort": "minimal",
+                }
+            )
+        )
         self.assertEqual(
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "low"},
