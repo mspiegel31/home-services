@@ -106,14 +106,10 @@ services:
       SIGNAL_ALLOWED_USERS: ${SIGNAL_ALLOWED_USERS:?Set explicit SIGNAL_ALLOWED_USERS in Portainer}
       SIGNAL_GROUP_ALLOWED_USERS: ${SIGNAL_GROUP_ALLOWED_USERS:-}
       SIGNAL_ALLOW_ALL_USERS: "false"
-      HERMES_HOUSEHOLD_PRINCIPALS: /opt/data/principals.yaml
       HERMES_MANAGED_DIR: /opt/hermes-managed/current/services/hermes/managed
     configs:
       - source: household_mcp_tools_init
         target: /etc/cont-init.d/018-household-mcp-tools.py
-        mode: 0555
-      - source: household_profiles_init
-        target: /etc/cont-init.d/021-household-profiles.py
         mode: 0555
       - source: household_config_init
         target: /etc/cont-init.d/022-household-config.py
@@ -321,62 +317,6 @@ configs:
                   sync_project(project)
               write_stamp()
               print(f"{LOG_PREFIX} Pinned MCP projects ready")
-              return 0
-          except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
-              print(f"{LOG_PREFIX} REFUSING startup: {error}", file=sys.stderr)
-              return 1
-
-
-      if __name__ == "__main__":
-          raise SystemExit(main())
-  household_profiles_init:
-    # Native household profile bootstrap (was ./init/021-household-profiles.py)
-    content: |
-      #!/command/with-contenv /usr/bin/python3
-      """Create native household profiles before s6 starts gateway services."""
-
-      from __future__ import annotations
-
-      import os
-      import subprocess
-      import sys
-      from pathlib import Path
-
-      LOG_PREFIX = "[household-profiles]"
-      HERMES_HOME = Path(os.environ.get("HERMES_HOME", "/opt/data"))
-      PROFILE_NAMES = ("spouse", "family")
-
-
-      def create_profile(name: str) -> None:
-          profile = HERMES_HOME / "profiles" / name
-          if (profile / "SOUL.md").is_file():
-              return
-          if profile.exists():
-              raise RuntimeError(f"incomplete native profile at {profile}")
-
-          print(f"{LOG_PREFIX} Creating native profile {name}", flush=True)
-          subprocess.run(
-              [
-                  "/command/s6-setuidgid",
-                  "hermes",
-                  "env",
-                  f"HOME={HERMES_HOME}",
-                  f"HERMES_HOME={HERMES_HOME}",
-                  "hermes",
-                  "profile",
-                  "create",
-                  name,
-                  "--clone",
-                  "--no-alias",
-              ],
-              check=True,
-          )
-
-
-      def main() -> int:
-          try:
-              for name in PROFILE_NAMES:
-                  create_profile(name)
               return 0
           except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
               print(f"{LOG_PREFIX} REFUSING startup: {error}", file=sys.stderr)
