@@ -285,7 +285,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 8192
+      --max-num-batched-tokens 1024
       --max-model-len auto
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
