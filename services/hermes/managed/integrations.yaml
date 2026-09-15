@@ -52,7 +52,7 @@ mcp_servers:
 
   mealie-feedback:
     command: /opt/data/mcp/mealie-mcp-server/.venv/bin/python
-    args: [/opt/hermes-managed/current/mcp/mealie_feedback_server.py]
+    args: [/opt/hermes-managed/current/services/hermes/managed/mcp/mealie_feedback_server.py]
     env:
       MEALIE_BASE_URL: "${MEALIE_BASE_URL}"
       MEALIE_API_KEY: "${MEALIE_API_KEY}"
