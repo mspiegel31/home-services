@@ -343,7 +343,7 @@ class ChatTemplateThinkingPolicy:
             kwargs[_KW_ENABLE_THINKING] = controls.explicit_enable
             changed = True
         if not binary_thinking or controls.explicit_enable is None:
-            changed |= self._apply_effort(kwargs, controls.effort, caps)
+            changed |= self._apply_effort(data, kwargs, controls.effort, caps)
             changed |= self._apply_budget(kwargs, controls.thinking_token_budget)
         changed |= self._strip_stale_effort(data, kwargs, controls.effort)
         if binary_thinking:
@@ -357,6 +357,7 @@ class ChatTemplateThinkingPolicy:
 
     def _apply_effort(
         self,
+        data: dict[str, Any],
         kwargs: dict[str, Any],
         effort: Any,
         caps: ModelCapabilities,
@@ -380,9 +381,11 @@ class ChatTemplateThinkingPolicy:
         if kwargs.get(_KW_ENABLE_THINKING) is not True:
             kwargs[_KW_ENABLE_THINKING] = True
             changed = True
-        if caps.nested_effort and kwargs.get(_KW_REASONING_EFFORT) != wire_effort:
-            kwargs[_KW_REASONING_EFFORT] = wire_effort
-            changed = True
+        if caps.nested_effort:
+            if kwargs.get(_KW_REASONING_EFFORT) != wire_effort:
+                kwargs[_KW_REASONING_EFFORT] = wire_effort
+                changed = True
+            changed |= data.pop(_KW_REASONING_EFFORT, None) is not None
         return changed
 
     def _apply_budget(self, kwargs: dict[str, Any], budget: Any) -> bool:

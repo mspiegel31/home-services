@@ -281,6 +281,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "low"},
         )
+        self.assertNotIn("reasoning_effort", result)
 
     def test_effort_medium(self):
         result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "medium"}))
