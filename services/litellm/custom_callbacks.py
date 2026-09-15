@@ -447,13 +447,7 @@ class LocalReasoningRequestAdapter(CustomLogger):
         changed |= _apply_unsloth_instruct_sampling_defaults(request)
         return request if changed else transformed
 
-    async def async_pre_call_hook(
-        self,
-        user_api_key_dict: "UserAPIKeyAuth",
-        cache: "DualCache",
-        data: dict[str, Any],
-        call_type: "CallTypesLiteral",
-    ) -> dict[str, Any] | None:
+    def _safe_transform(self, data: dict[str, Any]) -> dict[str, Any] | None:
         try:
             return self._transform(dict(data))
         except Exception:
@@ -461,6 +455,23 @@ class LocalReasoningRequestAdapter(CustomLogger):
                 "local thinking policy failed; passing request through unchanged"
             )
             return None
+
+    async def async_pre_call_hook(
+        self,
+        user_api_key_dict: "UserAPIKeyAuth",
+        cache: "DualCache",
+        data: dict[str, Any],
+        call_type: "CallTypesLiteral",
+    ) -> dict[str, Any] | None:
+        return self._safe_transform(data)
+
+    async def async_pre_call_deployment_hook(
+        self,
+        kwargs: dict[str, Any],
+        call_type: Any,
+    ) -> dict[str, Any] | None:
+        """Transform the selected deployment immediately before forwarding."""
+        return self._safe_transform(kwargs)
 
 
 local_thinking_policy = LocalReasoningRequestAdapter()
