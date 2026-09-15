@@ -265,10 +265,10 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "ukisai/Swift-Qwen3.8-27B-NVFP4"
     proxy: http://vllm-swift-qwen3-8-27b-nvfp4:8000
-    # Served on the same shape as the qwen nvfp4 lane (1K prefill pin, SM120
-    # FlashInfer FP8 workaround, QWEN38_COMMON parsers) so OMP tool-calling
-    # needs no per-model patch. Unlike the Unsloth lane, no Froggeric template
-    # pin: Swift's bundled template already defaults to xhigh effort and its
+    # 8K prefill trial: test whether the prior stream stalls were specific to
+    # the external DFlash2 drafter. Keep the SM120 FlashInfer FP8 workaround
+    # and QWEN38_COMMON parsers so OMP tool-calling remains unchanged.
+    # Swift's bundled template already defaults to xhigh effort and its
     # generation_config carries the sampling profile.
     #
     # Spec decode: native MTP head from the Swift checkpoint (kept in BF16,
@@ -285,7 +285,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 1024
+      --max-num-batched-tokens 8192
       --max-model-len auto
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
