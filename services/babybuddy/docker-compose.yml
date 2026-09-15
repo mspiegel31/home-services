@@ -7,7 +7,7 @@ services:
     security_opt:
       - no-new-privileges:true
     ports:
-      - "192.168.1.39:9001:80"
+      - "192.168.1.39:9001:3000"
     environment:
       PUID: "${BABYBUDDY_PUID:?Set BABYBUDDY_PUID in Portainer}"
       PGID: "${BABYBUDDY_PGID:?Set BABYBUDDY_PGID in Portainer}"
@@ -15,7 +15,7 @@ services:
     volumes:
       - /mnt/tank/container-configs/babybuddy:/config
     healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:80/health/ || exit 1"]
+      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:3000/health/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
