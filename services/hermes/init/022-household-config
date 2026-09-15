@@ -1,0 +1,20 @@
+#!/command/with-contenv sh
+# Apply the Git-managed household snapshot before upstream 02-reconcile-profiles
+# registers and starts profile gateways.
+set -eu
+
+home="${HERMES_HOME:-/opt/data}"
+managed="${HERMES_MANAGED_DIR:-/opt/hermes-managed/current}"
+apply="$managed/init/config-apply.py"
+
+[ -f "$managed/policy.yaml" ] || {
+    echo "[household-config] REFUSING startup: $managed/policy.yaml missing" >&2
+    exit 1
+}
+[ -f "$apply" ] || {
+    echo "[household-config] REFUSING startup: $apply missing" >&2
+    exit 1
+}
+
+HERMES_HOME="$home" HERMES_MANAGED_DIR="$managed" \
+    /opt/hermes/.venv/bin/python3 "$apply"
