@@ -59,7 +59,9 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 whose chat templates need them before LiteLLM forwards Chat Completions
 requests. The policy covers Gemma 4 31B (binary thinking), Qwen3.8
 (`qwen3.8-27b-fp8`, `-nvfp4`, `-nvfp4-bf16-lmhead`,
-`-nvfp4-bf16-lmhead-sglang`, `-quasar-nvfp4`, `-ninfer`), Laguna XS 2.1,
+`-nvfp4-bf16-lmhead-sglang`, `-quasar-nvfp4`, `-ninfer`), Swift
+(`swift-qwen3.8-27b-nvfp4`, a reasoning-efficient Qwen3.8 derivative whose
+template speaks the same three-tier nested-effort contract), Laguna XS 2.1,
 and both Ornith NVFP4 routes (9B and 35B-A3B). NInfer
 has a separate wire-compatibility branch because
 it accepts top-level Chat Completions effort but not nested effort, and it
