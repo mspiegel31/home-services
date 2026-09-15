@@ -36,12 +36,49 @@ services:
           memory: 1G
           cpus: "1.0"
 
+  git-sync:
+    container_name: hermes-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
+    user: "0:0"
+    restart: unless-stopped
+    command:
+      - git-sync
+      - --repo=https://github.com/mspiegel31/home-services.git
+      - --ref=main
+      - --root=/git
+      - --link=current
+      - --depth=1
+      - --submodules=off
+      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
+      - --period=30s
+      - --http-bind=:1234
+    configs:
+      - source: git_sync_sparse_checkout
+        target: /etc/git-sync/sparse-checkout
+    volumes:
+      - hermes-managed:/git
+    networks:
+      - hermes
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/hermes/managed/policy.yaml && curl -fsS http://127.0.0.1:1234/"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
   hermes:
-    image: ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8@sha256:d6e980e597468358614847e9893bb4120b472b1d8852be71d47facf91cd61e77
+    image: nousresearch/hermes-agent:v2026.9.7@sha256:63bfb6d732f49a55d453e801057273785cc61e0f6ee43db3fa2f2a79846301b7
     container_name: hermes
     restart: unless-stopped
     command: ["gateway", "run"]
     depends_on:
+      git-sync:
+        condition: service_healthy
       signal-cli:
         condition: service_healthy
     ports:
@@ -54,26 +91,41 @@ services:
       HERMES_GATEWAY_BOOTSTRAP_STATE: running
       HERMES_UID: ${HERMES_UID:-10000}
       HERMES_GID: ${HERMES_GID:-10000}
+      # s6 defaults to continuing after cont-init.d failures; policy and MCP
+      # initialization are readiness gates, so any lifecycle failure stops.
+      S6_BEHAVIOUR_IF_STAGE2_FAILS: "2"
       API_SERVER_ENABLED: "true"
       API_SERVER_HOST: 127.0.0.1
       API_SERVER_KEY: ${HERMES_API_SERVER_KEY:?Set HERMES_API_SERVER_KEY in Portainer}
       LITELLM_KEY: ${LITELLM_KEY:?Set LITELLM_KEY in Portainer}
       MEALIE_BASE_URL: http://mealie:9000
       MEALIE_API_KEY: ${MEALIE_API_KEY:?Set MEALIE_API_KEY in Portainer}
+      BABYBUDDY_API_KEY: ${BABYBUDDY_API_KEY:?Set BABYBUDDY_API_KEY in Portainer}
       SIGNAL_HTTP_URL: http://signal-cli:8080
       SIGNAL_ACCOUNT: ${SIGNAL_ACCOUNT:?Set SIGNAL_ACCOUNT in Portainer}
       SIGNAL_ALLOWED_USERS: ${SIGNAL_ALLOWED_USERS:?Set explicit SIGNAL_ALLOWED_USERS in Portainer}
       SIGNAL_GROUP_ALLOWED_USERS: ${SIGNAL_GROUP_ALLOWED_USERS:-}
       SIGNAL_ALLOW_ALL_USERS: "false"
-      HERMES_SIGNAL_SHARE_USERS: ${HERMES_SIGNAL_SHARE_USERS:-}
-      HERMES_SIGNAL_SHARE_GROUPS: ${HERMES_SIGNAL_SHARE_GROUPS:-}
+      HERMES_HOUSEHOLD_PRINCIPALS: /opt/data/principals.yaml
+      HERMES_MANAGED_DIR: /opt/hermes-managed/current
+    configs:
+      - source: household_mcp_tools_init
+        target: /etc/cont-init.d/018-household-mcp-tools.py
+        mode: 0555
+      - source: household_profiles_init
+        target: /etc/cont-init.d/021-household-profiles.py
+        mode: 0555
+      - source: household_config_init
+        target: /etc/cont-init.d/022-household-config.py
+        mode: 0555
     volumes:
       - /mnt/tank/container-configs/hermes:/opt/data
+      - hermes-managed:/opt/hermes-managed:ro
     networks:
       - hermes
       - home-butler
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8642/health"]
+      test: ["CMD-SHELL", "/opt/hermes/.venv/bin/python3 /opt/hermes-managed/current/init/config-apply.py --check && curl --fail --silent --show-error http://127.0.0.1:8642/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -95,6 +147,124 @@ services:
         limits:
           memory: 4G
           cpus: "2.0"
+  mealie-postgres:
+    image: postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_DB: mealie
+      POSTGRES_USER: mealie
+      POSTGRES_PASSWORD: "${MEALIE_POSTGRES_PASSWORD:?Set MEALIE_POSTGRES_PASSWORD in Portainer}"
+    volumes:
+      - /mnt/tank/container-configs/mealie/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mealie -d mealie"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - hermes
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+  mealie:
+    image: ghcr.io/mealie-recipes/mealie:v3.25.1@sha256:6066c29eca95a6cac640ecadf734799522f3b646ee4a714e0d13ce795d989ba2
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      mealie-postgres:
+        condition: service_healthy
+    ports:
+      - "192.168.1.39:9000:9000"
+    environment:
+      ALLOW_SIGNUP: "false"
+      BASE_URL: "${MEALIE_BASE_URL:?Set MEALIE_BASE_URL in Portainer}"
+      DB_ENGINE: postgres
+      POSTGRES_DB: mealie
+      POSTGRES_USER: mealie
+      POSTGRES_PASSWORD: "${MEALIE_POSTGRES_PASSWORD:?Set MEALIE_POSTGRES_PASSWORD in Portainer}"
+      POSTGRES_SERVER: mealie-postgres
+      POSTGRES_PORT: "5432"
+      PUID: "${MEALIE_PUID:?Set MEALIE_PUID in Portainer}"
+      PGID: "${MEALIE_PGID:?Set MEALIE_PGID in Portainer}"
+      TZ: "${TZ:?Set TZ in Portainer}"
+    volumes:
+      - /mnt/tank/container-configs/mealie/app-data:/app/data
+    healthcheck:
+      test: ["CMD", "/bin/bash", "/app/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    networks:
+      - hermes
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2.0"
+
+  babybuddy:
+    image: lscr.io/linuxserver/babybuddy:v2.10.1-ls250@sha256:985a2adc74c431271d0273db9d14196cd28a50aadc943fe3b36af3c45f7030a0
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "192.168.1.39:9001:80"
+    environment:
+      PUID: "${BABYBUDDY_PUID:?Set BABYBUDDY_PUID in Portainer}"
+      PGID: "${BABYBUDDY_PGID:?Set BABYBUDDY_PGID in Portainer}"
+      TZ: "${TZ:?Set TZ in Portainer}"
+    volumes:
+      - /mnt/tank/container-configs/babybuddy:/config
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:80/health/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - hermes
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+
+configs:
+  household_mcp_tools_init:
+    file: ./init/018-household-mcp-tools.py
+  household_profiles_init:
+    file: ./init/021-household-profiles.py
+  household_config_init:
+    file: ./init/022-household-config.py
+  git_sync_sparse_checkout:
+    content: |
+      /*
+      !/*/
+      /services/
+      !/services/*/
+      /services/hermes/managed/
+
+
+volumes:
+  hermes-managed:
 
 networks:
   hermes:

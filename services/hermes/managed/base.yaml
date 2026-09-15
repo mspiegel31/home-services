@@ -1,0 +1,53 @@
+_config_version: 41
+
+# Managed baseline formerly seeded by the derivative Hermes image.
+# Security- and integration-specific leaves are merged after this file.
+database:
+  journal_mode: wal
+  synchronous: FULL
+
+providers:
+  home-litellm:
+    api: http://192.168.1.98:4000/v1
+    key_env: LITELLM_KEY
+    transport: chat_completions
+    default_model: muse-glimmer-30b
+    discover_models: true
+
+model:
+  default: muse-glimmer-30b
+  provider: custom:home-litellm
+  streaming: true
+
+terminal:
+  backend: local
+  cwd: /opt/data/workspace
+  timeout: 180
+  home_mode: profile
+  docker_mount_cwd_to_workspace: false
+
+platform_toolsets:
+  cli: [hermes-cli]
+  signal: [web, vision, skills, todo]
+
+approvals:
+  mode: smart
+  timeout: 300
+  cron_mode: deny
+  single_query_mode: deny
+  unattended_mode: deny
+  denial_breaker_threshold: 3
+  mcp_reload_confirm: true
+  destructive_slash_confirm: true
+  deny:
+    - "*signal-cli*"
+    - "*http://signal-cli:*"
+    - "*http://mealie:*"
+
+telemetry:
+  shared_metrics:
+    enabled: false
+    send: false
+
+updates:
+  check: false
