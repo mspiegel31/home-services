@@ -31,6 +31,33 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return base
 
 
+# MCP servers retired from the managed snapshot by a cutover (e.g. a custom
+# adapter removed from the managed leaves) are migrated out of the live
+# config explicitly here, one server at a time, so the persistent config
+# converges without an operator hand-edit. This is not an allowlist
+# relaxation: every other unmanaged server is still refused by the rogue-set
+# validation below.
+RETIRED_MCP_SERVERS = ("signal-share",)
+
+
+def _migrate_retired_servers(config: dict, scope: str) -> None:
+    """Remove retired MCP server entries from a merged surface, in place.
+
+    Only servers explicitly listed in RETIRED_MCP_SERVERS are removed; any
+    other unmanaged server is left untouched for the rogue-set validation to
+    refuse. Logs only when an entry is actually removed.
+    """
+    servers = config.get("mcp_servers")
+    if not isinstance(servers, dict):
+        return
+    for name in RETIRED_MCP_SERVERS:
+        if name in servers:
+            del servers[name]
+            print(f"[config-apply] Migrated retired MCP server {name} out of {scope} config")
+    if not servers:
+        config.pop("mcp_servers", None)
+
+
 def _managed_dir() -> pathlib.Path:
     return pathlib.Path(os.environ.get("HERMES_MANAGED_DIR", "/opt/hermes-managed/current/services/hermes/managed"))
 
@@ -172,6 +199,10 @@ def _probe_plugin_hooks(init_path: pathlib.Path, plugin_name: str) -> set:
     import hashlib as _hashlib
     module_name = f"_config_apply_probe_{plugin_name}_{_hashlib.sha1(str(init_path).encode()).hexdigest()[:10]}"
     spec = importlib.util.spec_from_file_location(module_name, init_path)
+    if spec is None:
+        raise RuntimeError(f"could not create module spec for plugin {plugin_name} at {init_path}")
+    if spec.loader is None:
+        raise RuntimeError(f"module spec for plugin {plugin_name} at {init_path} has no loader")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     registered = set()
@@ -257,6 +288,9 @@ def apply() -> None:
     # recovery point); operator removes the rogue server from the live config
     # (or restores the .bak) and the next apply re-validates. Legitimate
     # tweaks to managed servers survive the merge above.
+    # Migrate explicitly retired servers out of the merged live surface before
+    # validation so a retired entry from a past cutover converges on its own.
+    _migrate_retired_servers(config, "root")
     root_allowed = set((integrations["mcp_servers"] or {}).keys())
     rogue = set((config.get("mcp_servers") or {}).keys()) - root_allowed
     if rogue:
@@ -276,6 +310,7 @@ def apply() -> None:
         pconfig = yaml.safe_load(pconfig_path.read_text(encoding="utf-8")) if pconfig_path.exists() else {}
         pconfig = pconfig or {}
         _deep_merge(pconfig, leaf_data)
+        _migrate_retired_servers(pconfig, f"profile {name}")
         leaf_allowed = set(((leaf_data or {}).get("mcp_servers") or {}).keys())
         rogue = set((pconfig.get("mcp_servers") or {}).keys()) - leaf_allowed
         if rogue:
