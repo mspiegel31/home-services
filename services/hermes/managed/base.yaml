@@ -29,6 +29,12 @@ terminal:
 platform_toolsets:
   cli: [hermes-cli]
   signal: [web, vision, skills, todo]
+  whatsapp: [web, vision, skills, todo]
+
+skills:
+  # Stage skill writes for out-of-band review; gateway sessions have no
+  # inline approval channel.
+  write_approval: true
 
 approvals:
   mode: smart

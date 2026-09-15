@@ -1,39 +1,46 @@
 # Managed leaf policy applied to every profile via HERMES_MANAGED_DIR.
 # Managed values override user config; unpinned preferences stay mutable.
-# The plugin is mandatory: a missing/empty principals file or a missing
-# allow_admin_from entry must fail readiness, not fall back to permissive
-# native admission.
-plugins:
-  enabled:
-    - household-auth
-
+#
+# Admission stays native: SIGNAL_ALLOWED_USERS/SIGNAL_GROUP_ALLOWED_USERS and
+# the WhatsApp equivalents (environment variables) own who is admitted, so no
+# sender or group identity values are tracked in Git.
+#
+# The sentinel admin lists are deliberately impossible exact matches:
+# nonempty allow_admin_from activates the built-in native slash gating, and
+# no real messaging identity can equal it, so no messaging user is admin and
+# every slash command outside the allowed lists is denied to all messaging
+# users. CLI/dashboard administration is unaffected.
 gateway:
   platforms:
-    whatsapp:
+    signal:
       extra:
-        # Admission is an explicit allowlist; no wildcard.
-        dm_policy: allowlist
-        group_policy: allowlist
-        # Bind real IDs at deployment; these are the two adults and the family group.
-        allow_from: []
-        group_allow_from: []
-        # Native slash tiers gate slash commands only; both scopes must name the
-        # owner so gating is not silently disabled by an empty list.
-        allow_admin_from: []
-        group_allow_admin_from: []
+        allow_admin_from:
+          - "__no_messaging_admin__"
+        group_allow_admin_from:
+          - "__no_messaging_admin__"
         user_allowed_commands:
           - help
           - whoami
+          - status
+          - new
         group_user_allowed_commands:
           - help
           - whoami
-        # Text batching merges rapid messages into one turn attributed to the
-        # first sender; disable it so each message keeps its own identity.
-        text_batch_delay_seconds: 0
-        text_batch_split_delay_seconds: 0
-
-# Per-profile toolsets are set in each profile's own config.yaml, not here:
-#   family / spouse-private -> household-safe (no terminal, no file access,
-#   no execute_code, no delegation)
-#   owner-private -> full hermes-whatsapp toolset
-# The toolset boundary is the primary control; household-auth is the second.
+          - status
+          - new
+    whatsapp:
+      extra:
+        allow_admin_from:
+          - "__no_messaging_admin__"
+        group_allow_admin_from:
+          - "__no_messaging_admin__"
+        user_allowed_commands:
+          - help
+          - whoami
+          - status
+          - new
+        group_user_allowed_commands:
+          - help
+          - whoami
+          - status
+          - new
