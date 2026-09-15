@@ -34,6 +34,10 @@
                 - title: Router
                   icon: auto-invert sh:ubiquiti-unifi
                   url: https://192.168.1.1
+                - title: Hermes
+                  icon: auto-invert mdi:robot
+                  url: http://192.168.1.39:9119
+
 
                 - title: Basic Infrastructure
                   icon: auto-invert sh:portainer
