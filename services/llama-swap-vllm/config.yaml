@@ -268,8 +268,11 @@ models:
     # 8K prefill trial: test whether the prior stream stalls were specific to
     # the external DFlash2 drafter. Keep the SM120 FlashInfer FP8 workaround
     # and QWEN38_COMMON parsers so OMP tool-calling remains unchanged.
-    # Swift's bundled template already defaults to xhigh effort and its
-    # generation_config carries the sampling profile.
+    # Swift runs the pinned Froggeric v22.5 template (same three-tier
+    # nested-effort contract as the qwen3.8-27b-nvfp4 lane) instead of the
+    # checkpoint-bundled one, so OMP's thinking controls and the litellm
+    # thinking policy reach a known template. Its generation_config carries
+    # the sampling profile.
     #
     # Spec decode: native MTP head from the Swift checkpoint (kept in BF16,
     # co-trained with these weights), 3 draft tokens — the config the model
@@ -290,6 +293,7 @@ models:
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
       --generation-config auto
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-qwen3-8-27b-nvfp4

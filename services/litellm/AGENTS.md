@@ -32,6 +32,23 @@ Model capability + reasoning/thinking metadata is authored in `model_info` and s
 through LiteLLM discovery endpoints, so Oh My Pi (and any OpenAI client) learns context,
 the reasoning-effort ladder, and vision flags without per-workstation overrides.
 
+Client API keys need `allowed_routes` that include the discovery routes, not
+just `llm_api_routes`. OMP's `discovery.type: litellm` probes `/v2/model/info`
+(rich catalog) and falls back to `/v1/models` when it 403s. A key without the
+route therefore still serves chat, but OMP loses every `model_info` field
+(`reasoning_effort` ladder, `reasoning`, context window), so its thinking
+control degrades to a binary toggle and the effort ladder disappears from the
+`/models` picker. Grant the routes:
+
+```
+POST /key/update   # master key
+{"key": "<key>", "allowed_routes": ["llm_api_routes", "/v2/model/info",
+  "/v1/models", "/model/info", "/model_group/info"]}
+```
+
+Symptom is silent: the model works, only the effort controls stop being
+respected. Verify with `curl <key> /v2/model/info` → 200.
+
 ## Config management
 
 LiteLLM supports multiple config sources:
