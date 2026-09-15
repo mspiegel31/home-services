@@ -4,7 +4,6 @@ services:
   babybuddy:
     image: lscr.io/linuxserver/babybuddy:v2.10.1-ls250@sha256:985a2adc74c431271d0273db9d14196cd28a50aadc943fe3b36af3c45f7030a0
     restart: unless-stopped
-    init: true
     security_opt:
       - no-new-privileges:true
     ports:
