@@ -34,8 +34,7 @@ plugins:
 
 # Bounded care-app MCP surface for the shared family conversation. Both
 # adults record diet/stool data here (plan: shared Baby Buddy skill
-# everywhere). No signal-share (owner-side messaging surface) and no
-# terminal/file tools (disabled_toolsets above).
+# everywhere). Terminal and file toolsets remain disabled below.
 mcp_servers:
   mealie:
     command: /opt/data/mcp/mealie-mcp-server/.venv/bin/mealie-mcp-server

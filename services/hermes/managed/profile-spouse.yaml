@@ -41,8 +41,8 @@ plugins:
 # Bounded care-app MCP surface for the spouse's private conversation.
 # Same diet/stool recording tools as the family profile (plan: both adults
 # can read and write shared Baby Buddy records from either private
-# conversation or the family group). No signal-share (owner-side messaging
-# surface) and no terminal/file tools (disabled_toolsets above).
+# conversation or the family group). Terminal and file toolsets remain
+# disabled below.
 mcp_servers:
   mealie:
     command: /opt/data/mcp/mealie-mcp-server/.venv/bin/mealie-mcp-server
