@@ -216,36 +216,6 @@ services:
           memory: 2G
           cpus: "2.0"
 
-  babybuddy:
-    image: lscr.io/linuxserver/babybuddy:v2.10.1-ls250@sha256:985a2adc74c431271d0273db9d14196cd28a50aadc943fe3b36af3c45f7030a0
-    restart: unless-stopped
-    init: true
-    security_opt:
-      - no-new-privileges:true
-    ports:
-      - "192.168.1.39:9001:80"
-    environment:
-      PUID: "${BABYBUDDY_PUID:?Set BABYBUDDY_PUID in Portainer}"
-      PGID: "${BABYBUDDY_PGID:?Set BABYBUDDY_PGID in Portainer}"
-      TZ: "${TZ:?Set TZ in Portainer}"
-    volumes:
-      - /mnt/tank/container-configs/babybuddy:/config
-    healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:80/health/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    networks:
-      - hermes
-    cap_drop:
-      - ALL
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "1.0"
-
 
 configs:
   household_mcp_tools_init:
