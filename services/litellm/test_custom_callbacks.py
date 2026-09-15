@@ -153,6 +153,13 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             {"enable_thinking": True, "reasoning_effort": "xhigh"},
         )
 
+    def test_swift_defaults_to_xhigh_with_froggeric_template(self):
+        result = call_hook(chat({"model": "swift-qwen3.8-27b-nvfp4"}))
+        self.assertEqual(
+            result["chat_template_kwargs"],
+            {"enable_thinking": True, "reasoning_effort": "xhigh"},
+        )
+
     def test_unknown_effort_passes_through(self):
         self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "turbo"})))
 
