@@ -272,7 +272,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         result = call_deployment_hook(
             chat(
                 {
-                    "model": "swift-qwen3.8-27b-nvfp4",
+                    "model": "hosted_vllm/swift-qwen3.8-27b-nvfp4",
                     "reasoning_effort": "minimal",
                 }
             )
