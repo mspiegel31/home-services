@@ -8,7 +8,7 @@ apiKeys:
 
 
 macros:
-  VLLM_IMAGE: "vllm/vllm-openai:v0.28.0@sha256:61fc8a896b0a4fbbbdc063bc4b0dbc25ce98e02b5050c24aeb7830ac02039b14"
+  VLLM_IMAGE: "vllm/vllm-openai:v0.29.0@sha256:c2914767605584b6d8f45686b82de173ecc99e781897aa3d0a66dacd72c51ae1"
 # fastokens image: ghcr.io/mspiegel31/vllm-fastokens:latest — derived from
 # the pinned vllm/vllm-openai above; stock images don't ship fastokens
 # (vllm#47855 — no pip extra, no build arg). Inlined per-model below:
@@ -146,7 +146,7 @@ models:
     # attention); v0.27.1 + transformers ≥5.15 crashed with
     # AmbiguousGlobalPerLayerAttributeError. Fixed upstream in vllm PR #49797
     # (merged 2026-08-10), which shipped in v0.28.0 — so this model now uses
-    # the global VLLM_IMAGE (v0.28.0) like the others.
+    # the global VLLM_IMAGE (v0.29.0) like the others.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-gemma-4-31b
@@ -183,7 +183,7 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "unsloth/Qwen3.8-27B-NVFP4"
     proxy: http://vllm-qwen3-8-27b-nvfp4:8000
-    # Released vLLM 0.28.0 supports DFlash2 with this checkpoint's quantized
+    # Released vLLM 0.29.0 supports DFlash2 with this checkpoint's quantized
     # FP8 lm_head. Cap first-run FlashInfer compilation on the 64 GB host.
     # The qwen3_5 loader does not yet apply this checkpoint's calibrated FP8
     # KV scales (vllm#54623); bfloat16 KV remains the quality canary.
@@ -462,7 +462,7 @@ models:
       --enable-auto-tool-choice
       --generation-config auto
       # DFlash drafter support (vllm#46853, merged 2026-07-03) is in the
-      # pinned v0.28.0 image — verified against the tag's registry.py and
+      # pinned v0.29.0 image — verified against the tag's registry.py and
       # laguna_dflash.py. The default DeepGEMM MoE backend is incompatible
       # with the DFlash draft path, so the recipe forces Triton MoE.
       --speculative-config '{"method":"dflash","model":"poolside/Laguna-XS-2.1-DFlash-NVFP4","num_speculative_tokens":15}'
