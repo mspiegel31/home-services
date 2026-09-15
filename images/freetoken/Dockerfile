@@ -8,7 +8,7 @@
 # linux/amd64 only: the PyPI wheels are manylinux x86_64 and JIT kernel
 # compilation needs nvcc (CUDA 13). build-images.yml pins this image to
 # amd64 in the per-image policy.
-ARG CUDA_TAG=13.0.1-devel-ubuntu24.04
+ARG CUDA_TAG=13.0.1-devel-ubuntu24.04@sha256:7d2f6a8c2071d911524f95061a0db363e24d27aa51ec831fcccf9e76eb72bc92
 FROM nvidia/cuda:${CUDA_TAG}
 
 ENV DEBIAN_FRONTEND=noninteractive \
