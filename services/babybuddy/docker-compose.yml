@@ -15,7 +15,7 @@ services:
     volumes:
       - /mnt/tank/container-configs/babybuddy:/config
     healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --spider http://127.0.0.1:80/health/ || exit 1"]
+      test: ["CMD-SHELL", "wget --quiet --spider http://127.0.0.1:80/login/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
