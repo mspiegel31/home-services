@@ -38,7 +38,7 @@ plugins:
 # terminal/file tools (disabled_toolsets above).
 mcp_servers:
   mealie:
-    command: /opt/mealie-mcp/.venv/bin/mealie-mcp-server
+    command: /opt/data/mcp/mealie-mcp-server/.venv/bin/mealie-mcp-server
     env:
       MEALIE_BASE_URL: "${MEALIE_BASE_URL}"
       MEALIE_API_KEY: "${MEALIE_API_KEY}"
@@ -83,8 +83,8 @@ mcp_servers:
       prompts: false
 
   mealie-feedback:
-    command: /opt/mealie-mcp/.venv/bin/python
-    args: [/opt/home-butler-mcp/mealie_feedback_server.py]
+    command: /opt/data/mcp/mealie-mcp-server/.venv/bin/python
+    args: [/opt/hermes-managed/current/mcp/mealie_feedback_server.py]
     env:
       MEALIE_BASE_URL: "${MEALIE_BASE_URL}"
       MEALIE_API_KEY: "${MEALIE_API_KEY}"
@@ -102,8 +102,7 @@ mcp_servers:
       prompts: false
 
   babybuddy:
-    command: /opt/babybuddy-mcp/.venv/bin/python
-    args: [-m, babybuddy_mcp]
+    command: /opt/data/mcp/babybuddy-mcp/.venv/bin/babybuddy-mcp
     env:
       BABYBUDDY_URL: "http://babybuddy:80"
       BABYBUDDY_TOKEN: "${BABYBUDDY_API_KEY}"

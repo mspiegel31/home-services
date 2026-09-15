@@ -6,7 +6,7 @@
 # no secrets live in this file.
 mcp_servers:
   mealie:
-    command: /opt/mealie-mcp/.venv/bin/mealie-mcp-server
+    command: /opt/data/mcp/mealie-mcp-server/.venv/bin/mealie-mcp-server
     env:
       MEALIE_BASE_URL: "${MEALIE_BASE_URL}"
       MEALIE_API_KEY: "${MEALIE_API_KEY}"
@@ -51,8 +51,8 @@ mcp_servers:
       prompts: false
 
   mealie-feedback:
-    command: /opt/mealie-mcp/.venv/bin/python
-    args: [/opt/home-butler-mcp/mealie_feedback_server.py]
+    command: /opt/data/mcp/mealie-mcp-server/.venv/bin/python
+    args: [/opt/hermes-managed/current/mcp/mealie_feedback_server.py]
     env:
       MEALIE_BASE_URL: "${MEALIE_BASE_URL}"
       MEALIE_API_KEY: "${MEALIE_API_KEY}"
@@ -74,8 +74,7 @@ mcp_servers:
   # weight/height. No sleep, pumping, timers, tummy times, or child
   # management; list tools are the read surface for diet/stool questions.
   babybuddy:
-    command: /opt/babybuddy-mcp/.venv/bin/python
-    args: [-m, babybuddy_mcp]
+    command: /opt/data/mcp/babybuddy-mcp/.venv/bin/babybuddy-mcp
     env:
       BABYBUDDY_URL: "http://babybuddy:80"
       BABYBUDDY_TOKEN: "${BABYBUDDY_API_KEY}"
@@ -105,8 +104,8 @@ mcp_servers:
       prompts: false
 
   signal-share:
-    command: /opt/mealie-mcp/.venv/bin/python
-    args: [/opt/home-butler-mcp/signal_share_server.py]
+    command: /opt/data/mcp/mealie-mcp-server/.venv/bin/python
+    args: [/opt/hermes-managed/current/mcp/signal_share_server.py]
     env:
       SIGNAL_HTTP_URL: "${SIGNAL_HTTP_URL}"
       SIGNAL_ACCOUNT: "${SIGNAL_ACCOUNT}"
