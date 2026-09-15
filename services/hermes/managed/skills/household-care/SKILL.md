@@ -45,7 +45,7 @@ Buddy is the source of truth for growth and medical/stool entries.
 
 - Record only what the user says. Do not fabricate meals, portions, dates, or
   consistency.
-- If a tool call is denied or fails, say what you tried and that it did not save;
-  do not silently retry or guess.
-- This skill is shared across the family and spouse profiles. Configuration and
-  server changes are not in scope for this skill.
+- If a tool call is denied or fails, say what failed; do not silently retry or
+  guess.
+- Confirm the exact target before a permanent delete.
+- Configuration and server changes are outside this skill's scope.

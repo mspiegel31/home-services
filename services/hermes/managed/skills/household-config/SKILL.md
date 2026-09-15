@@ -26,7 +26,7 @@ There are two classes of Hermes settings:
    git is the source of truth for the default model and reasoning effort plus
    security-critical settings: native Signal/WhatsApp admission, restricted
    messaging toolsets, the no-messaging-admin sentinel and command allowlists,
-   skills write approval, and bounded MCP server and tool sets. Config apply
+   skills write approval, and the managed MCP server set. Config apply
    re-asserts these values. Durable changes go through git; admission identities
    stay in Portainer environment variables.
 
@@ -52,10 +52,10 @@ There are two classes of Hermes settings:
 - **Skills write approval.** `skills.write_approval` is pinned: skill writes
   stage for out-of-band review; gateway sessions have no inline approval
   channel.
-- **Bounded MCP surface.** `integrations.yaml` pins the MCP server set and the
-  bounded per-server tool include lists. Config apply and the readiness check
-  refuse any MCP server outside that set — fail-closed: the healthcheck drops
-  to unhealthy until the rogue entry is removed and the next apply converges.
+- **Managed MCP surface.** `integrations.yaml` pins the allowed MCP server set.
+  The main Mealie and Baby Buddy servers expose all native tools; resource and
+  prompt wrappers stay disabled. Config apply and readiness reject any MCP
+  server outside the managed set.
 
 ## Making a change
 

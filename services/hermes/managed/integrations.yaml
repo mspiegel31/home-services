@@ -1,7 +1,6 @@
-# Managed leaf: pinned application-integration MCP surface (root config).
-# These are security-relevant capabilities, not preferences: the server set
-# and the bounded tool include lists must not drift. config-apply refuses
-# readiness when the live config declares an MCP server outside this set.
+# Omitting tools.include intentionally exposes each server's full native tool
+# surface. Resource and prompt wrappers stay disabled because these workflows
+# use native tools only; config apply still rejects unlisted MCP servers.
 # Credentials stay ${VAR} refs resolved from container env (Portainer values);
 # no secrets live in this file.
 mcp_servers:
@@ -14,39 +13,6 @@ mcp_servers:
     sampling:
       enabled: false
     tools:
-      include:
-        - get_recipes
-        - get_recipe_detailed
-        - get_recipe_concise
-        - create_recipe
-        - create_recipe_full
-        - import_recipe_from_url
-        - update_recipe
-        - patch_recipe
-        - duplicate_recipe
-        - mark_recipe_last_made
-        - set_recipe_categories
-        - set_recipe_tags
-        - update_recipe_categories_and_tags
-        - get_categories
-        - get_tags
-        - get_tools
-        - get_foods
-        - get_units
-        - get_shopping_lists
-        - create_shopping_list
-        - get_shopping_list
-        - add_recipe_to_shopping_list
-        - get_shopping_list_items
-        - get_shopping_list_item
-        - create_shopping_list_item
-        - create_shopping_list_items_bulk
-        - update_shopping_list_item
-        - update_shopping_list_items_bulk
-        - get_all_mealplans
-        - create_mealplan
-        - create_mealplan_bulk
-        - get_todays_mealplan
       resources: false
       prompts: false
 
@@ -60,19 +26,11 @@ mcp_servers:
     sampling:
       enabled: false
     tools:
-      include:
-        - set_recipe_rating
-        - add_recipe_favorite
-        - get_recipe_comments
-        - add_recipe_comment
-        - update_recipe_comment
       resources: false
       prompts: false
 
-  # Baby Buddy MCP (pinned upstream, stdio). Bounded household surface:
-  # stool/diaper changes, feedings, senna/laxative medications, care notes,
-  # weight/height. No sleep, pumping, timers, tummy times, or child
-  # management; list tools are the read surface for diet/stool questions.
+  # The pinned upstream server is trusted to define the complete Baby Buddy
+  # surface; resource and prompt wrappers remain unnecessary.
   babybuddy:
     command: /opt/data/mcp/babybuddy-mcp/.venv/bin/babybuddy-mcp
     env:
@@ -83,23 +41,6 @@ mcp_servers:
     sampling:
       enabled: false
     tools:
-      include:
-        - diapers_list_diaper_changes
-        - diapers_create_diaper_change
-        - diapers_update_diaper_change
-        - feedings_list_feedings
-        - feedings_create_feeding
-        - feedings_update_feeding
-        - medications_list_medications
-        - medications_create_medication
-        - medications_update_medication
-        - notes_list_notes
-        - notes_create_note
-        - notes_create_tag
-        - measurements_list_weight
-        - measurements_create_weight
-        - measurements_list_height
-        - measurements_create_height
       resources: false
       prompts: false
 

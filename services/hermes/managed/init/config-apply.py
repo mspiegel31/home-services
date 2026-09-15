@@ -40,6 +40,13 @@ def _deep_merge(base: dict, override: dict) -> dict:
 # validation below.
 RETIRED_MCP_SERVERS = ("signal-share",)
 
+# The managed snapshot dropped tools.include for these servers when their
+# surface was expanded to the full native tool set. Live configs keep the
+# old lists because deep merge only overrides keys present in the managed
+# leaves, so they are explicitly removed here; server-set validation above
+# is unchanged.
+STALE_TOOL_INCLUDE_SERVERS = ("mealie", "babybuddy")
+
 
 def _migrate_retired_servers(config: dict, scope: str) -> None:
     """Remove retired MCP server entries from a merged surface, in place.
@@ -57,6 +64,21 @@ def _migrate_retired_servers(config: dict, scope: str) -> None:
             print(f"[config-apply] Migrated retired MCP server {name} out of {scope} config")
     if not servers:
         config.pop("mcp_servers", None)
+
+
+def _migrate_stale_tool_includes(config: dict, scope: str) -> None:
+    """Drop live tools.include keys for servers whose managed surface no
+    longer pins one, in place. Missing server entries are no-ops."""
+    servers = config.get("mcp_servers")
+    if not isinstance(servers, dict):
+        return
+    for name in STALE_TOOL_INCLUDE_SERVERS:
+        server = servers.get(name)
+        if not isinstance(server, dict):
+            continue
+        tools = server.get("tools")
+        if isinstance(tools, dict) and tools.pop("include", None) is not None:
+            print(f"[config-apply] Migrated stale {name} tools.include out of {scope} config")
 
 
 def _managed_dir() -> pathlib.Path:
@@ -181,6 +203,7 @@ def apply() -> None:
     # Migrate explicitly retired servers out of the merged live surface before
     # validation so a retired entry from a past cutover converges on its own.
     _migrate_retired_servers(config, "root")
+    _migrate_stale_tool_includes(config, "root")
     root_allowed = set((integrations["mcp_servers"] or {}).keys())
     rogue = set((config.get("mcp_servers") or {}).keys()) - root_allowed
     if rogue:
