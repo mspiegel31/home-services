@@ -78,7 +78,6 @@ Report: stack ID, environment, compose path, and container states.
 If the stack created but deployed broken, remove it by ID: `StackDelete(id=<id>)` (returns `{"Output":""}` on success — verify it's gone via `StackList`). Then fix the compose file in the repo, push, and recreate.
 
 ## Notes
-
-- This CE install has no GitOps Sources API: `GitOpsSourcesList` / `GitOpsSourcesCreateGit` return 404. The deprecated `Repository*` fields on the stack-create tools are the working path here — do not attempt the SourceID flow.
+- The installed CE 2.39.5 has no GitOps Sources API (`GitOpsSourcesList` / `GitOpsSourcesCreateGit` 404), so the deprecated `Repository*` fields on the stack-create tools are the working path — do not attempt the SourceID flow. CE 2.45.0+ registers the sources/workflows routes unconditionally, so after a server upgrade to 2.45 the SourceID flow becomes the preferred path (one source for the repo, stacks reference it).
 - Media app convention (repo rule): configs/data belong under `/mnt/tank/container-configs/<APP_NAME>` on truenas; the compose file should already encode this.
 - Repo rule: no `env_file` in Portainer repo stacks. If a compose file uses `env_file`, fix the compose file in the repo (declare `${VAR}` explicitly) before deploying.

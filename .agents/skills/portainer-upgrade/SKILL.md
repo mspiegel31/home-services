@@ -95,8 +95,8 @@ UI-driven edge updates (admin → Update & Rollback, scheduled, with rollback) a
 
 ## Notes
 
-- CE support policy: latest release only. BE: latest + 3 previous majors.
-- **CE → BE switch**: in-app from 2.17 (Settings → upgrade) or swap the image to `portainer/portainer-ee:lts` with the license; config carries over. Agent-only deployments need no BE agent.
+- CE tracks its own release stream: CE 2.39.x LTS (2.39.5 → 2.39.7, security-only) and CE 2.45.0 LTS (Aug 2026, rolls up the 2.40–2.44 STS feature cycle incl. GitOps Sources/Workflows, alerting GA, backup improvements, CVE fixes). `portainer/portainer-ce` tags: `lts`/`latest` → 2.45.0; `2.39.7` → older LTS. In-app update only offers LTS.
+- **CE → 2.45 unlocks**: the `/gitops/sources` + `/gitops/workflows` API (SourceID-based stack creation, polling, connection tests). BE-only extras on 2.45: UI-driven edge agent Update & Rollback, governance policies, KubeSolo onboarding. BE support: latest + 3 previous majors; CE: latest only.
 - Do not update a single agent ahead of the server. Do not leave agents on the old version permanently.
 - 1.x → 2.x jumps are not supported directly: go through 2.0.0 first.
 - Sources: docs.portainer.io `/start/upgrade/` (docker, edge, tobe), `/faqs/upgrading/` (rollback, agent failures), `/faqs/getting-support/which-versions-of-portainer-do-you-provide-support-for.md`.
