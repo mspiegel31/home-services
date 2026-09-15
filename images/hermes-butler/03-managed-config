@@ -6,16 +6,14 @@
 # valid and applied; an invalid or unbindable principal policy aborts startup so
 # the gateway never reports ready without its authorization policy.
 #
-# If the snapshot is absent (git-sync has not produced it yet), the gate fails
-# open: blocking here would deadlock, because the sync loop only runs after the
-# container boots. The household-auth plugin still fails closed at load time on
-# a missing/empty principals file, so the live gateway is never permissive once
-# the plugin is enabled.
+# If the snapshot is absent (sidecar sync pending), the gate fails open: the
+# household-auth plugin still fails closed at load time on a missing/empty
+# principals file, so the live gateway is never permissive once the plugin is
+# enabled.
 set -eu
 
 home="${HERMES_HOME:-/opt/data}"
-managed="${HERMES_MANAGED_DIR:-/opt/hermes-managed}"
-
+managed="${HERMES_MANAGED_DIR:-/opt/hermes-managed/current}"
 if [ ! -d "$managed" ]; then
     echo "[managed-config] No snapshot at $managed; gateway starts unmanaged (git-sync pending)" >&2
     exit 0

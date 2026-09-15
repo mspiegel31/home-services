@@ -25,8 +25,6 @@ RUN git init /opt/mealie-mcp \
 
 COPY --chmod=0755 00-home-butler-seed /etc/cont-init.d/00-home-butler-seed
 COPY --chmod=0755 03-managed-config /etc/cont-init.d/03-managed-config
-COPY --chmod=0755 git-sync.sh /usr/local/bin/hermes-git-sync
-COPY --chmod=0755 git-sync-init.sh /usr/local/bin/hermes-git-sync-init
 COPY --chmod=0755 config-apply.py /usr/local/bin/hermes-config-apply
 COPY --chmod=0644 config.yaml /opt/hermes-seed/config.yaml
 COPY --chmod=0644 AGENTS.md /opt/hermes-seed/AGENTS.md

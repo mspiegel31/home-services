@@ -37,52 +37,39 @@ services:
           cpus: "1.0"
 
   git-sync:
-    image: ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8@sha256:d6e980e597468358614847e9893bb4120b472b1d8852be71d47facf91cd61e77
     container_name: hermes-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
+    user: "0:0"
     restart: unless-stopped
-    command: ["/usr/local/bin/hermes-git-sync"]
-    environment:
-      GIT_SYNC_REPO: ${GIT_SYNC_REPO:?Set GIT_SYNC_REPO in Portainer}
-      GIT_SYNC_BRANCH: ${GIT_SYNC_BRANCH:-main}
-      GIT_SYNC_SUBPATH: ${GIT_SYNC_SUBPATH:-services/hermes/managed}
-      GIT_SYNC_TOKEN: ${GIT_SYNC_TOKEN:-}
-      GIT_SYNC_INTERVAL: ${GIT_SYNC_INTERVAL:-30}
-      HERMES_MANAGED_DIR: /opt/hermes-managed
-      HERMES_MANAGED_SCRATCH: /opt/hermes-managed-repo
+    command:
+      - git-sync
+      - --repo=https://github.com/mspiegel31/home-services.git
+      - --ref=main
+      - --root=/git
+      - --link=current
+      - --depth=1
+      - --submodules=off
+      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
+      - --period=30s
+      - --http-bind=:1234
+    configs:
+      - source: git_sync_sparse_checkout
+        target: /etc/git-sync/sparse-checkout
     volumes:
-      - hermes-managed:/opt/hermes-managed
+      - hermes-managed:/git
     networks:
       - hermes
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/hermes/managed/policy.yaml && curl -fsS http://127.0.0.1:1234/"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: "0.5"
-
-  git-sync-init:
-    image: ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8@sha256:d6e980e597468358614847e9893bb4120b472b1d8852be71d47facf91cd61e77
-    container_name: hermes-git-sync-init
-    restart: "no"
-    command: ["/usr/local/bin/hermes-git-sync-init"]
-    environment:
-      GIT_SYNC_REPO: ${GIT_SYNC_REPO:?Set GIT_SYNC_REPO in Portainer}
-      GIT_SYNC_BRANCH: ${GIT_SYNC_BRANCH:-main}
-      GIT_SYNC_SUBPATH: ${GIT_SYNC_SUBPATH:-services/hermes/managed}
-      GIT_SYNC_TOKEN: ${GIT_SYNC_TOKEN:-}
-      HERMES_MANAGED_DIR: /opt/hermes-managed
-      HERMES_MANAGED_SCRATCH: /opt/hermes-managed-repo
-    volumes:
-      - hermes-managed:/opt/hermes-managed
-    networks:
-      - hermes
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
+          memory: 256M
+          cpus: "0.25"
 
   hermes:
     image: ghcr.io/mspiegel31/hermes-butler:v2026.9.7-mealie-02183a8@sha256:d6e980e597468358614847e9893bb4120b472b1d8852be71d47facf91cd61e77
@@ -90,8 +77,8 @@ services:
     restart: unless-stopped
     command: ["gateway", "run"]
     depends_on:
-      git-sync-init:
-        condition: service_completed_successfully
+      git-sync:
+        condition: service_healthy
       signal-cli:
         condition: service_healthy
     ports:
@@ -119,6 +106,7 @@ services:
       HERMES_SIGNAL_SHARE_USERS: ${HERMES_SIGNAL_SHARE_USERS:-}
       HERMES_SIGNAL_SHARE_GROUPS: ${HERMES_SIGNAL_SHARE_GROUPS:-}
       HERMES_HOUSEHOLD_PRINCIPALS: /opt/data/principals.yaml
+      HERMES_MANAGED_DIR: /opt/hermes-managed/current
     volumes:
       - /mnt/tank/container-configs/hermes:/opt/data
       - hermes-managed:/opt/hermes-managed:ro
@@ -148,7 +136,6 @@ services:
         limits:
           memory: 4G
           cpus: "2.0"
-
   mealie-postgres:
     image: postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
     restart: unless-stopped
@@ -247,6 +234,16 @@ services:
         limits:
           memory: 1G
           cpus: "1.0"
+
+
+configs:
+  git_sync_sparse_checkout:
+    content: |
+      /*
+      !/*/
+      /services/
+      !/services/*/
+      /services/hermes/managed/
 
 
 volumes:

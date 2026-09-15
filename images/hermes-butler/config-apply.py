@@ -32,7 +32,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 
 def _managed_dir() -> pathlib.Path:
-    return pathlib.Path(os.environ.get("HERMES_MANAGED_DIR", "/opt/hermes-managed"))
+    return pathlib.Path(os.environ.get("HERMES_MANAGED_DIR", "/opt/hermes-managed/current"))
 
 
 def _stamp_path() -> pathlib.Path:
@@ -41,12 +41,19 @@ def _stamp_path() -> pathlib.Path:
 
 
 def _current_commit() -> str:
-    head = _managed_dir() / ".git" / "HEAD"
+    # The git-sync sidecar publishes its sparse-checked-out worktree under the
+    # volume's current/ symlink; the worktree's .git file names the metadata
+    # dir (relative to the worktree top) whose HEAD holds the resolved commit.
+    gitdir = _managed_dir() / ".git"
+    if gitdir.is_file():
+        target = gitdir.read_text(encoding="utf-8").strip().removeprefix("gitdir:").strip()
+        if not pathlib.Path(target).is_absolute():
+            # Resolve the snapshot's current/ symlink first: the relative gitdir
+            # is anchored at the real worktree top, not the symlink name.
+            gitdir = pathlib.Path(os.path.normpath(os.path.join(_managed_dir().resolve(), target)))
+    head = gitdir / "HEAD"
     if head.exists():
         return head.read_text(encoding="utf-8").strip()
-    commit = _managed_dir() / ".commit"
-    if commit.exists():
-        return commit.read_text(encoding="utf-8").strip()
     return "unversioned"
 
 
@@ -332,8 +339,8 @@ def check() -> int:
     home = pathlib.Path(os.environ.get("HERMES_HOME", "/opt/data"))
     managed = _managed_dir()
     # Fail open when the snapshot is absent, matching the 03-managed-config
-    # gate: the sync loop only runs after the container boots, so a missing
-    # snapshot at first boot is "git-sync pending", not policy loss.
+    # gate: at first boot the sidecar may still be producing its worktree, so
+    # a missing snapshot is "sidecar sync pending", not policy loss.
     if not (managed / "policy.yaml").exists():
         print("[config-apply] readiness OK (unmanaged: no managed snapshot yet)")
         return 0
