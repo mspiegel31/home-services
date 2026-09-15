@@ -18,9 +18,9 @@ Upgrade the Portainer server (this homelab: CE 2.39.x LTS at `192.168.1.51:9443`
 | env | id | agent | note |
 |---|---|---|---|
 | local | 2 | none | Portainer host; Docker socket — no agent to update |
-| truenas | 18 | standard agent, port 9001 | main host |
-| nvr | 20 | standard agent, port 9001 | |
-| ai | 22 | edge agent (Standard) | |
+| truenas | 25 | edge agent (Standard) | main host; converted from standard (18) 2026-09 |
+| nvr | 24 | edge agent (Standard) | converted from standard (20) 2026-09 |
+| ai | 22 | edge agent (Standard) | on inference-box `192.168.1.98` |
 
 ```
 systemVersion()                     # ServerVersion, ServerEdition, UpdateAvailable
@@ -47,35 +47,25 @@ docker run -d -p 9443:9443 --name=portainer --restart=always \
   portainer/portainer-ce:lts
 ```
 
-Keep the host's existing port flags (9443; 8000 only if edge agents poll through it) and any `--sslcert/--sslkey` flags. The `portainer_data` volume preserves the database; Portainer migrates it on boot.
+Keep the host's existing port flags (9443 and **8000** — 8000 is the edge tunnel port, all three agent hosts poll through it; drop it only if you convert back to standard agents) and any `--sslcert/--sslkey` flags. The `portainer_data` volume preserves the database; Portainer migrates it on boot.
 
 **In-app update (if BE):** Settings → update notification → Update now. In-app updates only offer **LTS** versions — STS requires manual image swap.
 
 ## Step 2 — Update the agents (one host at a time)
 
-**Standard agent** (truenas, nvr) — on each host:
+All three agent hosts (truenas, nvr, ai) run **Edge agents (Standard)**. Use the repo's upgrade script — it pulls the image first, then rebuilds the container while preserving `EDGE_ID`, `EDGE_KEY`, the `/data` volume (which persists the edge key), and all host bind mounts, including resolving Truenas's relocated docker root:
 
 ```bash
-docker stop portainer_agent && docker rm portainer_agent
-docker pull portainer/agent:lts
-docker run -d -p 9001:9001 --name portainer_agent --restart=always \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /var/lib/docker/volumes:/var/lib/docker/volumes \
-  portainer/agent:lts
+python3 /path/to/home-services/scripts/update_portainer_edge_agent.py --dry-run   # preview the docker run command
+python3 /path/to/home-services/scripts/update_portainer_edge_agent.py --image portainer/agent:<version>
 ```
 
-Add `-e AGENT_SECRET=<value>` if the server runs with a custom `AGENT_SECRET` (default installs don't). Agents reconnect to the server; a brief "Disconnected" on the dashboard during the restart is expected.
+- `--image`: pin the tag to match the server version you just deployed (e.g. `portainer/agent:2.45.0`). `lts` (the default) tracks the newest LTS.
+- `--edge-key <blob>`: only needed if the running container doesn't expose the key — copy it from Portainer: Environment → env → Edge information.
+- `--no-insecure-poll`: only when the server cert is public-trusted (today it's self-signed, keep the default).
+- If the new container fails to start, the script tells you to re-run with the previous `--image` — the endpoint and its data volume are intact.
 
-**Edge agent** (`ai`): capture the env's **Edge identifier** and **Edge key** (Environment → ai → Edge information) *before* removing the container, then on the host:
-
-```bash
-docker stop portainer_edge_agent && docker rm portainer_edge_agent
-docker pull portainer/agent:lts
-docker run -d -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /var/lib/docker/volumes:/var/lib/docker/volumes -v /:/host \
-  --restart always -e EDGE=1 -e EDGE_ID=<id> -e EDGE_KEY=<key> \
-  --name portainer_edge_agent portainer/agent:lts
-```
+Manual equivalent (only if the script can't run): `docker stop` + `docker rm` the agent, then `docker run` with the same `-e EDGE=1 -e EDGE_ID=… -e EDGE_KEY=… -e EDGE_INSECURE_POLL=1` env vars, the `/-:/host`, docker-sock, docker-volumes (use the resolved Truenas pool path), and named `/data` mounts, on `portainer/agent:<version>`. Capturing `EDGE_ID`/`EDGE_KEY` from the running container *before* removing it is mandatory.
 
 UI-driven edge updates (admin → Update & Rollback, scheduled, with rollback) are **Business Edition only** — on CE, edge agents update manually as above.
 
