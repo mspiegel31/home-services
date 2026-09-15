@@ -163,7 +163,7 @@ def _local_reasoning_model(value: Any) -> LocalReasoningModel | None:
     if not isinstance(value, str):
         return None
     try:
-        return LocalReasoningModel(value)
+        return LocalReasoningModel(value.rsplit("/", maxsplit=1)[-1])
     except ValueError:
         return None
 
