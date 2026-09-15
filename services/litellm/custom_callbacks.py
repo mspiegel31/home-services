@@ -440,14 +440,19 @@ class LocalReasoningRequestAdapter(CustomLogger):
                 return sanitized
 
         transformed = self._chat_policy.transform(data, model)
-        if model is not LocalReasoningModel.QWEN38_UNSLOTH_NVFP4:
+        uses_froggeric_xhigh_default = model in (
+            LocalReasoningModel.QWEN38_UNSLOTH_NVFP4,
+            LocalReasoningModel.QWEN38_SWIFT_NVFP4,
+        )
+        if not uses_froggeric_xhigh_default:
             return transformed
 
         request = transformed if transformed is not None else data
         changed = False
         if transformed is None:
             changed |= _apply_unsloth_default_effort(request)
-        changed |= _apply_unsloth_instruct_sampling_defaults(request)
+        if model is LocalReasoningModel.QWEN38_UNSLOTH_NVFP4:
+            changed |= _apply_unsloth_instruct_sampling_defaults(request)
         return request if changed else transformed
 
     def _safe_transform(self, data: dict[str, Any]) -> dict[str, Any] | None:
