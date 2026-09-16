@@ -98,6 +98,9 @@ services:
       API_SERVER_HOST: 127.0.0.1
       API_SERVER_KEY: ${HERMES_API_SERVER_KEY:?Set HERMES_API_SERVER_KEY in Portainer}
       LITELLM_KEY: ${LITELLM_KEY:?Set LITELLM_KEY in Portainer}
+      # Bootstrap token for the managed secrets.bitwarden block; rotation
+      # happens in the Bitwarden web app, not here.
+      BWS_ACCESS_TOKEN: ${BWS_ACCESS_TOKEN:?Set BWS_ACCESS_TOKEN in Portainer}
       MEALIE_BASE_URL: http://192.168.1.39:9000
       MEALIE_API_KEY: ${MEALIE_API_KEY:?Set MEALIE_API_KEY in Portainer}
       BABYBUDDY_API_KEY: ${BABYBUDDY_API_KEY:?Set BABYBUDDY_API_KEY in Portainer}
