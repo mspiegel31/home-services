@@ -9,8 +9,6 @@ database:
 secrets:
   bitwarden:
     enabled: true
-    # Set to the Bitwarden Secrets Manager project UUID; until then the
-    # startup fetch fails non-blocking (one-line stderr warning).
     project_id: 85a3ebe0-9e20-4188-a5a3-b4a0009fe9b1
 
 providers:
