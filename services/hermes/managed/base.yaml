@@ -6,6 +6,11 @@ database:
   journal_mode: wal
   synchronous: FULL
 
+secrets:
+  bitwarden:
+    enabled: true
+    project_id: 85a3ebe0-9e20-4188-a5a3-b4a0009fe9b1
+
 providers:
   home-litellm:
     api: http://192.168.1.98:4000/v1
