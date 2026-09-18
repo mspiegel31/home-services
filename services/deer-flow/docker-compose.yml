@@ -1,0 +1,193 @@
+# DeerFlow 2.0 (bytedance/deer-flow) — super agent harness
+#
+# Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
+# ref add-deer-flow, path services/deer-flow/docker-compose.yml.
+#
+# Upstream is the `make up` production topology (docker/docker-compose.yaml)
+# reshaped for this repo:
+# - GHCR release images (v2.0.0) instead of host builds
+# - config.yaml / extensions_config.json / skills served by git-sync from this
+#   repo (sparse checkout), not bind mounts
+# - secrets via Portainer UI (never committed)
+#
+# Architecture:
+#   nginx (2026, loopback) -> frontend (Next.js :3000)
+#                           -> gateway (FastAPI + agent runtime :8001)
+#   redis (stream bridge; GATEWAY_WORKERS=1 by default)
+#   git-sync (sparse checkout of this stack into the deer-flow-config volume)
+#
+# Model: swift-qwen3.8-27b-nvfp4 via the LiteLLM gateway on 192.168.1.98:4000
+# (same endpoint Oh My Pi uses). LITELLM_MASTER_KEY is the only required key.
+#
+# Telemetry: LangSmith / Langfuse / Monocle tracing are all OFF by default and
+# left unset. Web search uses keyless DuckDuckGo (no provider egress).
+#
+# Access:
+# - Default bind is 127.0.0.1 (upstream's local-trusted-environment model; the
+#   agent can execute commands). Set BIND_HOST in Portainer to expose on the
+#   LAN only if you front it with your own auth/TLS, and complete first-run
+#   setup (admin account via /setup) before it becomes reachable.
+#
+# Persistent path:
+# - /mnt/tank/container-configs/deer-flow  (checkpoints, run history, memory,
+#   artifacts, auth tokens) — media/configs on ZFS per repo convention
+#
+# Secrets via Portainer UI (never commit):
+#   LITELLM_MASTER_KEY, BETTER_AUTH_SECRET, DEER_FLOW_INTERNAL_AUTH_TOKEN
+#
+# Upgrade flow: change DEER_FLOW_IMAGE_TAG below (v-tagged GHCR image),
+# update git-sync --ref if this repo branch moves. Gateway healthcheck
+# gates container readiness.
+
+name: deer-flow
+
+networks:
+  deer-flow:
+    name: deer-flow
+
+volumes:
+  deer-flow-config:
+  deer-flow-home:
+    name: deer-flow-home
+  deer-flow-redis-data:
+
+configs:
+  git_sync_sparse_checkout:
+    content: |
+      /*
+      !/*/
+      /services/
+      !/services/*/
+      /services/deer-flow/
+
+services:
+  git-sync:
+    container_name: deer-flow-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
+    restart: unless-stopped
+    user: "0:0"
+    command:
+      - git-sync
+      - --repo=https://github.com/mspiegel31/home-services.git
+      - --ref=add-deer-flow
+      - --root=/git
+      - --link=current
+      - --depth=1
+      - --submodules=off
+      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
+      - --period=30s
+      - --http-bind=:1234
+    configs:
+      - source: git_sync_sparse_checkout
+        target: /etc/git-sync/sparse-checkout
+    volumes:
+      - deer-flow-config:/git
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/deer-flow/config.yaml && curl -fsS http://127.0.0.1:1234/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  redis:
+    container_name: deer-flow-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - deer-flow-redis-data:/data
+    networks:
+      - deer-flow
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  gateway:
+    container_name: deer-flow-gateway
+    # GHCR release image (backend stage 3 "runtime": prebuilt venv, no
+    # dependency resolution at startup). Pinned to a release tag.
+    image: ghcr.io/bytedance/deer-flow-backend:${DEER_FLOW_IMAGE_TAG:-v2.0.0}
+    restart: unless-stopped
+    command: sh -c "cd backend && PYTHONPATH=. uv run --no-sync uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers ${GATEWAY_WORKERS:-1}"
+    working_dir: /app
+    environment:
+      - DEER_FLOW_PROJECT_ROOT=/app
+      - DEER_FLOW_HOME=/app/backend/.deer-flow
+      - DEER_FLOW_CONFIG_PATH=/app/backend/config.yaml
+      - DEER_FLOW_EXTENSIONS_CONFIG_PATH=/app/backend/extensions_config.json
+      - DEER_FLOW_SKILLS_PATH=/app/skills
+      - DEER_FLOW_STREAM_BRIDGE_REDIS_URL=redis://redis:6379/0
+      - DEER_FLOW_CHANNELS_LANGGRAPH_URL=http://gateway:8001/api
+      - DEER_FLOW_CHANNELS_GATEWAY_URL=http://gateway:8001
+      - DEER_FLOW_INTERNAL_AUTH_TOKEN=${DEER_FLOW_INTERNAL_AUTH_TOKEN:?Set DEER_FLOW_INTERNAL_AUTH_TOKEN in Portainer}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in Portainer}
+      # Sandbox runs in-process (local mode, allow_host_bash=false). No host
+      # Docker socket is mounted.
+      - DEER_FLOW_HOST_BASE_DIR=/app/backend/.deer-flow
+      # No tracing: LANGSMITH_TRACING / LANGFUSE_TRACING / MONOCLE_TRACING
+      # are intentionally unset (all off by default).
+      - NO_PROXY=localhost,127.0.0.1,::1,redis,gateway,frontend,nginx,host.docker.internal,192.168.0.0/16
+      - no_proxy=localhost,127.0.0.1,::1,redis,gateway,frontend,nginx,host.docker.internal,192.168.0.0/16
+    volumes:
+      - deer-flow-config:/config:ro
+      - /config/current/services/deer-flow/config.yaml:/app/backend/config.yaml:ro
+      # Writable on purpose: the Gateway edits this file at runtime (MCP
+      # enable/disable, skill updates).
+      - /config/current/services/deer-flow/extensions_config.json:/app/backend/extensions_config.json
+      - /config/current/services/deer-flow/skills:/app/skills:ro
+      - deer-flow-home:/app/backend/.deer-flow
+    depends_on:
+      git-sync:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - deer-flow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; response = urllib.request.urlopen('http://127.0.0.1:8001/health/ready', timeout=5); raise SystemExit(0 if response.status == 200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+
+  frontend:
+    container_name: deer-flow-frontend
+    image: ghcr.io/bytedance/deer-flow-frontend:${DEER_FLOW_IMAGE_TAG:-v2.0.0}
+    restart: unless-stopped
+    environment:
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in Portainer}
+      - DEER_FLOW_INTERNAL_GATEWAY_BASE_URL=http://gateway:8001
+    networks:
+      - deer-flow
+    security_opt:
+      - no-new-privileges:true
+
+  nginx:
+    container_name: deer-flow-nginx
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      # Loopback-only by default (agent executes commands). Set BIND_HOST=0.0.0.0
+      # only behind your own TLS/auth front door, and after first-run setup.
+      - "${BIND_HOST:-127.0.0.1}:${PORT:-2026}:2026"
+    volumes:
+      - deer-flow-config:/config:ro
+    command: >
+      sh -c "cp /config/current/services/deer-flow/nginx/nginx.conf /etc/nginx/nginx.conf
+      && nginx -g 'daemon off;'"
+    depends_on:
+      frontend:
+        condition: service_started
+      gateway:
+        condition: service_healthy
+    networks:
+      - deer-flow
+    security_opt:
+      - no-new-privileges:true
+

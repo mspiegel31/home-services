@@ -1,0 +1,6 @@
+# DeerFlow skills are served read-only from this directory (git-sync
+# sparse checkout) to /app/skills in the Gateway container.
+#
+# Upstream ships built-in skills inside the deer-flow backend package; the
+# /app/skills mount is for user-created/imported skills. Leave empty to use
+# built-ins only.

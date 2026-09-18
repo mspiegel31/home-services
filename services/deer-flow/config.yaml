@@ -1,0 +1,54 @@
+# DeerFlow 2.0 configuration for the home-services stack.
+# Served to the Gateway read-only via git-sync (deer-flow-config volume).
+#
+# Kept minimal on purpose: only model, tools, sandbox, and logging.
+# Everything else (database, mcp_tasks, channels, IM, subagents, skills
+# policy) runs on upstream defaults — see config.example.yaml in
+# bytedance/deer-flow for the full reference.
+#
+# Telemetry: LangSmith / Langfuse / Monocle are off (no env keys set).
+# Web search: keyless DuckDuckGo — no provider API keys leave the box.
+
+models:
+  - name: swift-qwen3.8-27b-nvfp4
+    display_name: Qwen3.8 27B (Swift, via LiteLLM)
+    use: langchain_openai:ChatOpenAI
+    model: swift-qwen3.8-27b-nvfp4
+    api_key: $LITELLM_MASTER_KEY
+    base_url: http://192.168.1.98:4000/v1
+    supports_thinking: true
+    # Qwen3.8 chat template takes enable_thinking (no effort tiers through
+    # this lane; effort selection happens in llama-swap/vLLM).
+    when_thinking_enabled:
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+    # vLLM-family servers report cumulative usage on every streaming chunk;
+    # convert to per-chunk deltas. No-op when the endpoint already emits deltas.
+    cumulative_stream_usage: true
+    when_thinking_disabled:
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: false
+
+tools:
+  # Keyless DuckDuckGo web search (no API key, no third-party egress).
+  # Swap for the SearXNG tool if a self-hosted instance is added:
+  #   use: deerflow.community.searxng.tools:web_search_tool
+  #   base_url: http://<searxng>:8080
+  # (the bundled SearXNG client sends no auth headers, so it needs a
+  # keyless instance)
+  - name: web_search
+    group: web
+    use: deerflow.community.ddg_search.tools:web_search_tool
+    max_results: 5
+
+sandbox:
+  # In-process local sandbox; no host bash, no Docker socket, no K8s.
+  use: deerflow.sandbox.local:LocalSandboxProvider
+  allow_host_bash: false
+
+logging:
+  enhance:
+    enabled: false
+    format: text
