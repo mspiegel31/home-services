@@ -49,10 +49,12 @@ macros:
   # vLLM's automatic 1024-sequence limit OOMs Qwen3.8 DFlash2 warmup on 72GB.
   # 64 matches the desired concurrency ceiling; model-specific 32 limits remain.
   MAX_NUM_SEQS: "64"
-  # All vLLM lanes run in throughput mode (aggregate tokens/sec, standard CUDA
-  # graph captures). Explicit per-lane --max-num-batched-tokens pins are
-  # unaffected: throughput mode only doubles the derived default.
-  VLLM_COMMON: "${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching --performance-mode throughput --max-num-seqs ${MAX_NUM_SEQS}"
+  # interactivity captures an exact CUDA graph for every batch size 1-32
+  # (zero padding); the step-8 captures throughput mode uses only win above
+  # 32 tokens/step, i.e. ~9+ concurrent subagents with spec decode. Unlike
+  # throughput it does not double the derived max-num-batched-tokens default,
+  # so unpinned lanes now run at the derived 8K instead of 16K.
+  VLLM_COMMON: "${checkpoint} --served-model-name ${MODEL_ID} --enable-prefix-caching --performance-mode interactivity --max-num-seqs ${MAX_NUM_SEQS}"
   QWEN38_COMMON: "--reasoning-parser qwen3 --tool-call-parser qwen3_xml --enable-auto-tool-choice"
 
 models:
@@ -189,9 +191,9 @@ models:
     # FP8 lm_head. Cap first-run FlashInfer compilation on the 64 GB host.
     # The qwen3_5 loader does not yet apply this checkpoint's calibrated FP8
     # KV scales (vllm#54623); bfloat16 KV remains the quality canary.
-    # 1K prefill pin must stay: throughput would otherwise double the 8K
-    # default to 16K and re-stall thinking-token streaming (1K cut worst
-    # decode gaps from 1.94s to 0.35s beside a 65K prefill).
+    # 1K prefill pin must stay: larger prefill chunks re-stall
+    # thinking-token streaming (1K cut worst decode gaps from 1.94s to
+    # 0.35s beside a 65K prefill).
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b-nvfp4
