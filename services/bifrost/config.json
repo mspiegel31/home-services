@@ -13,7 +13,7 @@
         }
       ],
       "network_config": {
-        "base_url": "http://192.168.1.98:11437/v1",
+        "base_url": "http://192.168.1.98:11437",
         "allow_private_network": true
       },
       "concurrency_and_buffer_size": {
