@@ -2,7 +2,7 @@
 
 ## Decision
 
-Run `nomic-ai/nomic-embed-text-v2-moe` in a standalone CPU-only Hugging Face Text Embeddings Inference (TEI) container. Route it directly through LiteLLM. Keep it outside llama-swap and the GPU vLLM pool.
+Run `nomic-ai/nomic-embed-text-v2-moe` as a CPU-only Hugging Face Text Embeddings Inference (TEI) service in the LiteLLM stack. Route it directly through LiteLLM. Keep it outside llama-swap and the GPU vLLM pool.
 
 TEI explicitly lists this checkpoint as supported and exposes an OpenAI-compatible embeddings endpoint. vLLM can serve pooling models, and current releases provide x86 CPU images, but the inference host has AVX2 rather than the recommended AVX-512. The Nomic checkpoint also declares custom model code. Its model card requires `trust_remote_code=True`, which violates this repository's vLLM backend policy. TEI loads the model through its native NomicBERT Candle implementation without executing repository Python.
 
@@ -70,11 +70,11 @@ TEI selected its native Candle `NomicBert` CPU backend. It first probes for opti
 
 ## Deployment configuration
 
-The GitOps stack lives at `services/nomic-embed-text-v2-moe/docker-compose.yml`. It:
+The service lives in `services/litellm/docker-compose.yml`. It:
 
 - pins TEI `cpu-1.9` by the linux/amd64 image digest;
 - mounts the existing `/mnt/models/huggingface` cache;
-- joins the shared `litellm` Docker network without publishing a LAN port;
+- shares the stack's internal `litellm` network without publishing a LAN port;
 - runs FP32, four tokenizer workers, four batch requests, and 2,048 batch tokens;
 - uses `restart: unless-stopped`, so the model stays resident independently of llama-swap TTL and matrix routing.
 
