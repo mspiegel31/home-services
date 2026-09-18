@@ -47,12 +47,12 @@ services:
     command:
       - git-sync
       - --repo=https://github.com/mspiegel31/home-services.git
-      - --ref=main
+      - --ref=${BIFROST_GIT_SYNC_REF:-main}
       - --root=/git
       - --link=current
       - --depth=1
       - --submodules=off
-      - --ref=${BIFROST_GIT_SYNC_REF:-main}
+      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
       - --period=30s
       - --http-bind=:1234
     configs:
@@ -79,11 +79,29 @@ services:
       BIFROST_ENCRYPTION_KEY: ${BIFROST_ENCRYPTION_KEY:?Set BIFROST_ENCRYPTION_KEY in Portainer}
       BIFROST_SETUP_TOKEN: ${BIFROST_SETUP_TOKEN:?Set BIFROST_SETUP_TOKEN in Portainer}
       LLAMA_SWAP_API_KEY: ${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
+    # Bifrost only reads <app-dir>/config.json (a file), and the image's
+    # /app/data is a directory that owns config.db/logs.db — a ro file mount
+    # cannot overlay it. The wrapper stages the git-synced file into
+    # /app/data and restarts Bifrost whenever the source changes.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        set -e;
+        cp -f /git/current/services/bifrost/config.json /app/data/config.json;
+        (
+          sleep 15;
+          while true; do
+            sleep 20;
+            cmp -s /git/current/services/bifrost/config.json /app/data/config.json || {
+              cp -f /git/current/services/bifrost/config.json /app/data/config.json;
+              pkill -TERM -x main || true;
+            }
+          done
+        ) &
+        exec /app/docker-entrypoint.sh /app/main
     volumes:
-      # Named volume is the writable config store (sqlite + settings); the
-      # ro file mount overlays the git-synced config on top of it.
       - bifrost-data:/app/data
-      - bifrost-config:/app/data/config.json:ro
+      - bifrost-config:/git:ro
     depends_on:
       git-sync:
         condition: service_healthy

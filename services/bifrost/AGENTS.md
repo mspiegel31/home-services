@@ -6,10 +6,11 @@ virtual keys, a dashboard, and MCP tool aggregation (MCP unused here).
 
 ## Stack pattern
 
-- `git-sync` sparsely checks out `services/bifrost` into the Docker-managed
-  `bifrost-config` volume (same pattern as `services/litellm`).
-- Bifrost reads the synced `config.json` at `/app/data/config.json` (ro file
-  mount on top of the `bifrost-data` named volume).
+- Bifrost only reads `<app-dir>/config.json` (a file), and the image ships
+  `/app/data` as a directory that also owns `config.db`/`logs.db` — a ro file
+  mount cannot overlay it. The container `command` therefore stages the
+  git-synced config into `/app/data/config.json` at boot, and a 20s watcher
+  re-stages it and restarts the gateway when the source file changes.
 - Dashboard at `http://<ai-box>:8080` — first-time setup uses
   `BIFROST_SETUP_TOKEN`, then Bearer tokens/virtual keys for API + MCP calls.
 - OpenAI endpoint: `http://<ai-box>:8080/v1`,
@@ -31,18 +32,19 @@ Gotchas:
   store and must stay stable across restarts/upgrades/restores (rotating it
   loses stored keys). Clients authenticate with virtual keys created in the
   dashboard, not with the setup token.
-- The ro `config.json` mount means the dashboard cannot rewrite the file; the
-  git-synced file is the source of truth. Dashboard edits persist in the
-  sqlite store inside `bifrost-data` and shadow `config.json` on next boot —
-  keep provider changes in git and redeploy, not in the dashboard.
+- The staged copy in `/app/data` overwrites on every boot, so git is always
+  the source of truth. Dashboard edits persist in the sqlite store inside
+  `bifrost-data`; they take effect for the current process, but any
+  config.json change from git (re-stage) re-syncs them on the next start.
 
 ## Config management
 
 - `config.json` is delivered by git-sync; `env.VAR` references resolve from
   the container environment (Portainer-injected), so secrets never land in
   the repo.
-- Changes require a redeploy of the Portainer stack (pull 5 min poll, or
-  `StackGitRedeploy`); Bifrost does not hot-reload config.json.
+- `config.json` changes in git take effect within ~50s without a redeploy:
+  git-sync polls every 30s, the watcher re-stages and restarts the gateway
+  every 20s.
 - `BIFROST_ENCRYPTION_KEY`, `BIFROST_SETUP_TOKEN`, `LLAMA_SWAP_API_KEY` are
   set in the Portainer stack env UI — never commit.
 
