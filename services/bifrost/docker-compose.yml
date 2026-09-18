@@ -52,7 +52,7 @@ services:
       - --link=current
       - --depth=1
       - --submodules=off
-      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
+      - --ref=${BIFROST_GIT_SYNC_REF:-main}
       - --period=30s
       - --http-bind=:1234
     configs:
