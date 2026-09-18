@@ -233,3 +233,7 @@ node_modules/
 /briefings/
 # Local research notes (kept out of VCS)
 /research/
+# Local planning state (kept out of VCS)
+/.plans/
+# Local research state (kept out of VCS)
+/.research/
