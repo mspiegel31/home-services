@@ -1,0 +1,95 @@
+# Bifrost AI Gateway (maximhq/bifrost)
+#
+# The git-sync sidecar sparsely checks out services/bifrost into a Docker-managed
+# volume. Bifrost reads config.json from that isolated worktree.
+# Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
+# ref main, path services/bifrost/docker-compose.yml, poll 5 min.
+#
+# Upstream routing:
+#   client -> bifrost:8080 (OpenAI-compatible /v1) -> llama-swap router
+#   (http://192.168.1.98:11437/v1) -> vLLM backends
+# Model names pass through unchanged; llama-swap owns model selection.
+#
+# Secrets via Portainer UI (never commit):
+#   BIFROST_ENCRYPTION_KEY  - encrypts the config store; must stay stable across
+#                            restarts, upgrades, and restores
+#   BIFROST_SETUP_TOKEN     - one-time token for first dashboard setup
+#   LLAMA_SWAP_API_KEY      - same value the litellm stack presents to the router
+#
+# Auth: Bifrost has no master key. Clients get virtual keys from the dashboard
+# (http://<ai-box>:8080) after first-time setup.
+
+configs:
+  git_sync_sparse_checkout:
+    content: |
+      /*
+      !/*/
+      /services/
+      !/services/*/
+      /services/bifrost/
+
+name: bifrost
+
+networks:
+  bifrost:
+    name: bifrost
+
+volumes:
+  bifrost-config:
+  bifrost-data:
+
+services:
+  git-sync:
+    container_name: bifrost-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
+    restart: unless-stopped
+    user: "0:0"
+    command:
+      - git-sync
+      - --repo=https://github.com/mspiegel31/home-services.git
+      - --ref=main
+      - --root=/git
+      - --link=current
+      - --depth=1
+      - --submodules=off
+      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
+      - --period=30s
+      - --http-bind=:1234
+    configs:
+      - source: git_sync_sparse_checkout
+        target: /etc/git-sync/sparse-checkout
+    volumes:
+      - bifrost-config:/git
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/bifrost/config.json && curl -fsS http://127.0.0.1:1234/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  bifrost:
+    container_name: bifrost
+    image: maximhq/bifrost:latest@sha256:12d6bbab32b44e3bb88869c6f5ca9304b53a9c43cb55c57a29f851037bcc19e1
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - bifrost
+    environment:
+      BIFROST_ENCRYPTION_KEY: ${BIFROST_ENCRYPTION_KEY:?Set BIFROST_ENCRYPTION_KEY in Portainer}
+      BIFROST_SETUP_TOKEN: ${BIFROST_SETUP_TOKEN:?Set BIFROST_SETUP_TOKEN in Portainer}
+      LLAMA_SWAP_API_KEY: ${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
+    volumes:
+      # Named volume is the writable config store (sqlite + settings); the
+      # ro file mount overlays the git-synced config on top of it.
+      - bifrost-data:/app/data
+      - bifrost-config:/app/data/config.json:ro
+    depends_on:
+      git-sync:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
