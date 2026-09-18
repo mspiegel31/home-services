@@ -1,8 +1,8 @@
 # LiteLLM Proxy Gateway
 # Managed via git-sync from services/litellm/config.yaml.
-# Public-facing auth / routing / subscription layer; upstream is the
-# llama-swap router, which fans out to vLLM / FreeToken backends.
-#   client -> LiteLLM (authn, usage, cost) -> llama-swap (scheduling/lifecycle) -> vLLM
+# Public-facing auth, routing, and subscription layer.
+#   chat -> llama-swap -> GPU inference backend
+#   embeddings -> always-resident CPU Text Embeddings Inference backend
 #
 # Model capability + reasoning metadata is authored here in model_info so it
 # reaches clients (e.g. Oh My Pi) through LiteLLM's discovery endpoints
@@ -19,6 +19,22 @@
 # Changes require a restart of the litellm container to take effect.
 
 model_list:
+  - model_name: nomic-embed-text-v2-moe
+    litellm_params:
+      model: nomic-embed-text-v2-moe
+      api_base: http://nomic-embed-text-v2-moe:80/v1
+      api_key: none
+      custom_llm_provider: hosted_vllm
+    model_info:
+      mode: embedding
+      context_window: 512
+      max_input_tokens: 512
+      supported_openai_params:
+        - dimensions
+        - encoding_format
+      input_cost_per_token: 0.0
+      output_cost_per_token: 0.0
+
   - model_name: muse-glimmer-30b
     litellm_params:
       model: muse-glimmer-30b

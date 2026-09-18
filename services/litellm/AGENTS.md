@@ -12,10 +12,11 @@ LiteLLM AI Gateway deployed via Docker Compose with Postgres backend.
 
 ## Upstream routing
 
-LiteLLM is the auth, routing, and subscription layer. Every `model_list` entry's
-`api_base` points at the llama-swap router (`http://192.168.1.98:11437/v1`), which
-selects the GPU backend; LiteLLM presents `LLAMA_SWAP_API_KEY` for each such call.
-Client model names match the llama-swap served model ids.
+LiteLLM routes chat models through llama-swap at
+`http://192.168.1.98:11437/v1`. The always-resident
+`nomic-embed-text-v2-moe` embedding model bypasses llama-swap and reaches the
+CPU Text Embeddings Inference container over the shared `litellm` network.
+Client model names match their upstream served model ids.
 
 Gotchas that break routing silently:
 - `api_base` must keep the `/v1` suffix — llama-swap serves the OpenAI API only
@@ -106,10 +107,11 @@ module: LiteLLM executes callback files without adding their module object to
 `sys.modules`, while Python dataclasses resolve postponed annotations through
 that registry. Keep the three type-only hook annotations quoted instead.
 
-All local deployments declare `custom_llm_provider: hosted_vllm`. LiteLLM
+All local chat deployments declare `custom_llm_provider: hosted_vllm`. LiteLLM
 discovery therefore directs OMP to Chat Completions, where its thinking controls
-reach this callback. No client-side transport or compatibility override is
-required.
+reach this callback. The CPU embedding deployment uses the same provider for
+OpenAI-compatible `/v1/embeddings`; callback payload detection leaves it unchanged.
+No client-side transport or compatibility override is required.
 
 - Gemma 4, Laguna XS 2.1, and Ornith use binary thinking. Their templates
   receive only `chat_template_kwargs.enable_thinking`; neither discovery
