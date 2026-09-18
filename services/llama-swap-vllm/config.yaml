@@ -198,7 +198,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 4096
+      --max-num-batched-tokens 8192
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
@@ -240,7 +240,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 4096
+      --max-num-batched-tokens 8192
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
@@ -268,9 +268,9 @@ models:
       checkpoint: "ukisai/Swift-Qwen3.8-27B-NVFP4"
     proxy: http://vllm-swift-qwen3-8-27b-nvfp4:8000
     # Per-request cap matches the model's 2048-token hybrid cache block so
-    # chunks end at state-save boundaries (vllm#45238). Step budget is 4K:
-    # 8K sped up cold TTFT but starved concurrent decodes during subagent
-    # prefill bursts — this is the main production lane.
+    # chunks end at state-save boundaries (vllm#45238). The 8K step budget
+    # replaces the 4096 trial (DFlash2-drafter stall test) — this is the
+    # main production lane.
     #
     # Keep the SM120 FlashInfer FP8 workaround and QWEN38_COMMON parsers
     # so OMP tool-calling remains unchanged.
@@ -294,7 +294,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 4096
+      --max-num-batched-tokens 8192
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
@@ -328,7 +328,7 @@ models:
       --name vllm-qwen3-8-27b-quasar
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 4096
+      --max-num-batched-tokens 8192
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
@@ -510,7 +510,7 @@ models:
       --name vllm-qwen3-8-27b-fp8
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 4096
+      --max-num-batched-tokens 8192
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.90
