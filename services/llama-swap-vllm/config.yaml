@@ -191,9 +191,6 @@ models:
     # FP8 lm_head. Cap first-run FlashInfer compilation on the 64 GB host.
     # The qwen3_5 loader does not yet apply this checkpoint's calibrated FP8
     # KV scales (vllm#54623); bfloat16 KV remains the quality canary.
-    # 1K prefill pin must stay: larger prefill chunks re-stall
-    # thinking-token streaming (1K cut worst decode gaps from 1.94s to
-    # 0.35s beside a 65K prefill).
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b-nvfp4
@@ -201,7 +198,8 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 1024
+      --max-num-batched-tokens 8192
+      --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
@@ -242,6 +240,8 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-batched-tokens 8192
+      --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
@@ -267,9 +267,13 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "ukisai/Swift-Qwen3.8-27B-NVFP4"
     proxy: http://vllm-swift-qwen3-8-27b-nvfp4:8000
-    # 8K prefill trial: test whether the prior stream stalls were specific to
-    # the external DFlash2 drafter. Keep the SM120 FlashInfer FP8 workaround
-    # and QWEN38_COMMON parsers so OMP tool-calling remains unchanged.
+    # Per-request cap matches the model's 2048-token hybrid cache block so
+    # chunks end at state-save boundaries (vllm#45238). The 8K step budget
+    # replaces the 4096 trial (DFlash2-drafter stall test) — this is the
+    # main production lane.
+    #
+    # Keep the SM120 FlashInfer FP8 workaround and QWEN38_COMMON parsers
+    # so OMP tool-calling remains unchanged.
     # Swift runs the pinned Froggeric v22.5 template (same three-tier
     # nested-effort contract as the qwen3.8-27b-nvfp4 lane) instead of the
     # checkpoint-bundled one, so OMP's thinking controls and the litellm
@@ -290,7 +294,8 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 4096
+      --max-num-batched-tokens 8192
+      --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
@@ -323,6 +328,8 @@ models:
       --name vllm-qwen3-8-27b-quasar
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-batched-tokens 8192
+      --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
@@ -503,6 +510,8 @@ models:
       --name vllm-qwen3-8-27b-fp8
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-batched-tokens 8192
+      --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.90
       --kv-cache-dtype fp8
