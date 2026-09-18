@@ -1,0 +1,25 @@
+{
+  "$schema": "https://www.getbifrost.ai/schema",
+  "encryption_key": "env.BIFROST_ENCRYPTION_KEY",
+  "setup_token": "env.BIFROST_SETUP_TOKEN",
+  "providers": {
+    "openai": {
+      "keys": [
+        {
+          "name": "llama-swap-router",
+          "value": "env.LLAMA_SWAP_API_KEY",
+          "models": ["*"],
+          "weight": 1.0
+        }
+      ],
+      "network_config": {
+        "base_url": "http://192.168.1.98:11437/v1",
+        "allow_private_network": true
+      },
+      "concurrency_and_buffer_size": {
+        "concurrency": 100,
+        "buffer_size": 1000
+      }
+    }
+  }
+}
