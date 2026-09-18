@@ -7,6 +7,8 @@ LiteLLM AI Gateway deployed via Docker Compose with Postgres backend.
 - `git-sync` sparsely checks out `services/litellm` into the Docker-managed `litellm-config` volume.
 - LiteLLM reads the synced config at `/config/current/services/litellm/config.yaml`.
 - Postgres data lives on big NVMe at `/mnt/models/litellm/postgres`.
+- The CPU-only `nomic-embed-text-v2-moe` TEI service lives in this stack and
+  stays resident independently of llama-swap's GPU lifecycle.
 - Valkey (Redis-compatible) data lives on big NVMe at `/mnt/models/litellm/valkey`.
 - Admin UI at `http://<host>:4000/ui` — login with `LITELLM_MASTER_KEY`.
 

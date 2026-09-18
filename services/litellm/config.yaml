@@ -22,7 +22,7 @@ model_list:
   - model_name: nomic-embed-text-v2-moe
     litellm_params:
       model: nomic-embed-text-v2-moe
-      api_base: http://nomic-embed-text-v2-moe:80/v1
+      api_base: http://litellm-nomic-embed-text-v2-moe:80/v1
       api_key: none
       custom_llm_provider: hosted_vllm
     model_info:

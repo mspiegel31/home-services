@@ -19,6 +19,7 @@
 # - Git-sync target: Docker volume litellm-config, mounted at /git and /config
 # - Postgres data: /mnt/models/litellm/postgres  (big NVMe)
 # - Valkey data: /mnt/models/litellm/valkey    (big NVMe)
+# - Embedding model cache: /mnt/models/huggingface
 #
 # Secrets via Portainer UI (never commit):
 #   LITELLM_MASTER_KEY, LITELLM_SALT_KEY, LITELLM_POSTGRES_PASSWORD, provider API keys
@@ -109,6 +110,39 @@ services:
       timeout: 3s
       retries: 10
 
+  nomic-embed-text-v2-moe:
+    container_name: litellm-nomic-embed-text-v2-moe
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9@sha256:8419f533857b503ebf6ec292a95d4f1cf9c0464ac8b8abeef39518cf110e5726
+    init: true
+    restart: unless-stopped
+    networks:
+      - litellm
+    volumes:
+      - /mnt/models/huggingface:/data
+    command:
+      - --model-id
+      - nomic-ai/nomic-embed-text-v2-moe
+      - --served-model-name
+      - nomic-embed-text-v2-moe
+      - --dtype
+      - float32
+      - --tokenization-workers
+      - "4"
+      - --max-concurrent-requests
+      - "32"
+      - --max-batch-requests
+      - "4"
+      - --max-batch-tokens
+      - "2048"
+      - --max-client-batch-size
+      - "32"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:80/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 2m
+
   litellm:
     container_name: litellm
     image: docker.litellm.ai/berriai/litellm:main-stable
@@ -138,6 +172,8 @@ services:
       postgres:
         condition: service_healthy
       valkey:
+        condition: service_healthy
+      nomic-embed-text-v2-moe:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness').read()"]
