@@ -32,16 +32,19 @@ models:
           enable_thinking: false
 
 tools:
-  # Keyless DuckDuckGo web search (no API key, no third-party egress).
-  # Swap for the SearXNG tool if a self-hosted instance is added:
-  #   use: deerflow.community.searxng.tools:web_search_tool
-  #   base_url: http://<searxng>:8080
-  # (the bundled SearXNG client sends no auth headers, so it needs a
-  # keyless instance)
+  # Web search via Exa (EXA_API_KEY in Portainer UI; queries + API key go
+  # to api.exa.ai — the one outbound egress that leaves the LAN).
   - name: web_search
     group: web
-    use: deerflow.community.ddg_search.tools:web_search_tool
+    use: deerflow.community.exa.tools:web_search_tool
     max_results: 5
+    search_type: auto
+    contents_max_characters: 1000
+
+  # Web fetch via Exa (same key; replaces the keyless Jina reader default).
+  - name: web_fetch
+    group: web
+    use: deerflow.community.exa.tools:web_fetch_tool
 
 sandbox:
   # In-process local sandbox; no host bash, no Docker socket, no K8s.

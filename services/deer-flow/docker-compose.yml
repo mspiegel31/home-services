@@ -20,7 +20,7 @@
 # (same endpoint Oh My Pi uses). LITELLM_MASTER_KEY is the only required key.
 #
 # Telemetry: LangSmith / Langfuse / Monocle tracing are all OFF by default and
-# left unset. Web search uses keyless DuckDuckGo (no provider egress).
+# left unset. Web search/fetch use Exa (EXA_API_KEY; egress to api.exa.ai).
 #
 # Access:
 # - Default bind is 127.0.0.1 (upstream's local-trusted-environment model; the
@@ -33,7 +33,7 @@
 #   artifacts, auth tokens) — media/configs on ZFS per repo convention
 #
 # Secrets via Portainer UI (never commit):
-#   LITELLM_MASTER_KEY, BETTER_AUTH_SECRET, DEER_FLOW_INTERNAL_AUTH_TOKEN
+#   LITELLM_MASTER_KEY, BETTER_AUTH_SECRET, DEER_FLOW_INTERNAL_AUTH_TOKEN, EXA_API_KEY
 #
 # Upgrade flow: change DEER_FLOW_IMAGE_TAG below (v-tagged GHCR image),
 # update git-sync --ref if this repo branch moves. Gateway healthcheck
@@ -125,6 +125,7 @@ services:
       - DEER_FLOW_CHANNELS_GATEWAY_URL=http://gateway:8001
       - DEER_FLOW_INTERNAL_AUTH_TOKEN=${DEER_FLOW_INTERNAL_AUTH_TOKEN:?Set DEER_FLOW_INTERNAL_AUTH_TOKEN in Portainer}
       - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in Portainer}
+      - EXA_API_KEY=${EXA_API_KEY:?Set EXA_API_KEY in Portainer}
       # Sandbox runs in-process (local mode, allow_host_bash=false). No host
       # Docker socket is mounted.
       - DEER_FLOW_HOST_BASE_DIR=/app/backend/.deer-flow
