@@ -42,13 +42,13 @@ The theoretical FP32 weight floor is:
 
 The deployed container measured:
 
-- Docker working-set memory: **3.089 GiB**.
+- Docker working-set memory: **3.089–4.041 GiB**, depending on active file-cache state.
 - Anonymous memory: **2.772 GiB**.
-- File cache: **1.811 GiB**, mostly the 1.9 GB safetensors checkpoint and reclaimable under pressure.
-- Total cgroup-charged anonymous + file + kernel memory: about **4.60 GiB**.
-- Settled idle CPU: **0.28%**.
+- File cache: **1.53–1.811 GiB**, mostly the 1.9 GB safetensors checkpoint and reclaimable under pressure.
+- Total cgroup-charged anonymous + file + kernel memory: **4.32–4.60 GiB**.
+- Settled idle CPU: **0.28–0.48%**.
 
-Budget **3.1 GiB of non-reclaimable working memory** and roughly **4.6 GiB of total host memory while the checkpoint remains cached**. The host had 35 GiB available after the smoke load, so this service has ample headroom.
+Budget **2.8 GiB of anonymous memory** and **4.6 GiB total** while the checkpoint remains cached. The host had 37 GiB available after consolidation, so this service has ample headroom.
 
 These are live measurements from the `ai` host on 2026-09-18, not estimates. The deployed service uses four tokenizer workers. An initial smoke run with TEI's auto-selected 13 workers measured 5.155 GiB of Docker working-set memory, but different cache and runtime state prevent assigning the full difference to worker count.
 
