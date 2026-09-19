@@ -297,7 +297,7 @@ models:
       --max-num-batched-tokens 8192
       --long-prefill-token-threshold 2048
       --max-model-len auto
-      --gpu-memory-utilization 0.9
+      --gpu-memory-utilization 0.60
       --kv-cache-dtype fp8_e4m3
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja

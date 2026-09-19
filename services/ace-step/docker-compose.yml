@@ -1,14 +1,11 @@
 # ACE-Step 1.5 music generation on the inference box (RTX PRO 5000 Blackwell 72GB).
 #
-# XL-turbo DiT (4B) + 4B LM via the bundled nano-vllm backend. 72GB VRAM fits
-# both without offload, so generation runs fully on-GPU.
-#
-# Checkpoints live in the shared HF cache on /mnt/models; /app/checkpoints holds
-# symlinks into it (created on the host, not by this stack). The cache is
-# mounted read-only at /models so those links resolve inside the container.
-#
-# Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
-# path services/ace-step/docker-compose.yml.
+# XL-turbo DiT (4B) + 1.7B LM on the pt (PyTorch) backend — the vendor
+# Dockerfile default. Co-residency with the llama-swap swift lane: swift is
+# capped at --gpu-memory-utilization 0.60 (see llama-swap-vllm/config.yaml),
+# leaving ~30GB free; this stack needs ~27GB (DiT 18.6G + encoder/VAE 1.4G +
+# LM ~7G + activations). The 4B LM + nano-vllm needs ~33GB and would force
+# swift to ~0.50, so it is not mounted.
 
 name: ace-step
 
@@ -25,16 +22,19 @@ services:
       - "7860:7860"
     environment:
       - ACESTEP_CONFIG_PATH=acestep-v15-xl-turbo
-      - ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-4B
-      - ACESTEP_LLM_BACKEND=vllm
-      # DiT init reads <project_root>/checkpoints (/app); the LM handler honors ACESTEP_CHECKPOINTS_DIR — both must agree.
-      - ACESTEP_CHECKPOINTS_DIR=/app/checkpoints
+      - ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-1.7B
+      - ACESTEP_LLM_BACKEND=pt
+      - ACESTEP_INIT_LLM=true
       - ACESTEP_API_KEY=${ACESTEP_API_KEY:?Set ACESTEP_API_KEY in Portainer}
     volumes:
-      # Writable on purpose: ACE-Step syncs its model .py files into checkpoint
-      # dirs on first init and writes LoRA/train artifacts there.
-      - /mnt/models/huggingface/ace-step-checkpoints:/app/checkpoints
-      - /mnt/models/huggingface:/models:ro
+      # XL-turbo DiT — rw for the .py code sync on init.
+      - /mnt/models/huggingface/hub/models--ACE-Step--acestep-v15-xl-turbo/snapshots/d4a0b288b83ebb7e25a8c0b32c573c22e134e8ee:/app/checkpoints/acestep-v15-xl-turbo
+      # Main-repo components the startup path check requires.
+      - /mnt/models/huggingface/hub/models--ACE-Step--Ace-Step1.5/snapshots/19671f406d603126926c1b7e2adc169acbcade22/vae:/app/checkpoints/vae:ro
+      - /mnt/models/huggingface/hub/models--ACE-Step--Ace-Step1.5/snapshots/19671f406d603126926c1b7e2adc169acbcade22/Qwen3-Embedding-0.6B:/app/checkpoints/Qwen3-Embedding-0.6B:ro
+      - /mnt/models/huggingface/hub/models--ACE-Step--Ace-Step1.5/snapshots/19671f406d603126926c1b7e2adc169acbcade22/acestep-v15-turbo:/app/checkpoints/acestep-v15-turbo:ro
+      - /mnt/models/huggingface/hub/models--ACE-Step--Ace-Step1.5/snapshots/19671f406d603126926c1b7e2adc169acbcade22/acestep-5Hz-lm-1.7B:/app/checkpoints/acestep-5Hz-lm-1.7B:ro
+      - ace-step-outputs:/app/gradio_outputs
     deploy:
       resources:
         reservations:
