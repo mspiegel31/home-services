@@ -1,0 +1,45 @@
+# ACE-Step 1.5 music generation on the inference box (RTX PRO 5000 Blackwell 72GB).
+#
+# XL-turbo DiT (4B) + 4B LM via the bundled nano-vllm backend. 72GB VRAM fits
+# both without offload, so generation runs fully on-GPU.
+#
+# Checkpoints live in the shared HF cache on /mnt/models; the container sees
+# them via symlinks into the hub cache (created on the host, not by this stack).
+# ACESTEP_CHECKPOINTS_DIR must match the bind mount below.
+#
+# Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
+# path services/ace-step/docker-compose.yml.
+
+name: ace-step
+
+volumes:
+  ace-step-outputs:
+
+services:
+  ace-step:
+    container_name: ace-step
+    image: ghcr.io/ace-step/ace-step-1.5:latest
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    environment:
+      - ACESTEP_CONFIG_PATH=acestep-v15-xl-turbo
+      - ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-4B
+      - ACESTEP_LLM_BACKEND=vllm
+      - ACESTEP_INIT_LLM=true
+      - ACESTEP_CHECKPOINTS_DIR=/checkpoints
+      - ACESTEP_API_KEY=${ACESTEP_API_KEY:?Set ACESTEP_API_KEY in Portainer}
+    volumes:
+      # Writable on purpose: ACE-Step syncs its model .py files into checkpoint
+      # dirs on first init and writes LoRA/train artifacts there.
+      - /mnt/models/huggingface/ace-step-checkpoints:/checkpoints
+      - ace-step-outputs:/app/gradio_outputs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    stop_grace_period: 2m
