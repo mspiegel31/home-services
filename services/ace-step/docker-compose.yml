@@ -3,9 +3,9 @@
 # XL-turbo DiT (4B) + 4B LM via the bundled nano-vllm backend. 72GB VRAM fits
 # both without offload, so generation runs fully on-GPU.
 #
-# Checkpoints live in the shared HF cache on /mnt/models; the container sees
-# them via symlinks into the hub cache (created on the host, not by this stack).
-# ACESTEP_CHECKPOINTS_DIR must match the bind mount below.
+# Checkpoints live in the shared HF cache on /mnt/models; /app/checkpoints holds
+# symlinks into it (created on the host, not by this stack). The cache is
+# mounted read-only at /models so those links resolve inside the container.
 #
 # Portainer CE stack: repo https://github.com/mspiegel31/home-services.git,
 # path services/ace-step/docker-compose.yml.
@@ -27,14 +27,14 @@ services:
       - ACESTEP_CONFIG_PATH=acestep-v15-xl-turbo
       - ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-4B
       - ACESTEP_LLM_BACKEND=vllm
-      - ACESTEP_INIT_LLM=true
-      - ACESTEP_CHECKPOINTS_DIR=/checkpoints
+      # DiT init reads <project_root>/checkpoints (/app); the LM handler honors ACESTEP_CHECKPOINTS_DIR — both must agree.
+      - ACESTEP_CHECKPOINTS_DIR=/app/checkpoints
       - ACESTEP_API_KEY=${ACESTEP_API_KEY:?Set ACESTEP_API_KEY in Portainer}
     volumes:
       # Writable on purpose: ACE-Step syncs its model .py files into checkpoint
       # dirs on first init and writes LoRA/train artifacts there.
-      - /mnt/models/huggingface/ace-step-checkpoints:/checkpoints
-      - ace-step-outputs:/app/gradio_outputs
+      - /mnt/models/huggingface/ace-step-checkpoints:/app/checkpoints
+      - /mnt/models/huggingface:/models:ro
     deploy:
       resources:
         reservations:
