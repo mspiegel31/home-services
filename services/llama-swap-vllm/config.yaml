@@ -292,6 +292,7 @@ models:
       ${DOCKER_PREFIX}
       --name vllm-swift-qwen3-8-27b-nvfp4
       --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
