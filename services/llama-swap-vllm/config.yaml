@@ -198,7 +198,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 8192
+      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
@@ -240,7 +240,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 8192
+      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
@@ -294,7 +294,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 8192
+      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
@@ -328,7 +328,7 @@ models:
       --name vllm-qwen3-8-27b-quasar
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 8192
+      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
@@ -510,7 +510,7 @@ models:
       --name vllm-qwen3-8-27b-fp8
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 8192
+      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.90
