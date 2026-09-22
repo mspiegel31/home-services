@@ -172,7 +172,7 @@
     {{- '# Tools\n\nYou have access to the following functions:\n\n<tools>' }}
     {%- for tool in tools %}
         {{- '\n' }}
-        {{- tool | tojson }}
+        {{- tool | tojson(sort_keys=True) }}
     {%- endfor %}
     {{- '\n</tools>' }}
     {%- if _tool_format == 'json' %}
