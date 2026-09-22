@@ -267,10 +267,11 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "ukisai/Swift-Qwen3.8-27B-NVFP4"
     proxy: http://vllm-swift-qwen3-8-27b-nvfp4:8000
-    # Per-request cap matches the model's 2048-token hybrid cache block so
-    # chunks end at state-save boundaries (vllm#45238). The 8K step budget
-    # replaces the 4096 trial (DFlash2-drafter stall test) — this is the
-    # main production lane.
+    # Bound prefill work with a 4096-token step budget and a 2048-token
+    # long-prefill threshold. Swift's observed hybrid cache block is 1600
+    # tokens; let vLLM derive it from the checkpoint rather than force it.
+    # Keep GPU prefix caching and add a 24 GiB native CPU tier. The CPU
+    # cache belongs to the engine and is discarded when Swift unloads.
     #
     # Keep the SM120 FlashInfer FP8 workaround and QWEN38_COMMON parsers
     # so OMP tool-calling remains unchanged.
@@ -299,6 +300,9 @@ models:
       --max-model-len auto
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
+      --mamba-cache-mode align
+      --kv-offloading-size 24
+      --kv-offloading-backend native
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
