@@ -165,6 +165,59 @@ models:
       --speculative-config '{"method":"mtp","model":"google/gemma-4-31B-it-assistant","num_speculative_tokens":4}'
     cmdStop: docker stop --time 90 vllm-gemma-4-31b
 
+  "qwen3.8-flash-next-nvfp4":
+    name: Qwen3.8 Flash Next NVFP4
+    description: Qwen3.8 Flash Next QAD NVFP4 with 131,072-token context, disk-backed PLE, native RAM prefix cache, and MTP3
+    concurrencyLimit: 4
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 131072
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      VLLM_IMAGE: "ghcr.io/local-inference-lab/vllm:karmic-kraken-beta-20260922-3221ccacf71002ea@sha256:bf2c8f5da6f1de82b345367102b528692231a23eadc1b49c180c82c397c77522"
+      checkpoint: "/models/huggingface/models/local-inference-lab/Qwen3.8-Flash-Next-NVFP4"
+    proxy: http://vllm-qwen3-8-flash-next:8000
+    # https://github.com/local-inference-lab/rtx6kpro/blob/master/models/qwen38-flash-next.md
+    # The LIL profile owns its launcher flags and JIT cache paths; stock
+    # VLLM_COMMON/DOCKER_PREFIX overrides are not compatible with that contract.
+    # Disk PLE preserves the checkpoint's table, not the Primitive AI sidecar.
+    # io_uring needs a relaxed seccomp filter, limited to this container.
+    # Non-PLE weights occupy 71.71 GiB before KV and working memory;
+    # expert-weight offload and the native SimpleCPU prefix tier are separate.
+    # InstantTensor's GPU staging OOMs during MTP loading on this 72 GB GPU;
+    # safetensors loads the same weights without that transient allocation.
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --security-opt seccomp=unconfined
+      --network llama-swap-vllm-backend
+      --name vllm-qwen3-8-flash-next
+      --env HF_TOKEN --env HF_HOME=/models/huggingface
+      --env PROFILE=qwen38-flash-next --env TP=1 --env DCP=1 --env PORT=8000
+      --env MAX_MODEL_LEN=131072 --env MAX_NUM_SEQS=4
+      --env MAX_NUM_BATCHED_TOKENS=4096 --env GPU_MEMORY_UTILIZATION=0.96
+      --env VLLM_PLE_TABLE_MEMORY=disk
+      --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=8
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --volume /mnt/models:/models
+      --volume /mnt/models/qwen3.8-flash-next-runtime:/cache
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      ${VLLM_IMAGE}
+      --model ${checkpoint} --served-model-name ${MODEL_ID}
+      --load-format safetensors
+      --mode mtp --draft-tokens 3
+      --cpu-offload-gb 12 --cpu-offload-params experts
+      --max-cudagraph-capture-size 16
+    cmdStop: docker stop --time 90 vllm-qwen3-8-flash-next
+
   "qwen3.8-27b-nvfp4":
     # Omitting concurrencyLimit (or setting 0) uses llama-swap's default:
     # 10 active requests per model; excess requests receive HTTP 429.
@@ -673,4 +726,5 @@ routing:
           gemma: "gemma-4-31b"
           laguna-xs-2.1: "laguna-xs-2.1"
           ornith-35b: "ornith-1.5-35b-a3b-nvfp4"
+          qwen-flash-next: "qwen3.8-flash-next-nvfp4"
           co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | qwen3.8-27b-quasar-nvfp4 | swift-qwen3.8-27b-nvfp4 | swift-1.5-qwen3.8-27b-nvfp4 | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
