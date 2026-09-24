@@ -180,6 +180,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-quasar-nvfp4",
             "swift-qwen3.8-27b-nvfp4",
             "swift-1.5-qwen3.8-27b-nvfp4",
+            "qwen3.8-flash-next-nvfp4",
         ):
             with self.subTest(model=model):
                 result = call_hook(chat({"model": model, "reasoning_effort": "low"}))

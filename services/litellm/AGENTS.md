@@ -87,6 +87,10 @@ has a separate wire-compatibility branch because
 it accepts top-level Chat Completions effort but not nested effort, and it
 intentionally omits Responses API summaries and encrypted reasoning output.
 
+Flash Next (`qwen3.8-flash-next-nvfp4`) uses the same three-tier nested-effort
+policy. Its bundled template already defaults to xhigh; keep it outside the
+Froggeric default-injection and Unsloth sampling branches.
+
 The Unsloth NVFP4 lane uses the pinned Froggeric v22.5 template bundled in the
 `vllm-fastokens` image. Froggeric defaults to medium effort, so the callback
 explicitly supplies Unsloth's xhigh default when a client omits thinking
@@ -113,7 +117,11 @@ All local chat deployments declare `custom_llm_provider: hosted_vllm`. LiteLLM
 discovery therefore directs OMP to Chat Completions, where its thinking controls
 reach this callback. The CPU embedding deployment uses the same provider for
 OpenAI-compatible `/v1/embeddings`; callback payload detection leaves it unchanged.
-No client-side transport or compatibility override is required.
+For Flash Next, the personal OMP profile selects `thinkingFormat:
+qwen-chat-template` and `qwenTemplateReasoningEffort: true` to encode off and
+effort selections explicitly. It also sets `replayReasoningContent: true`
+and `qwenPreserveThinking: true`: OMP 18.3.0 otherwise omitted reasoning
+history in the tool-round-trip probe, changing the rendered conversation.
 
 - Gemma 4, Laguna XS 2.1, and Ornith use binary thinking. Their templates
   receive only `chat_template_kwargs.enable_thinking`; neither discovery
