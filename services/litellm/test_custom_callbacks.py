@@ -160,6 +160,14 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             {"enable_thinking": True, "reasoning_effort": "xhigh"},
         )
 
+    def test_swift_1_5_defaults_to_xhigh_with_froggeric_template(self):
+        result = call_hook(chat({"model": "swift-1.5-qwen3.8-27b-nvfp4"}))
+        self.assertEqual(
+            result["chat_template_kwargs"],
+            {"enable_thinking": True, "reasoning_effort": "xhigh"},
+        )
+
+
     def test_unknown_effort_passes_through(self):
         self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "turbo"})))
 
@@ -171,6 +179,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
             "qwen3.8-27b-quasar-nvfp4",
             "swift-qwen3.8-27b-nvfp4",
+            "swift-1.5-qwen3.8-27b-nvfp4",
         ):
             with self.subTest(model=model):
                 result = call_hook(chat({"model": model, "reasoning_effort": "low"}))
@@ -289,6 +298,22 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             {"enable_thinking": True, "reasoning_effort": "low"},
         )
         self.assertNotIn("reasoning_effort", result)
+
+    def test_deployment_hook_maps_minimal_effort_for_swift_1_5(self):
+        result = call_deployment_hook(
+            chat(
+                {
+                    "model": "hosted_vllm/swift-1.5-qwen3.8-27b-nvfp4",
+                    "reasoning_effort": "minimal",
+                }
+            )
+        )
+        self.assertEqual(
+            result["chat_template_kwargs"],
+            {"enable_thinking": True, "reasoning_effort": "low"},
+        )
+        self.assertNotIn("reasoning_effort", result)
+
 
     def test_effort_medium(self):
         result = call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "medium"}))
