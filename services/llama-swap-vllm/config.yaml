@@ -267,7 +267,7 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "ukisai/Swift-Qwen3.8-27B-NVFP4"
     proxy: http://vllm-swift-qwen3-8-27b-nvfp4:8000
-    # Bound prefill work with a 4096-token step budget and a 2048-token
+    # Let vLLM choose the batch-token budget; keep the 2048-token
     # long-prefill threshold. Swift's observed hybrid cache block is 1600
     # tokens; let vLLM derive it from the checkpoint rather than force it.
     # Keep GPU prefix caching and add a 24 GiB native CPU tier. The CPU
@@ -296,7 +296,6 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
