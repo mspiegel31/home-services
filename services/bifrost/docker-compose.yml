@@ -16,8 +16,9 @@
 #   BIFROST_SETUP_TOKEN     - one-time token for first dashboard setup
 #   LLAMA_SWAP_API_KEY      - same value the litellm stack presents to the router
 #
-# Auth: Bifrost has no master key. Clients get virtual keys from the dashboard
-# (http://<ai-box>:8080) after first-time setup.
+# Auth: dashboard/setup uses BIFROST_SETUP_TOKEN; inference auth is disabled
+# during migration (enforce_auth_on_inference: false) and must be enabled
+# only after virtual keys exist.
 
 configs:
   git_sync_sparse_checkout:

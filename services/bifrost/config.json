@@ -2,6 +2,25 @@
   "$schema": "https://www.getbifrost.ai/schema",
   "encryption_key": "env.BIFROST_ENCRYPTION_KEY",
   "setup_token": "env.BIFROST_SETUP_TOKEN",
+  "client": {
+    "enable_logging": true,
+    "disable_content_logging": true,
+    "enforce_auth_on_inference": false,
+    "compat": {
+      "convert_text_to_chat": false,
+      "convert_chat_to_responses": false,
+      "should_drop_params": false,
+      "should_convert_params": false,
+      "azure_deepseek": false
+    }
+  },
+  "logs_store": {
+    "enabled": true,
+    "type": "sqlite",
+    "config": {
+      "path": "/app/data/logs.db"
+    }
+  },
   "providers": {
     "openai": {
       "keys": [
