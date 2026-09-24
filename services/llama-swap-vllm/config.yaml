@@ -309,6 +309,47 @@ models:
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-qwen3-8-27b-nvfp4
 
+  "swift-1.5-qwen3.8-27b-nvfp4":
+    name: Swift 1.5 Qwen3.8 27B NVFP4
+    description: UkisAI Swift-1.5-Qwen3.8-27b NVFP4 with native MTP spec decode and auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "ukisai/Swift-1.5-Qwen3.8-27b-NVFP4"
+    proxy: http://vllm-swift-1-5-qwen3-8-27b-nvfp4:8000
+    # Use the repo's patched Froggeric template rather than the checkpoint's
+    # bundled template to preserve the three-tier OMP/LiteLLM effort contract.
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-swift-1-5-qwen3-8-27b-nvfp4
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --long-prefill-token-threshold 2048
+      --max-model-len auto
+      --gpu-memory-utilization 0.9
+      --kv-cache-dtype fp8_e4m3
+      --mamba-cache-mode align
+      --kv-offloading-size 24
+      --kv-offloading-backend native
+      --generation-config auto
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-27b-nvfp4
+
   "qwen3.8-27b-quasar-nvfp4":
     name: Qwen3.8 27B QUASAR NVFP4
     description: Qwen3.8 27B QUASAR quantization-aware-trained NVFP4 with DFlash2 spec decode and auto-fit context (native 262,144 when served alone)
@@ -632,4 +673,4 @@ routing:
           gemma: "gemma-4-31b"
           laguna-xs-2.1: "laguna-xs-2.1"
           ornith-35b: "ornith-1.5-35b-a3b-nvfp4"
-          co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | qwen3.8-27b-quasar-nvfp4 | swift-qwen3.8-27b-nvfp4 | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
+          co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | qwen3.8-27b-quasar-nvfp4 | swift-qwen3.8-27b-nvfp4 | swift-1.5-qwen3.8-27b-nvfp4 | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
