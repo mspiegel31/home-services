@@ -26,8 +26,8 @@ name: omni
 #   - Provider: host network (opt-in profile), reaches the loopback Omni API.
 #
 # External LAN/VPN exposure: 9444/tcp (omni), 9095/tcp (k8s-proxy),
-# 9411/tcp (pocket-id), 9001/tcp (kuma), 8090/tcp (machine API) and
-# 50180/udp (SideroLink). Nothing else.
+# 9411/tcp (pocket-id), 9001/tcp (kuma) and 8090/tcp (machine API).
+# Nothing else. (SideroLink 50180/udp is disabled — see omni service.)
 
 networks:
   omni-mgmt:
@@ -39,16 +39,14 @@ volumes:
 services:
   omni:
     # Self-hosted Omni, single host-container model (docs.siderolabs.com
-    # run-omni-on-prem). Host networking is required for SideroLink
-    # (WireGuard 50180/udp). Listener binds are set in the reviewed
-    # omni-config.yaml (home-prod bootstrap/management/), not here.
+    # run-omni-on-prem). Host networking is used so the API, k8s-proxy and
+    # machine API bind on loopback/LAN addresses as set in the reviewed
+    # omni-config.yaml (home-prod bootstrap/management/). SideroLink
+    # (WireGuard) is disabled: this host is reached over LAN/VPN, so nodes
+    # connect via the machine API; the VM is an LXC with no /dev/net/tun.
     container_name: omni
     image: ghcr.io/siderolabs/omni:v1.12.2
     network_mode: host
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
     environment:
       TZ: ${TZ:-UTC}
       # Go honors SSL_CERT_FILE (it REPLACES the system trust store). The
