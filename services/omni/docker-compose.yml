@@ -8,7 +8,8 @@ name: omni
 #
 # Portainer CE repository stack: no env_file by design. Every ${VAR} is
 # declared explicitly below; set values in the Portainer stack UI. Secrets
-# are never stored in this file. README.md lists each variable.
+# are never stored in this file. The Portainer variable table lives in
+# .agents/skills/omni-management-stack/SKILL.md.
 #
 # The git-sync sidecar sparsely checks out services/omni into the
 # omni-config volume. Traefik reads the dynamic route config from
