@@ -1,0 +1,72 @@
+# Management reverse proxy — dynamic routes (plan §5).
+#
+# This file is consumed by the Traefik file provider, which natively renders
+# Go templates. The {{ env "..." }} placeholders are resolved from the
+# container environment at load time — no entrypoint script, no sed.
+#
+# Hostnames (set in docker-compose.yml environment):
+#   OMNI_HOSTNAME, OMNI_K8S_HOSTNAME, POCKET_ID_HOSTNAME, MONITOR_HOSTNAME
+#
+# Upstream topology (loopback-only, host network):
+#   Omni API     h2c://127.0.0.1:8443   cleartext HTTP/2, gRPC-capable
+#   k8s-proxy    https://127.0.0.1:8095 TLS, internal CA trusted, SNI pinned
+#   Pocket ID    http://127.0.0.1:1411  bridge service on host loopback
+#   Kuma         http://127.0.0.1:3001  bridge service on host loopback
+#
+# Unmatched hosts receive Traefik's default 404 (no catch-all router).
+http:
+  routers:
+    omni:
+      rule: Host(`{{ env "OMNI_HOSTNAME" }}`)
+      entryPoints:
+        - websecure
+      service: omni-svc
+      tls:
+        certResolver: mgmt
+    omni-k8s:
+      rule: Host(`{{ env "OMNI_K8S_HOSTNAME" }}`)
+      entryPoints:
+        - websecure
+      service: k8sproxy-svc
+      tls:
+        certResolver: mgmt
+    pocket-id:
+      rule: Host(`{{ env "POCKET_ID_HOSTNAME" }}`)
+      entryPoints:
+        - websecure
+      service: pocketid-svc
+      tls:
+        certResolver: mgmt
+    monitor:
+      rule: Host(`{{ env "MONITOR_HOSTNAME" }}`)
+      entryPoints:
+        - websecure
+      service: kuma-svc
+      tls:
+        certResolver: mgmt
+
+  services:
+    omni-svc:
+      loadBalancer:
+        servers:
+          - url: h2c://127.0.0.1:8443
+    k8sproxy-svc:
+      loadBalancer:
+        servers:
+          - url: https://127.0.0.1:8095
+        serversTransport: k8sproxy
+    pocketid-svc:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:1411
+    kuma-svc:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:3001
+
+  # Upstream trust for the Omni k8s-proxy hop: internal CA, SNI pinned.
+  serversTransports:
+    k8sproxy:
+      serverName: {{ env "OMNI_K8S_HOSTNAME" }}
+      rootCAs:
+        - /etc/traefik/certs/omni-k8s-ca.crt

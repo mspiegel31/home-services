@@ -1,0 +1,262 @@
+name: omni
+
+# Outside-cluster management stack (home-prod plan §5): Omni, Omni-only
+# Pocket ID, official Proxmox infra provider, the management reverse proxy
+# (stock Traefik, public DNS-01 via the Cloudflare DNS provider bundled in
+# the pinned image) and the outside-cluster availability monitor.
+# Endpoints are LAN/VPN-only.
+#
+# Portainer CE repository stack: no env_file by design. Every ${VAR} is
+# declared explicitly below; set values in the Portainer stack UI. Secrets
+# are never stored in this file. README.md lists each variable.
+#
+# The git-sync sidecar sparsely checks out services/omni into the
+# omni-config volume. Traefik reads the dynamic route config from
+# /config/current/services/omni/traefik/dynamic.yaml (Go template rendered
+# natively by the file provider). Portainer CE does not resolve relative
+# bind-mount paths for repository stacks, so the file reaches the container
+# through the named volume.
+#
+# Topology (loopback-minimal, source-verified against Omni v1.12.2):
+#   - Traefik: host network; binds ${MGMT_LAN_IP}:443 (TLS, DNS-01).
+#     Reaches every backend over 127.0.0.1. All static configuration is
+#     passed as CLI flags (single source of truth). No entrypoint script,
+#     no dashboard, no access log, no labels provider.
+#   - Omni: host network; API 127.0.0.1:8443 (cleartext h2c), k8s-proxy
+#     127.0.0.1:8095 (TLS, internal CA), machine API 0.0.0.0:8090 (LAN direct).
+#     No private API is bound to 0.0.0.0 except the plan-mandated machine API.
+#   - Pocket ID / Uptime Kuma: bridge, published to host loopback only.
+#   - Provider: host network (opt-in profile), reaches the loopback Omni API.
+#
+# External LAN/VPN exposure: 443/tcp (Traefik TLS) + 8090/tcp (machine API)
+# + 50180/udp (SideroLink WireGuard). Nothing else.
+
+configs:
+  git_sync_sparse_checkout:
+    content: |
+      /*
+      !/*/
+      /services/
+      !/services/*/
+      /services/omni/
+
+networks:
+  omni-mgmt:
+    driver: bridge
+
+volumes:
+  omni-config:
+  traefik-acme:
+  kuma-data:
+
+services:
+  git-sync:
+    # Sparsely checks out services/omni into the omni-config volume so
+    # Traefik can read the dynamic route config. Same pattern as the
+    # litellm and llama-swap-vllm stacks. No credentials in the sidecar
+    # (the repo is public).
+    container_name: omni-mgmt-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
+    restart: unless-stopped
+    user: "0:0"
+    command:
+      - git-sync
+      - --repo=https://github.com/mspiegel31/home-services.git
+      - --ref=${OMNI_CONFIG_REF:-main}
+      - --root=/git
+      - --link=current
+      - --depth=1
+      - --submodules=off
+      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
+      - --period=30s
+      - --http-bind=:1234
+    configs:
+      - source: git_sync_sparse_checkout
+        target: /etc/git-sync/sparse-checkout
+    volumes:
+      - omni-config:/git
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/omni/traefik/dynamic.yaml && curl -fsS http://127.0.0.1:1234/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  omni:
+    # Self-hosted Omni, single host-container model (docs.siderolabs.com
+    # run-omni-on-prem). Host networking is required for SideroLink
+    # (WireGuard 50180/udp). Listener binds are set in the reviewed
+    # omni-config.yaml (home-prod bootstrap/management/), not here:
+    #   services.api.endpoint:            127.0.0.1:8443  (cleartext h2c)
+    #   services.kubernetesProxy.endpoint: 127.0.0.1:8095  (TLS, internal CA)
+    #   services.machineAPI.endpoint:      0.0.0.0:8090    (LAN/VPN direct)
+    container_name: omni
+    image: ghcr.io/siderolabs/omni:v1.12.2
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      # /var/lib/omni: embedded etcd + sqlite (durable state, backed up
+      # natively per docs/management-stack.md). /etc/omni: reviewed
+      # omni-config.yaml, omni.asc etcd GPG key and the internal TLS certs.
+      - ${OMNI_STATE_DIR:-/opt/omni-mgmt/omni}:/var/lib/omni
+      - ${OMNI_CONFIG_DIR:-/opt/omni-mgmt/omni-config}:/etc/omni:ro
+    command: --config-path=/etc/omni/omni-config.yaml
+    restart: unless-stopped
+
+  pocket-id:
+    # Omni-only identity (plan §2/§5): separate issuer hostname, database,
+    # keys, clients and passkey enrollment from the household instance.
+    # Published to host loopback only; Traefik (host network) reaches it via
+    # 127.0.0.1:1411. Never exposed on the LAN.
+    container_name: omni-pocket-id
+    image: ghcr.io/pocket-id/pocket-id:2.16.0
+    environment:
+      # Issuer URL advertised in OIDC discovery; reached via Traefik.
+      # INTERNAL_APP_URL is omitted: it defaults to APP_URL, and the Omni
+      # API client reaches the issuer through Traefik (the public HTTPS URL)
+      # on the same VM, so there is no second address to set.
+      APP_URL: ${POCKET_ID_APP_URL}
+      ENCRYPTION_KEY_FILE: /etc/pocket-id/encryption.key
+      # Only Traefik reaches this container, from the host loopback.
+      TRUST_PROXY: "true"
+      UI_CONFIG_DISABLED: "true"
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_TLS: ${SMTP_TLS:-starttls}
+      ANALYTICS_DISABLED: "true"
+      VERSION_CHECK_DISABLED: "true"
+    volumes:
+      # Durable full app state (SQLite DB + uploads) and the encryption key;
+      # both are part of the management backup set.
+      - ${POCKET_ID_STATE_DIR:-/opt/omni-mgmt/pocket-id}:/app/data
+      - ${POCKET_ID_KEY_DIR:-/opt/omni-mgmt/pocket-id-key}:/etc/pocket-id:ro
+    ports:
+      - "127.0.0.1:1411:1411"
+    healthcheck:
+      # Official image healthcheck: the binary's own healthcheck subcommand.
+      test: ["CMD", "/app/pocket-id", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - omni-mgmt
+    restart: unless-stopped
+
+  traefik:
+    # Management reverse proxy: terminates the public DNS-01 certificates for
+    # the management hostnames (Cloudflare DNS provider bundled in the pinned
+    # stock image; scoped token via CF_DNS_API_TOKEN, provisioned outside ESO)
+    # and routes to Pocket ID + monitor over host loopback and to Omni
+    # (API h2c, k8s-proxy TLS with the internal CA trusted). No Docker
+    # socket, no labels provider — file provider only (plan §5, no
+    # in-cluster dependencies).
+    #
+    # All static configuration is passed as CLI flags (single source of
+    # truth). The dynamic route config is read from the git-sync volume at
+    # /config/current/services/omni/traefik/dynamic.yaml and rendered as a
+    # native Go template by the file provider. No entrypoint override, no
+    # dashboard, no access log.
+    container_name: omni-mgmt-traefik
+    image: traefik:v3.7.6@sha256:21a3d83696379bac6434bb32e1dde0aff0e84ef2abd053ed3db87d3f45e749b2
+    network_mode: host
+    command:
+      # websecure binds the management VM LAN/VPN address (LAN/VPN-only).
+      # This is the only listener.
+      - "--entrypoints.websecure.address=${MGMT_LAN_IP:-127.0.0.1}:443"
+      # Dynamic routes from the git-sync volume; file provider renders the
+      # Go template at load time. watch=false: config activation is a
+      # deliberate restart (same pattern as llama-swap-vllm).
+      - "--providers.file.filename=/config/current/services/omni/traefik/dynamic.yaml"
+      - "--providers.file.watch=false"
+      # ACME: public DNS-01 via the Cloudflare provider bundled in the image.
+      - "--certificatesresolvers.mgmt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.mgmt.acme.storage=/data/acme.json"
+      - "--certificatesresolvers.mgmt.acme.dnschallenge.provider=cloudflare"
+      # Telemetry off; anonymous usage off.
+      - "--global.checknewversion=false"
+      - "--global.sendanonymoususage=false"
+      - "--log.level=INFO"
+    environment:
+      # Cloudflare DNS-01 token; lego v5.2.2 official name. Scoped zone:edit
+      # DNS token, provisioned outside ESO, set in the Portainer UI.
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+      # Site hostnames, rendered into the route config by the file provider's
+      # native Go-template support.
+      OMNI_HOSTNAME: ${OMNI_HOSTNAME}
+      OMNI_K8S_HOSTNAME: ${OMNI_K8S_HOSTNAME}
+      POCKET_ID_HOSTNAME: ${POCKET_ID_HOSTNAME}
+      MONITOR_HOSTNAME: ${MONITOR_HOSTNAME}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - traefik-acme:/data
+      # Dynamic route config from the git-sync volume (Go template; rendered
+      # by the file provider).
+      - omni-config:/config:ro
+      # CA for the Traefik -> Omni k8s-proxy hop (serversTransport.rootCAs).
+      - ${OMNI_K8S_CA:-/opt/omni-mgmt/omni-k8s-ca/ca.crt}:/etc/traefik/certs/omni-k8s-ca.crt:ro
+    depends_on:
+      # Routes are only live once git-sync has delivered the route config.
+      git-sync:
+        condition: service_healthy
+      # First stage (proxy + identity) does NOT wait on Omni: the OIDC client
+      # and Omni runtime are wired after the proxy and Pocket ID are up.
+      pocket-id:
+        condition: service_healthy
+    restart: unless-stopped
+
+  uptime-kuma:
+    # Outside-cluster availability monitor with durable state (plan §5).
+    # Published to host loopback only; Traefik routes monitor.<domain> to
+    # 127.0.0.1:3001 (private HTTPS). SMTP is configured in the UI (the pinned
+    # release does not read SMTP_* environment variables).
+    container_name: omni-mgmt-kuma
+    image: ghcr.io/louislam/uptime-kuma:2.5.5
+    environment:
+      TZ: ${TZ:-UTC}
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - kuma-data:/app/data
+    networks:
+      - omni-mgmt
+    restart: unless-stopped
+
+  omni-infra-provider-proxmox:
+    # Official Proxmox infra provider (plan §5). Explicit opt-in gate:
+    # it only starts with `--profile provider`, so a plain
+    # `docker compose up -d` can never mutate Proxmox. Host network so it
+    # reaches the loopback-only Omni API. Enablement: docs/management-stack.md.
+    container_name: omni-infra-provider-proxmox
+    image: ghcr.io/siderolabs/omni-infra-provider-proxmox:v0.3.0
+    profiles:
+      - provider
+    network_mode: host
+    environment:
+      # Flags read these env vars by default (cmd/main.go v0.3.0); the key
+      # never appears in argv, logs or this file. Fixed loopback endpoint for
+      # the same-VM internal path; external clients still use HTTPS.
+      OMNI_ENDPOINT: http://127.0.0.1:8443
+      OMNI_SERVICE_ACCOUNT_KEY: ${PROVIDER_KEY}
+      # Proxmox API CA (self-signed PVE cert) mounted trusted; Go honors
+      # SSL_CERT_FILE. Verified TLS only, no insecureSkipVerify. The bundle
+      # must retain the public roots plus the PVE CA.
+      SSL_CERT_FILE: /etc/ssl/certs/pve-ca-bundle.pem
+      TZ: ${TZ:-UTC}
+    volumes:
+      # config.yaml holds the least-privilege Proxmox token
+      # (tokenID/tokenSecret) on the management VM, outside Git.
+      - ${PROVIDER_CONFIG_DIR:-/opt/omni-mgmt/provider}:/etc/provider:ro
+      - ${PVE_CA_BUNDLE:-/opt/omni-mgmt/pve-ca-bundle.pem}:/etc/ssl/certs/pve-ca-bundle.pem:ro
+    command: --config-file /etc/provider/config.yaml
+    depends_on:
+      - omni
+    restart: unless-stopped
