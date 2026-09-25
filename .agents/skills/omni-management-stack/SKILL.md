@@ -47,8 +47,9 @@ the final design:
 | `50180/udp` | SideroLink WireGuard (direct) | — |
 
 - One **IP-SAN self-signed cert** (mgmt CA) serves all four entrypoints
-  via a single Traefik `tlsStore`. Browsers show cert warnings; that is
-  accepted.
+  via the Traefik v3 **default store** (`tls.stores.default.defaultCertificate`
+  in the dynamic file — the no-SNI/IP fallback). Browsers show cert warnings;
+  that is accepted.
 - **No git-sync sidecar**: the route config is static (no hostnames to
   template), so it is a host bind mount, not a sidecar.
 - **No `traefik-acme` volume, no `ACME_EMAIL`, no `CF_DNS_API_TOKEN`, no
