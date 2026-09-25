@@ -48,8 +48,19 @@ the final design:
 
 - One **IP-SAN self-signed cert** (mgmt CA) serves all four entrypoints
   via the Traefik v3 **default store** (`tls.stores.default.defaultCertificate`
-  in the dynamic file — the no-SNI/IP fallback). Browsers show cert warnings;
-  that is accepted.
+  in the dynamic file — the no-SNI/IP fallback).
+- The mgmt CA must be generated with `basicConstraints=critical,CA:TRUE` and
+  `keyUsage=critical,keyCertSign,cRLSign`, and its server cert with
+  `keyUsage` plus `extendedKeyUsage=serverAuth`. A CA generated without
+  `keyUsage` (the original recipe's defect) fails strict validation with
+  `CA cert does not include key usage extension`.
+- **Browsers must trust the mgmt CA as a root — never use a per-site
+  certificate exception.** Firefox blocks WebAuthn on origins using a
+  certificate-error override, so Pocket ID passkey registration fails while an
+  exception is in place (Mozilla bug 1977284). The exception also leaves the
+  origin without a secure context, so Pocket ID's `__Host-access_token` cookie
+  is dropped and login presents as a successful token exchange followed by
+  `401 "You are not signed in"`.
 - **No git-sync sidecar**: the route config is static (no hostnames to
   template), so it is a host bind mount, not a sidecar.
 - **No `traefik-acme` volume, no `ACME_EMAIL`, no `CF_DNS_API_TOKEN`, no
