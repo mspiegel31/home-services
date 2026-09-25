@@ -180,6 +180,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-quasar-nvfp4",
             "swift-qwen3.8-27b-nvfp4",
             "swift-1.5-qwen3.8-27b-nvfp4",
+            "swift-1.5-qwen3.8-27b-bf16",
             "qwen3.8-flash-next-nvfp4",
         ):
             with self.subTest(model=model):
@@ -305,6 +306,21 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             chat(
                 {
                     "model": "hosted_vllm/swift-1.5-qwen3.8-27b-nvfp4",
+                    "reasoning_effort": "minimal",
+                }
+            )
+        )
+        self.assertEqual(
+            result["chat_template_kwargs"],
+            {"enable_thinking": True, "reasoning_effort": "low"},
+        )
+        self.assertNotIn("reasoning_effort", result)
+
+    def test_deployment_hook_maps_minimal_effort_for_swift_1_5_bf16(self):
+        result = call_deployment_hook(
+            chat(
+                {
+                    "model": "hosted_vllm/swift-1.5-qwen3.8-27b-bf16",
                     "reasoning_effort": "minimal",
                 }
             )

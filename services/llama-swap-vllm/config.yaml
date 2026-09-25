@@ -403,6 +403,58 @@ models:
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-27b-nvfp4
 
+  "swift-1.5-qwen3.8-27b-bf16":
+    name: Swift 1.5 Qwen3.8 27B BF16
+    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 (quality canary) with DFlash2 spec decode and auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "ukisai/Swift-1.5-Qwen3.8-27b"
+    proxy: http://vllm-swift-1-5-qwen3-8-27b-bf16:8000
+    # BF16 quality canary that mirrors the swift-1.5 NVFP4 lane. Weights are
+    # unquantized (~55 GB), so gpu-memory-utilization is bumped to 0.95 to
+    # recover KV headroom, and the CPU KV tier is cut to 16 GiB.
+    #
+    # The checkpoint carries no calibrated KV scales, so the KV cache stays
+    # bfloat16 (the qwen3_5 loader does not apply checkpoint KV scales yet,
+    # vllm#54623); fp8 would run with unit scales.
+    #
+    # Spec decode: DFlash2 (incoai/Qwen3.8-27B-DFlash2) per the vLLM recipe,
+    # 7 draft tokens. Unlike the NVFP4 lane's native MTP3, DFlash2 is trained
+    # against vanilla BF16 Qwen3.8-27B, so it should transfer better to this
+    # BF16 target. A/B the /metrics spec_decode counters against the NVFP4
+    # MTP lane before treating it as the steady state.
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-swift-1-5-qwen3-8-27b-bf16
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --long-prefill-token-threshold 2048
+      --max-model-len auto
+      --gpu-memory-utilization 0.95
+      --kv-cache-dtype bfloat16
+      --mamba-cache-mode align
+      --kv-offloading-size 16
+      --kv-offloading-backend native
+      --generation-config auto
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-27b-bf16
+
   "qwen3.8-27b-quasar-nvfp4":
     name: Qwen3.8 27B QUASAR NVFP4
     description: Qwen3.8 27B QUASAR quantization-aware-trained NVFP4 with DFlash2 spec decode and auto-fit context (native 262,144 when served alone)
@@ -727,4 +779,4 @@ routing:
           laguna-xs-2.1: "laguna-xs-2.1"
           ornith-35b: "ornith-1.5-35b-a3b-nvfp4"
           qwen-flash-next: "qwen3.8-flash-next-nvfp4"
-          co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | qwen3.8-27b-quasar-nvfp4 | swift-qwen3.8-27b-nvfp4 | swift-1.5-qwen3.8-27b-nvfp4 | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"
+          co-resident: "(nemotron-3.5-lightning | ornith-1.5-9b-nvfp4) & (qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | qwen3.8-27b-nvfp4-bf16-lmhead | qwen3.8-27b-nvfp4-bf16-lmhead-sglang | qwen3.8-27b-ninfer | qwen3.8-27b-quasar-nvfp4 | swift-qwen3.8-27b-nvfp4 | swift-1.5-qwen3.8-27b-nvfp4 | swift-1.5-qwen3.8-27b-bf16 | muse-glimmer-30b | muse-glimmer-30b-nvidia-nvfp4)"

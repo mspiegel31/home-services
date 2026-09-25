@@ -60,6 +60,7 @@ class LocalReasoningModel(str, Enum):
     QWEN38_QUASAR_NVFP4 = "qwen3.8-27b-quasar-nvfp4"
     QWEN38_SWIFT_NVFP4 = "swift-qwen3.8-27b-nvfp4"
     QWEN38_SWIFT_1_5_NVFP4 = "swift-1.5-qwen3.8-27b-nvfp4"
+    QWEN38_SWIFT_1_5_BF16 = "swift-1.5-qwen3.8-27b-bf16"
     QWEN38_FLASH_NEXT_NVFP4 = "qwen3.8-flash-next-nvfp4"
     ORNITH = "ornith-1.5-9b-nvfp4"
     ORNITH_35B_A3B = "ornith-1.5-35b-a3b-nvfp4"
@@ -118,6 +119,9 @@ _CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
         three_tier_effort=True, nested_effort=True
     ),
     LocalReasoningModel.QWEN38_SWIFT_1_5_NVFP4: ModelCapabilities(
+        three_tier_effort=True, nested_effort=True
+    ),
+    LocalReasoningModel.QWEN38_SWIFT_1_5_BF16: ModelCapabilities(
         three_tier_effort=True, nested_effort=True
     ),
     LocalReasoningModel.QWEN38_FLASH_NEXT_NVFP4: ModelCapabilities(
@@ -452,6 +456,7 @@ class LocalReasoningRequestAdapter(CustomLogger):
             LocalReasoningModel.QWEN38_UNSLOTH_NVFP4,
             LocalReasoningModel.QWEN38_SWIFT_NVFP4,
             LocalReasoningModel.QWEN38_SWIFT_1_5_NVFP4,
+            LocalReasoningModel.QWEN38_SWIFT_1_5_BF16,
         )
         if not uses_froggeric_xhigh_default:
             return transformed
