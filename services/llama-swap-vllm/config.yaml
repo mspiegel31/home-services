@@ -395,7 +395,7 @@ models:
       --gpu-memory-utilization 0.9
       --kv-cache-dtype fp8_e4m3
       --mamba-cache-mode align
-      --kv-offloading-size 24
+      --kv-offloading-size 8
       --kv-offloading-backend native
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
