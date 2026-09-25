@@ -405,7 +405,7 @@ models:
 
   "swift-1.5-qwen3.8-27b-bf16":
     name: Swift 1.5 Qwen3.8 27B BF16
-    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 (quality canary) with DFlash2 spec decode and auto-fit context (native 262,144 when served alone)
+    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 (quality canary) with native MTP3 spec decode and auto-fit context (native 262,144 when served alone)
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -429,11 +429,10 @@ models:
     # bfloat16 (the qwen3_5 loader does not apply checkpoint KV scales yet,
     # vllm#54623); fp8 would run with unit scales.
     #
-    # Spec decode: DFlash2 (incoai/Qwen3.8-27B-DFlash2) per the vLLM recipe,
-    # 7 draft tokens. Unlike the NVFP4 lane's native MTP3, DFlash2 is trained
-    # against vanilla BF16 Qwen3.8-27B, so it should transfer better to this
-    # BF16 target. A/B the /metrics spec_decode counters against the NVFP4
-    # MTP lane before treating it as the steady state.
+    # Spec decode: use the Swift 1.5 checkpoint's retained native MTP head
+    # with 3 draft tokens, matching the Swift 1.5 NVFP4 lane and model card.
+    # Keep BF16 weights and KV cache as the quality baseline; MTP still needs
+    # a workload-specific throughput and prefix-cache A/B against DFlash2.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-qwen3-8-27b-bf16
@@ -451,7 +450,7 @@ models:
       --kv-offloading-backend native
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-27b-bf16
 
