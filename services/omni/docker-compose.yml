@@ -14,7 +14,7 @@ name: omni
 #
 # Topology (loopback-minimal, source-verified against Omni v1.12.2):
 #   - Traefik: host network; four dedicated entrypoints bound to
-#     ${MGMT_LAN_IP} (9443 omni, 9095 k8s-proxy, 9411 pocket-id, 9001 kuma).
+#     ${MGMT_LAN_IP} (9444 omni, 9095 k8s-proxy, 9411 pocket-id, 9001 kuma).
 #     File provider only (no Docker socket, no labels provider, no dashboard).
 #     Static config via CLI flags; the dynamic route config is an inline
 #     compose `configs:` entry (no git-sync sidecar — the routes are static).
@@ -25,7 +25,7 @@ name: omni
 #   - Pocket ID / Uptime Kuma: bridge, published to host loopback only.
 #   - Provider: host network (opt-in profile), reaches the loopback Omni API.
 #
-# External LAN/VPN exposure: 9443/tcp (omni), 9095/tcp (k8s-proxy),
+# External LAN/VPN exposure: 9444/tcp (omni), 9095/tcp (k8s-proxy),
 # 9411/tcp (pocket-id), 9001/tcp (kuma), 8090/tcp (machine API) and
 # 50180/udp (SideroLink). Nothing else.
 
@@ -179,7 +179,7 @@ services:
     network_mode: host
     command:
       # Four dedicated entrypoints, all bound to the management VM address.
-      - "--entrypoints.omni-ep.address=${MGMT_LAN_IP:-127.0.0.1}:9443"
+      - "--entrypoints.omni-ep.address=${MGMT_LAN_IP:-127.0.0.1}:9444"
       - "--entrypoints.k8s-ep.address=${MGMT_LAN_IP:-127.0.0.1}:9095"
       - "--entrypoints.pid-ep.address=${MGMT_LAN_IP:-127.0.0.1}:9411"
       - "--entrypoints.kuma-ep.address=${MGMT_LAN_IP:-127.0.0.1}:9001"

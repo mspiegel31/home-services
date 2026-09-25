@@ -39,7 +39,7 @@ the final design:
 
 | Port | Service | Upstream |
 |---|---|---|
-| `9443/tcp` | Omni (UI + gRPC API) | `h2c://127.0.0.1:8443` (cleartext h2c) |
+| `9444/tcp` | Omni (UI + gRPC API) | `h2c://127.0.0.1:8443` (cleartext h2c) |
 | `9095/tcp` | Omni k8s-proxy | `https://127.0.0.1:8095` (internal CA, IP SAN) |
 | `9411/tcp` | Pocket ID (Omni-only issuer) | `http://127.0.0.1:1411` |
 | `9001/tcp` | Uptime Kuma (monitor) | `http://127.0.0.1:3001` |
@@ -70,7 +70,7 @@ Loopback-minimal; no private API is bound to `0.0.0.0` except the
 plan-mandated machine API and SideroLink.
 
 - **Traefik** — host network; four entrypoints bound to `${MGMT_LAN_IP}`
-  (9443/9095/9411/9001). File provider only. All static config is passed as
+  (9444/9095/9411/9001). File provider only. All static config is passed as
   CLI flags; the dynamic route config is an inline compose `configs:`
   entry at `/etc/traefik/dynamic/dynamic.yaml`.
 - **Omni** — host network; listeners set in the reviewed

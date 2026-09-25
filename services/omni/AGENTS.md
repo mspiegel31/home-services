@@ -8,7 +8,7 @@ management VM `cloud@192.168.1.51` and is the first service group of the
 migration.
 
 Endpoints are LAN/VPN-only, reached by IP on dedicated ports (no DNS):
-`9443` Omni, `9095` Omni k8s-proxy, `9411` Pocket ID, `9001` Uptime Kuma,
+`9444` Omni, `9095` Omni k8s-proxy, `9411` Pocket ID, `9001` Uptime Kuma,
 plus direct `8090/tcp` (Omni machine API) and `50180/udp` (SideroLink).
 
 - Stack layout, topology, bring-up order, the provider enablement gate,
