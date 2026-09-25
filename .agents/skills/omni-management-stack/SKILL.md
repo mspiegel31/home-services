@@ -50,7 +50,7 @@ the final design:
   via a single Traefik `tlsStore`. Browsers show cert warnings; that is
   accepted.
 - **No git-sync sidecar**: the route config is static (no hostnames to
-  template), so it is an inline compose `configs:` entry.
+  template), so it is a host bind mount, not a sidecar.
 - **No `traefik-acme` volume, no `ACME_EMAIL`, no `CF_DNS_API_TOKEN`, no
   hostname variables.**
 
@@ -71,8 +71,8 @@ plan-mandated machine API and SideroLink.
 
 - **Traefik** — host network; four entrypoints bound to `${MGMT_LAN_IP}`
   (9444/9095/9411/9001). File provider only. All static config is passed as
-  CLI flags; the dynamic route config is an inline compose `configs:`
-  entry at `/etc/traefik/dynamic/dynamic.yaml`.
+  CLI flags; the dynamic route config is a host bind mount
+  (`/opt/omni-mgmt/traefik/dynamic.yaml` → `/etc/traefik/dynamic/dynamic.yaml`).
 - **Omni** — host network; listeners set in the reviewed
   `omni-config.yaml`: API `127.0.0.1:8443` (cleartext h2c), k8s-proxy
   `127.0.0.1:8095` (TLS, internal CA with IP SAN), machine API `0.0.0.0:8090`
@@ -100,7 +100,7 @@ plan-mandated machine API and SideroLink.
    `IP:192.168.1.51` SAN), `/opt/omni-mgmt/mgmt-tls/` (mgmt cert with
    `IP:192.168.1.51` SAN), `/opt/omni-mgmt/mgmt-ca/combined-ca-bundle.pem`
    (distro roots + mgmt CA, for Omni's `SSL_CERT_FILE`),
-   `/opt/omni-mgmt/provider` (provider `config.yaml`).
+   `/opt/omni-mgmt/traefik/dynamic.yaml` (static routes),
 2. Stage the dependencies **before** Omni, so Omni finds a running issuer
    and proxy on first start (no restart loop):
    ```sh
@@ -142,6 +142,7 @@ retain the public roots plus the PVE CA. Self-signed Proxmox —
 | `OMNI_CONFIG_DIR` | omni | host path for reviewed config (default `/opt/omni-mgmt/omni-config`) |
 | `OMNI_TRUST_BUNDLE` | omni | distro roots + mgmt CA bundle for `SSL_CERT_FILE` (default `/opt/omni-mgmt/mgmt-ca/combined-ca-bundle.pem`) |
 | `MGMT_TLS_DIR` | traefik | dir holding `mgmt.crt`/`mgmt.key` (default `/opt/omni-mgmt/mgmt-tls`) |
+| `MGMT_TRAEFIK_DIR` | traefik | dir holding `dynamic.yaml` (default `/opt/omni-mgmt/traefik`) |
 | `POCKET_ID_STATE_DIR` | pocket-id | host path for state (SQLite + uploads + JWT keys; default `/opt/omni-mgmt/pocket-id`) |
 | `PROVIDER_KEY` | provider | infra provider key; injected via env, never argv (provider profile only) |
 | `PROVIDER_CONFIG_DIR` | provider | host path to the provider `config.yaml` (provider profile only) |
@@ -159,11 +160,12 @@ its UI (the pinned release does not read `SMTP_*` environment variables).
 
 ## Config placement
 
-Portainer CE deploys a repository stack from the server-side image. The
-route config is an inline compose `configs:` entry
-(`traefik_dynamic:/etc/traefik/dynamic/dynamic.yaml`), so there is **no
-git-sync sidecar and no `omni-config` volume**. Route changes are a compose
-edit → commit → push → Portainer redeploy.
+Portainer CE deploys a repository stack from the server-side image, and it
+**drops compose `configs:`** — so the route config is a host bind mount
+(`${MGMT_TRAEFIK_DIR:-/opt/omni-mgmt/traefik}/dynamic.yaml` →
+`/etc/traefik/dynamic/dynamic.yaml`), created by the install script. There is
+**no git-sync sidecar and no `omni-config` volume**. Route changes are a host
+file edit → restart the Traefik container (or `docker compose up -d traefik`).
 
 **Separation of secrets from config:** the operator-protected host files —
 Omni `omni-config.yaml` + `omni.asc`, the mgmt + internal CAs/certs, the
