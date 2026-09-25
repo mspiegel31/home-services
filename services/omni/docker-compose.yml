@@ -123,6 +123,10 @@ services:
       # Static route config from the host bind mount (see volumes).
       - "--providers.file.filename=/etc/traefik/dynamic/dynamic.yaml"
       - "--providers.file.watch=false"
+      # v3: TLS stores live in the STATIC config, not the file provider.
+      # One store ("mgmt") with the IP-SAN cert, referenced by all routers.
+      - "--tls.stores.mgmt.certificates.certFile=/etc/traefik/certs/mgmt.crt"
+      - "--tls.stores.mgmt.certificates.keyFile=/etc/traefik/certs/mgmt.key"
       # Telemetry off; anonymous usage off.
       - "--global.checknewversion=false"
       - "--global.sendanonymoususage=false"
