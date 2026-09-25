@@ -82,8 +82,8 @@ plan-mandated machine API and SideroLink.
   self-signed Pocket ID issuer — `auth.oidc` has no CA-override field, so
   the container trust store is the only lever.
 - **Pocket ID** — bridge network; fronts itself with internal Caddy on
-  `:80`. No host port mapping: Traefik (host network) reaches it at
-  `127.0.0.1:80`.
+  `:80`. Published to host loopback only (`127.0.0.1:80:80`); Traefik
+  (host network) reaches it at `127.0.0.1:80`. Never exposed on the LAN.
 - **Uptime Kuma** — bridge network, published to host loopback only
   (`127.0.0.1:3001`).
 - **Provider** — host network (opt-in profile) so it reaches the loopback
@@ -101,7 +101,13 @@ plan-mandated machine API and SideroLink.
    `IP:192.168.1.51` SAN), `/opt/omni-mgmt/mgmt-tls/` (mgmt cert with
    `IP:192.168.1.51` SAN), `/opt/omni-mgmt/mgmt-ca/combined-ca-bundle.pem`
    (distro roots + mgmt CA, for Omni's `SSL_CERT_FILE`),
-   `/opt/omni-mgmt/traefik/dynamic.yaml` (static routes),
+   `/opt/omni-mgmt/traefik/dynamic.yaml` (static routes).
+   **Prerequisite:** `/dev/net/tun` must exist on the VM. Omni v1.12.2
+   always creates a WireGuard device at startup (kernel `wg` module,
+   falling back to `/dev/net/tun` userspace) — there is no config option
+   to skip it. On an LXC where `mknod` is blocked, the device node must
+   be created with `sudo mknod /dev/net/tun c 10 200` and a boot hook
+   added for persistence (the LXC `/dev` is a tmpfs, wiped on restart).
 2. Stage the dependencies **before** Omni, so Omni finds a running issuer
    and proxy on first start (no restart loop):
    ```sh
