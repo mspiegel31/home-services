@@ -41,7 +41,7 @@ the final design:
 |---|---|---|
 | `9444/tcp` | Omni (UI + gRPC API) | `h2c://127.0.0.1:8443` (cleartext h2c) |
 | `9095/tcp` | Omni k8s-proxy | `https://127.0.0.1:8095` (internal CA, IP SAN) |
-| `9411/tcp` | Pocket ID (Omni-only issuer) | `http://127.0.0.1:1411` |
+| `9411/tcp` | Pocket ID (Omni-only issuer) | `http://127.0.0.1:80` (internal Caddy) |
 | `9001/tcp` | Uptime Kuma (monitor) | `http://127.0.0.1:3001` |
 | `8090/tcp` | Omni machine API (direct, not proxied) | Talos nodes → `0.0.0.0:8090` |
 | `50180/udp` | SideroLink WireGuard (direct) | — |
@@ -59,7 +59,7 @@ the final design:
 | Service | Image | Role |
 |---|---|---|
 | `omni` | `ghcr.io/siderolabs/omni:v1.12.2` | Node lifecycle + cluster management; embedded etcd, OIDC to Pocket ID, break-glass enabled |
-| `pocket-id` | `ghcr.io/pocket-id/pocket-id:2.16.0` | Omni-only identity; separate issuer/DB/keys/clients from the household instance |
+| `pocket-id` | `ghcr.io/pocket-id/pocket-id:v0.53.0` | Omni-only identity; separate issuer/DB/keys/clients from the household instance |
 | `traefik` | `traefik:v3.7.6` (pinned digest) | Management HTTPS on four dedicated entrypoints; IP-SAN self-signed cert; file provider only (no Docker socket, no labels provider, no dashboard) |
 | `uptime-kuma` | `ghcr.io/louislam/uptime-kuma:2.5.5` | Outside-cluster availability monitor, SMTP notifications via UI config |
 | `omni-infra-provider-proxmox` | `ghcr.io/siderolabs/omni-infra-provider-proxmox:v0.3.0` | Proxmox VM provisioning; **opt-in profile, disabled by default** |
@@ -80,9 +80,11 @@ plan-mandated machine API and SideroLink.
   bundle (distro roots + mgmt CA) so the Omni OIDC client trusts the
   self-signed Pocket ID issuer — `auth.oidc` has no CA-override field, so
   the container trust store is the only lever.
-- **Pocket ID / Uptime Kuma** — bridge network, published to host loopback
-  only (`127.0.0.1:1411`, `127.0.0.1:3001`); Traefik reaches them via
-  `127.0.0.1`.
+- **Pocket ID** — bridge network; fronts itself with internal Caddy on
+  `:80`. No host port mapping: Traefik (host network) reaches it at
+  `127.0.0.1:80`.
+- **Uptime Kuma** — bridge network, published to host loopback only
+  (`127.0.0.1:3001`).
 - **Provider** — host network (opt-in profile) so it reaches the loopback
   Omni API; `OMNI_ENDPOINT` is the fixed loopback path for the same-VM
   internal use.
@@ -92,8 +94,8 @@ plan-mandated machine API and SideroLink.
 1. Create the host directories and one-time values on the VM (see
    `home-prod/docs/management-stack.md` "Generate one-time values"):
    `/opt/omni-mgmt/omni` (state), `/opt/omni-mgmt/omni-config` (config +
-   `omni.asc` + `tls/`), `/opt/omni-mgmt/pocket-id` (state),
-   `/opt/omni-mgmt/pocket-id-key` (`encryption.key`),
+   `omni.asc` + `tls/`), `/opt/omni-mgmt/pocket-id` (state, owned
+   `1000:1000`),
    `/opt/omni-mgmt/omni-k8s-ca/` (internal CA + k8s-proxy cert with
    `IP:192.168.1.51` SAN), `/opt/omni-mgmt/mgmt-tls/` (mgmt cert with
    `IP:192.168.1.51` SAN), `/opt/omni-mgmt/mgmt-ca/combined-ca-bundle.pem`
@@ -140,10 +142,7 @@ retain the public roots plus the PVE CA. Self-signed Proxmox —
 | `OMNI_CONFIG_DIR` | omni | host path for reviewed config (default `/opt/omni-mgmt/omni-config`) |
 | `OMNI_TRUST_BUNDLE` | omni | distro roots + mgmt CA bundle for `SSL_CERT_FILE` (default `/opt/omni-mgmt/mgmt-ca/combined-ca-bundle.pem`) |
 | `MGMT_TLS_DIR` | traefik | dir holding `mgmt.crt`/`mgmt.key` (default `/opt/omni-mgmt/mgmt-tls`) |
-| `POCKET_ID_STATE_DIR` | pocket-id | host path for state (default `/opt/omni-mgmt/pocket-id`) |
-| `POCKET_ID_KEY_DIR` | pocket-id | host path for `encryption.key` (default `/opt/omni-mgmt/pocket-id-key`) |
-| `OMNI_K8S_CA` | traefik | internal CA for the Traefik→Omni k8s-proxy hop (default `/opt/omni-mgmt/omni-k8s-ca/ca.crt`) |
-| `SMTP_HOST`/`SMTP_PORT`/`SMTP_FROM`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_TLS` | pocket-id | recovery/verification email; empty leaves defaults |
+| `POCKET_ID_STATE_DIR` | pocket-id | host path for state (SQLite + uploads + JWT keys; default `/opt/omni-mgmt/pocket-id`) |
 | `PROVIDER_KEY` | provider | infra provider key; injected via env, never argv (provider profile only) |
 | `PROVIDER_CONFIG_DIR` | provider | host path to the provider `config.yaml` (provider profile only) |
 | `PVE_CA_BUNDLE` | provider | Proxmox API CA bundle; **CA-signed clusters only** — self-signed clusters use `insecureSkipVerify: true` in `config.yaml` and omit this |
@@ -173,19 +172,18 @@ on the management host and are never checked in.
 
 ## Pocket ID state and key ownership
 
-The Pocket ID image runs as UID/GID **1000** (official image default
-`PUID`/`PGID`). The state and key directories are created on the host with
-`umask 077` by root, which makes them unreadable to the container unless
-ownership is set explicitly. On first setup:
+The Pocket ID image creates its own user from `PUID`/`PGID` (default
+`1000`) and chowns `/app/backend/data` to match. The state directory is
+created on the host owned `1000:1000`:
 
 ```sh
-chown -R 1000:1000 /opt/omni-mgmt/pocket-id /opt/omni-mgmt/pocket-id-key
+chown -R 1000:1000 /opt/omni-mgmt/pocket-id
 ```
 
-Restrict ownership to the image UID (`1000:1000`, or an explicitly verified
-image UID if the image changes). Do **not** use `chmod 777` or any general
-unprotected permission. The `encryption.key` file and the SQLite state
-remain readable only by the container user and root.
+There is **no `encryption.key` file** in v0.53.0: the JWT signing key
+auto-generates inside `data/keys/jwt_private_key.json` on first start, so
+the durable state directory *is* the key material. Back it up with the
+database, never expose it, and restoring the directory restores the key.
 
 ## Backups and recovery
 

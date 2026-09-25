@@ -74,7 +74,7 @@ configs:
           pocketid-svc:
             loadBalancer:
               servers:
-                - url: http://127.0.0.1:1411
+                - url: http://127.0.0.1:80
           kuma-svc:
             loadBalancer:
               servers:
@@ -130,41 +130,40 @@ services:
   pocket-id:
     # Omni-only identity (plan §2/§5): separate issuer, database, keys,
     # clients and passkey enrollment from the household instance.
+    # v0.53.0 image contract (source-verified, backend/internal/common/
+    # env_config.go + scripts/docker/entrypoint.sh):
+    #   - Fronts itself with internal Caddy on :80 (frontend + API proxy)
+    #   - PUBLIC_APP_URL = advertised issuer URL
+    #   - JWT signing key auto-generates in data/keys (no env for it)
+    #   - Data under /app/backend/data (SQLite + uploads + keys)
     # Published to host loopback only; Traefik (host network) reaches it via
-    # 127.0.0.1:1411. Never exposed on the LAN directly.
+    # 127.0.0.1:80. Never exposed on the LAN directly.
     container_name: omni-pocket-id
-    image: ghcr.io/pocket-id/pocket-id:2.16.0
+    image: ghcr.io/pocket-id/pocket-id:v0.53.0
     environment:
       # Issuer URL advertised in OIDC discovery. IP-only: the dedicated
-      # Traefik entrypoint, e.g. https://192.168.1.51:9411. INTERNAL_APP_URL
-      # is omitted — it defaults to APP_URL, and the Omni API client reaches
-      # the issuer through Traefik on the same VM, so there is no second
-      # address to set.
-      APP_URL: ${POCKET_ID_APP_URL}
-      ENCRYPTION_KEY_FILE: /etc/pocket-id/encryption.key
+      # Traefik entrypoint, e.g. https://192.168.1.51:9411.
+      PUBLIC_APP_URL: ${POCKET_ID_APP_URL}
+      # Match the host dir ownership so the container can write its data.
+      PUID: "1000"
+      PGID: "1000"
       TRUST_PROXY: "true"
-      UI_CONFIG_DISABLED: "true"
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-}
-      SMTP_FROM: ${SMTP_FROM:-}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_TLS: ${SMTP_TLS:-starttls}
+      PUBLIC_UI_CONFIG_DISABLED: "true"
+      # SMTP is a UI setting (AppConfig), not an env var in this release;
+      # configured in the admin UI after first start.
       ANALYTICS_DISABLED: "true"
-      VERSION_CHECK_DISABLED: "true"
     volumes:
-      # Durable full app state (SQLite DB + uploads) and the encryption key;
-      # both are part of the management backup set.
-      - ${POCKET_ID_STATE_DIR:-/opt/omni-mgmt/pocket-id}:/app/data
-      - ${POCKET_ID_KEY_DIR:-/opt/omni-mgmt/pocket-id-key}:/etc/pocket-id:ro
-    ports:
-      - "127.0.0.1:1411:1411"
+      # Durable full app state (SQLite DB + uploads + JWT keys); part of the
+      # management backup set.
+      - ${POCKET_ID_STATE_DIR:-/opt/omni-mgmt/pocket-id}:/app/backend/data
     healthcheck:
-      test: ["CMD", "/app/pocket-id", "healthcheck"]
+      # Backend /healthz is not proxied by the internal Caddy (only /api/*,
+      # /.well-known/*), so probe the backend port directly.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 20s
     networks:
       - omni-mgmt
     restart: unless-stopped
