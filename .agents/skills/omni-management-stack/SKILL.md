@@ -80,7 +80,8 @@ Routes (single `:443` listener, one hostname each):
    + internal TLS), `/opt/omni-mgmt/pocket-id` (state),
    `/opt/omni-mgmt/pocket-id-key` (`encryption.key`),
    `/opt/omni-mgmt/omni-k8s-ca/ca.crt`, `/opt/omni-mgmt/provider`
-   (provider `config.yaml`), `/opt/omni-mgmt/pve-ca-bundle.pem`.
+   (provider `config.yaml`), and — CA-signed Proxmox clusters only —
+   `/opt/omni-mgmt/pve-ca-bundle.pem`.
 2. Run the management DNS helper (home-prod
    `bootstrap/management/dns.py`) from the workstation: preview, then apply
    the local UniFi A records for the four management hostnames.
@@ -109,10 +110,10 @@ docker compose --profile provider up -d omni-infra-provider-proxmox
 Before enabling, complete the Proxmox cluster prerequisites (the
 `omni-proxmox-cluster` skill) and create the least-privilege Proxmox
 token; PVE-version-dependent ACL verification is an operator gate, not an
-assumed least privilege. The provider connects with verified TLS: mount
-the Proxmox API CA as `pve-ca-bundle.pem` (`SSL_CERT_FILE`); the bundle
-must retain the public roots plus the PVE CA; do not use
-`insecureSkipVerify`.
+assumed least privilege. Provider TLS: CA-signed Proxmox — mount the
+Proxmox API CA as `pve-ca-bundle.pem` (`SSL_CERT_FILE`); the bundle must
+retain the public roots plus the PVE CA. Self-signed Proxmox —
+`insecureSkipVerify: true` in the provider `config.yaml`, no bundle.
 
 ## Portainer variables (UI, no env_file)
 
@@ -125,6 +126,8 @@ must retain the public roots plus the PVE CA; do not use
 | `OMNI_CONFIG_REF` | git-sync | config ref to sync; default `main` post-merge, branch or immutable SHA pre-merge; must match the Portainer stack ref |
 | `OMNI_HOSTNAME` | traefik | e.g. `omni.<mgmt-domain>` |
 | `OMNI_K8S_HOSTNAME` | traefik | e.g. `omni-k8s.<mgmt-domain>` |
+| `POCKET_ID_HOSTNAME` | traefik | e.g. `pocket-id.<mgmt-domain>` |
+| `MONITOR_HOSTNAME` | traefik | e.g. `monitor.<mgmt-domain>` |
 | `POCKET_ID_APP_URL` | pocket-id | issuer URL, e.g. `https://pocket-id.<mgmt-domain>` |
 | `OMNI_STATE_DIR`, `OMNI_CONFIG_DIR` | omni | host paths for durable state and reviewed config |
 | `SMTP_HOST`/`SMTP_PORT`/`SMTP_FROM`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_TLS` | pocket-id | recovery/verification email; empty leaves defaults |
@@ -132,7 +135,7 @@ must retain the public roots plus the PVE CA; do not use
 | `OMNI_K8S_CA` | traefik | host path to the internal CA for the Traefik→Omni k8s-proxy hop |
 | `PROVIDER_KEY` | provider | infra provider key; injected via env, never argv |
 | `PROVIDER_CONFIG_DIR` | provider | host path to the provider `config.yaml` (Proxmox token) |
-| `PVE_CA_BUNDLE` | provider | host path to the Proxmox API CA bundle (public roots + PVE CA) |
+| `PVE_CA_BUNDLE` | provider | host path to the Proxmox API CA bundle (public roots + PVE CA); **CA-signed clusters only** — self-signed clusters use `insecureSkipVerify: true` in `config.yaml` and omit this |
 
 The provider's `OMNI_ENDPOINT` is the fixed loopback `http://127.0.0.1:8443`
 (same-VM internal path); it is not a UI variable.
@@ -166,9 +169,10 @@ stack is self-contained:
 
 **Separation of secrets from config:** the operator-protected host files —
 Omni `omni-config.yaml` + `omni.asc`, the provider `config.yaml`, and every
-secret (Pocket ID key, internal CA, PVE CA bundle, all `${VAR}` values) —
-stay on the management host and are never checked in. Only the non-secret
-proxy config travels through git-sync.
+secret (Pocket ID key, internal CA, PVE CA bundle for CA-signed
+clusters, all `${VAR}` values) — stay on the management host and are
+never checked in. Only the non-secret proxy config travels through
+git-sync.
 
 ## Pocket ID state and key ownership
 

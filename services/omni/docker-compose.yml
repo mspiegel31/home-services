@@ -247,15 +247,20 @@ services:
       # the same-VM internal path; external clients still use HTTPS.
       OMNI_ENDPOINT: http://127.0.0.1:8443
       OMNI_SERVICE_ACCOUNT_KEY: ${PROVIDER_KEY}
-      # Proxmox API CA (self-signed PVE cert) mounted trusted; Go honors
-      # SSL_CERT_FILE. Verified TLS only, no insecureSkipVerify. The bundle
-      # must retain the public roots plus the PVE CA.
+      # Proxmox TLS is a config.yaml decision: CA-signed clusters trust
+      # the combined CA bundle (public roots + PVE CA) — Go honors
+      # SSL_CERT_FILE, which REPLACES the system trust store. Self-signed
+      # clusters set insecureSkipVerify: true in config.yaml and omit
+      # PVE_CA_BUNDLE; the then-missing bundle path is auto-created as an
+      # empty dir by Docker and stays inert because verification is
+      # skipped.
       SSL_CERT_FILE: /etc/ssl/certs/pve-ca-bundle.pem
       TZ: ${TZ:-UTC}
     volumes:
       # config.yaml holds the least-privilege Proxmox token
       # (tokenID/tokenSecret) on the management VM, outside Git.
       - ${PROVIDER_CONFIG_DIR:-/opt/omni-mgmt/provider}:/etc/provider:ro
+      # CA-signed clusters only: omit PVE_CA_BUNDLE for self-signed.
       - ${PVE_CA_BUNDLE:-/opt/omni-mgmt/pve-ca-bundle.pem}:/etc/ssl/certs/pve-ca-bundle.pem:ro
     command: --config-file /etc/provider/config.yaml
     depends_on:

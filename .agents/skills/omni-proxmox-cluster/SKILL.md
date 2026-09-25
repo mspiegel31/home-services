@@ -19,8 +19,10 @@ prerequisites for the pinned Omni Proxmox provider.
   join empty → restore under new IDs → re-add node-specific storages with
   node restrictions.
 - A backup that has not been restored is not a verified backup.
-- No `insecureSkipVerify` anywhere in the provider config; TLS
-  verification against the cluster CA is required.
+- TLS to the Proxmox API: CA-signed clusters trust the cluster CA inside
+  the provider container; self-signed clusters use
+  `insecureSkipVerify: true` in the provider `config.yaml` and no CA
+  bundle (LAN/VPN-only exposure, least-privilege token — accepted risk).
 - Live actions require explicit operator authorization. No action in this
   skill is executed by the agent.
 
@@ -167,13 +169,14 @@ executed by this skill.
    step 4). Restore each guest to its intended prior running/stopped
    state. Verify each guest boots (if intended running) and its data is
    intact.
-6. **Post-join CA trust refresh**: after joining, each node's certificate
-   is re-issued by the cluster CA. Any client that pinned the old per-node
-   certificate (web UI sessions, API clients, the Omni provider) must
-   trust the new cluster CA. For the provider, the CA must be trusted
-   **inside the provider container** (host trust store alone is
-   insufficient for a containerized client); see the `omni-management-stack`
-   skill for the mount arrangement.
+6. **Post-join CA trust refresh** (CA-signed clusters only): after
+   joining, each node's certificate is re-issued by the cluster CA. Any
+   client that pinned the old per-node certificate (web UI sessions,
+   API clients, the Omni provider) must trust the new cluster CA. For
+   the provider, the CA must be trusted **inside the provider container**
+   (host trust store alone is insufficient for a containerized client);
+   see the `omni-management-stack` skill for the mount arrangement.
+   Self-signed clusters using `insecureSkipVerify: true` skip this step.
 7. **Verify end state**: `pvecm status` on all three nodes shows three
    nodes, quorate, correct cluster name. All evacuated guests are running
    in their intended states. Storage restrictions are correct.
@@ -191,12 +194,17 @@ proxmox:
   url: "https://<cluster-node>:8006/api2/json"
   tokenID: <token-id>
   tokenSecret: <secret>
+  # Self-signed PVE only (no CA bundle needed):
+  insecureSkipVerify: true
 ```
 
 - Any cluster node's API address works (cluster API is per-node; data is
   replicated via pmxcfs).
-- TLS: trust the cluster CA inside the provider container. Do not set
-  `insecureSkipVerify`.
+- TLS: CA-signed clusters — trust the cluster CA inside the provider
+  container (host trust store alone is insufficient for a containerized
+  client). Self-signed clusters — `insecureSkipVerify: true`, no CA
+  bundle; the provider→PVE API hop is then unverified, accepted because
+  the stack is LAN/VPN-only with a least-privilege token.
 - The provider host needs LAN reachability to the cluster (TCP 8006).
 
 ### Machine class provider data (per the plan: one Talos VM per host)
@@ -296,8 +304,8 @@ never in manifests or Git.
 - [ ] All evacuated guests are restored in their intended prior
       running/stopped states.
 - [ ] Per-node local storages have correct node restrictions.
-- [ ] Cluster CA is trusted inside the provider container; TLS
-      verification works (no `insecureSkipVerify`).
+- [ ] Provider TLS: CA-signed — cluster CA trusted inside the provider
+      container; self-signed — `insecureSkipVerify: true` in config.
 - [ ] ISO storage exists on all three nodes; image-factory reachability
       confirmed (or ISO pre-seeded).
 - [ ] Provider token created; per-endpoint privileges verified against the
