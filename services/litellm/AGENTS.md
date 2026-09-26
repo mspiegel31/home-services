@@ -83,6 +83,10 @@ llama-swap git-sync volume. Swift 1.5 requests without thinking controls
 receive an explicit xhigh default; base Qwen3.8 routes leave the Froggeric
 medium default intact.
 
+Swift Flash Next disables the LIL profile's default MTP3: its draft loader
+exhausts the 72 GB GPU during online NVFP4 weight processing. Base Qwen Flash
+Next retains MTP3. Swift GPU fit without the drafter remains unverified.
+
 `LocalReasoningRequestAdapter` dispatches to `ChatTemplateThinkingPolicy`.
 Recognized models are listed in `LocalReasoningModel`; client controls are
 parsed into `ThinkingControls` before mutation. The only runtime LiteLLM

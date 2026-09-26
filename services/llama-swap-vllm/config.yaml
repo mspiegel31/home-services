@@ -103,7 +103,7 @@ models:
 
   "swift-1.5-qwen3.8-flash-next-nvfp4":
     name: Swift 1.5 Qwen3.8 Flash Next NVFP4
-    description: Swift 1.5 Flash Next NVFP4 with 131,072-token served context, disk-backed PLE, native RAM prefix cache, and MTP3
+    description: Swift 1.5 Flash Next NVFP4 with 131,072-token context, disk-backed PLE, native RAM prefix cache, and no speculative decoding
     concurrencyLimit: 4
     capabilities:
       in: ["text", "image"]
@@ -123,6 +123,7 @@ models:
     # The fastokens vLLM 0.30.0 image recognizes it but lacks the disk PLE
     # table backend needed for this 174 GiB checkpoint on 64 GiB host RAM;
     # retain LIL's qwen38-flash-next profile and isolate its JIT cache.
+    # Its MTP draft exhausts VRAM while processing NVFP4 weights on this 72 GB GPU.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
@@ -145,7 +146,7 @@ models:
       ${VLLM_IMAGE}
       --model ${checkpoint} --served-model-name ${MODEL_ID}
       --load-format safetensors
-      --mode mtp --draft-tokens 3
+      --mode off
       --cpu-offload-gb 12 --cpu-offload-params experts
       --max-cudagraph-capture-size 16
       --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
