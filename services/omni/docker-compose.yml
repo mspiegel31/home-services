@@ -263,7 +263,12 @@ services:
       # never appears in argv, logs or this file. Fixed loopback endpoint for
       # the same-host internal path; external clients still use HTTPS.
       OMNI_ENDPOINT: http://127.0.0.1:8443
-      OMNI_SERVICE_ACCOUNT_KEY: ${PROVIDER_KEY:?Set PROVIDER_KEY in Portainer}
+      # Deliberately NOT the fail-fast ${VAR:?} form: Compose interpolates
+      # every service in the file regardless of profiles, so a required
+      # provider variable would fail a plain deployment that never starts the
+      # provider, defeating the opt-in gate. Set PROVIDER_KEY in the
+      # Portainer UI before enabling the provider profile.
+      OMNI_SERVICE_ACCOUNT_KEY: ${PROVIDER_KEY:-}
       # Proxmox API TLS is verified against this bundle (public roots + the
       # PVE CA). Self-signed PVE is not yet supported by this variant: the
       # bundle must exist.
