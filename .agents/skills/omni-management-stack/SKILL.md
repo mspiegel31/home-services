@@ -121,12 +121,19 @@ plan-mandated machine API and SideroLink.
    `/opt/omni-mgmt/mgmt-ca/combined-ca-bundle.pem`
    (distro roots + mgmt CA, for Omni's `SSL_CERT_FILE`),
    `/opt/omni-mgmt/traefik/dynamic.yaml` (static routes).
-   **Prerequisite:** `/dev/net/tun` must exist on the VM. Omni v1.12.2
-   always creates a WireGuard device at startup (kernel `wg` module,
-   falling back to `/dev/net/tun` userspace) — there is no config option
-   to skip it. On an LXC where `mknod` is blocked, the device node must
-   be created with `sudo mknod /dev/net/tun c 10 200` and a boot hook
-   added for persistence (the LXC `/dev` is a tmpfs, wiped on restart).
+   **Prerequisite:** `/dev/net/tun` must exist **inside the VM**. Omni
+   v1.12.2 always creates a WireGuard device at startup (kernel `wg`
+   module, falling back to `/dev/net/tun` userspace) — there is no config
+   option to skip it.
+   The node cannot be created from inside an unprivileged LXC: container
+   root maps to an unprivileged uid and `/dev` is a tmpfs LXC rebuilds at
+   every start, so `sudo mknod /dev/net/tun c 10 200` fails with
+   `Operation not permitted` (a `--privileged` Docker container is refused
+   too). Pass it through on the **Proxmox host** instead —
+   `modprobe tun`, then `pct set <CTID> --dev0 /dev/net/tun` (or UI:
+   Resources → Add → Device Passthrough), then shut the container down and
+   start it again; an in-container reboot does not apply device changes.
+   LXC re-creates the node at every start, so no boot hook is needed.
 2. Stage the dependencies **before** Omni, so Omni finds a running issuer
    and proxy on first start (no restart loop):
    ```sh
