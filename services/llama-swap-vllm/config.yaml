@@ -149,6 +149,7 @@ models:
       --volume llama-swap_llama-swap-config:/config:ro
       --label io.mspiegel.llama-swap.managed=true
       --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      ${VLLM_IMAGE}
       --model ${checkpoint} --served-model-name ${MODEL_ID}
       --load-format safetensors
       --mode mtp --draft-tokens 3
