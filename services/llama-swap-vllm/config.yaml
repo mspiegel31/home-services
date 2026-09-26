@@ -240,6 +240,14 @@ models:
     # KV pool and the mamba cache lines above the capture size (vllm#34571).
     # The 24 GiB CPU tier fits because the router never co-resides this
     # lane with the flash-next lanes (it evicts across sets).
+    #
+    # Max context: bf16 KV is 64 KiB/token (16 full-attn layers x 4 KV
+    # heads x 256 head_dim), so 262,144 tokens needs ~16.2-17.2 GiB of
+    # pool with MTP5 draft KV. At util 0.96 + 64 seq slots the pool was
+    # 13.67 GiB -> auto-fit 193,392. seqs 8 (frees ~1.5 GiB of GDN state)
+    # and util 0.98 (matches the flash-next lanes' pinned-graph margin)
+    # recover the ~3 GiB gap. CPU tiers only extend prefix reuse, never
+    # max_model_len: an active sequence's KV must stay GPU-resident.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-qwen3-8-27b-bf16
@@ -248,9 +256,10 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-seqs 8
       --long-prefill-token-threshold 2048
       --max-model-len auto
-      --gpu-memory-utilization 0.96
+      --gpu-memory-utilization 0.98
       --kv-cache-dtype bfloat16
       --mamba-cache-mode align
       --kv-offloading-size 24
