@@ -41,16 +41,28 @@ services:
     # Self-hosted Omni, single host-container model (docs.siderolabs.com
     # run-omni-on-prem). Host networking is required: the API, k8s-proxy and
     # machine API bind on loopback/LAN addresses as set in the reviewed
-    # omni-config.yaml. SideroLink always creates a WireGuard device
-    # (kernel wg module or /dev/net/tun fallback) — there is no config
-    # option to skip it, so the VM must have /dev/net/tun.
+    # omni-config.yaml.
+    #
+    # SideroLink always creates a WireGuard device and there is no config
+    # option to skip it. It prefers the kernel `wg` module and only falls
+    # back to userspace wireguard-go, which needs /dev/net/tun. NET_ADMIN is
+    # required either way; the device is deliberately NOT declared:
+    #   - declaring it makes Docker fail container *creation* when the node
+    #     is absent, which aborts the whole compose create pass and leaves
+    #     sibling services created-but-not-started;
+    #   - the kernel path works here (module loaded on the host, NET_ADMIN
+    #     sufficient), so the TUN fallback is never needed.
+    # /dev/net/tun is a real capability grant — it allows creating arbitrary
+    # tunnel interfaces and routes inside this netns — so it is only added
+    # if Omni ever fails with a tun/CreateTunDevice error. That requires
+    # passing the device through on the Proxmox host, since an unprivileged
+    # LXC cannot create the node itself: `pct set <CTID> --dev0 /dev/net/tun`
+    # (plus `modprobe tun`), then a container shutdown/start.
     container_name: omni
     image: ghcr.io/siderolabs/omni:v1.12.2
     network_mode: host
     cap_add:
       - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
     environment:
       TZ: ${TZ:-UTC}
       # Go honors SSL_CERT_FILE (it REPLACES the system trust store). The
