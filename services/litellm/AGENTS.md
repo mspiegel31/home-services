@@ -83,9 +83,9 @@ llama-swap git-sync volume. Swift 1.5 requests without thinking controls
 receive an explicit xhigh default; base Qwen3.8 routes leave the Froggeric
 medium default intact.
 
-The Swift Flash Next serving route currently trials stock vLLM 0.30.0 with
-CPU PLE and expert-weight offload. Unlike the LIL base Flash Next route, it
-starts without MTP or RAM KV offload; startup and GPU fit remain unverified.
+Both Flash Next backends use the pinned LIL `qwen38-flash-next` profile with
+disk-backed PLE, native RAM prefix cache and MTP3. Swift has its own JIT cache.
+Startup and GPU fit of the Swift checkpoint remain unverified.
 
 `LocalReasoningRequestAdapter` dispatches to `ChatTemplateThinkingPolicy`.
 Recognized models are listed in `LocalReasoningModel`; client controls are
