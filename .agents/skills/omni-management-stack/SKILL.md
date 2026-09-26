@@ -241,6 +241,21 @@ python3 -c "import sqlite3;print(list(sqlite3.connect('/opt/omni-mgmt/pocket-id/
 `POST /api/one-time-access-token/setup` is the exception: it derives the initial
 admin itself, so a session obtained that way authenticates correctly.
 
+
+A browser that already holds **any unexpired** `__Host-access_token` cannot
+redeem a login code. Pocket ID's frontend hook (`frontend/src/hooks.server.ts`)
+decides sign-in by **decoding** the JWT and checking only `exp` — it never
+verifies the signature or claims — and `/lc` and `/lc/*` are treated as
+unauthenticated-only paths. A stale cookie therefore makes the hook answer a
+code URL with `303 -> /settings` and the code page's `onMount` exchange never
+runs: the code stays unredeemed in `one_time_access_tokens`, its path never
+appears in the backend log, and `/settings` then 401s against the real
+verifier. Recovery is to clear the origin's cookies/site data first (Firefox:
+padlock -> "Clear cookies and site data"), then open the code. Loading
+`/setup` is the alternative while the initial admin has no passkey: it is not
+an unauthenticated-only path, so the stale cookie does not divert it, and
+`SetupInitialAdmin` derives the real admin rather than trusting the body.
+
 ## Backups and recovery
 
 Native consistent exports (Omni etcd/datastore, Pocket ID database, monitor
