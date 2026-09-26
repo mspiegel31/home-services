@@ -103,7 +103,7 @@ models:
 
   "swift-1.5-qwen3.8-flash-next-nvfp4":
     name: Swift 1.5 Qwen3.8 Flash Next NVFP4
-    description: Swift 1.5 Flash Next NVFP4 with 131,072-token served context, CPU PLE, and expert-weight offload
+    description: Swift 1.5 Flash Next NVFP4 with 131,072-token served context, disk-backed PLE, native RAM prefix cache, and MTP3
     concurrencyLimit: 4
     capabilities:
       in: ["text", "image"]
@@ -116,37 +116,37 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      VLLM_IMAGE: "vllm/vllm-openai:v0.30.0@sha256:8a69ffad015f138d7170c4ddc429e230a3bc1c1719f67e14324749df200a4b90"
+      VLLM_IMAGE: "ghcr.io/local-inference-lab/vllm:karmic-kraken-beta-20260922-3221ccacf71002ea@sha256:bf2c8f5da6f1de82b345367102b528692231a23eadc1b49c180c82c397c77522"
       checkpoint: "/models/huggingface/models/ukisai/Swift-1.5-Qwen3.8-Flash-Next-NVFP4"
     proxy: http://vllm-swift-1-5-qwen3-8-flash-next:8000
-    # Start with stock vLLM and its CPU PLE backend. Omit MTP and RAM KV
-    # offload for the first boot so host-memory pressure is easier to diagnose.
-    # The modified Froggeric template still comes from the git-sync volume.
+    # The stock vLLM image offers host-RAM PLE only; this profile supports
+    # disk tables on a 64 GiB host. Keep its JIT cache separate from base Qwen.
+    # Disk PLE uses io_uring, requiring the relaxed seccomp filter here.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
-      --shm-size=16g --ulimit memlock=-1 --ulimit stack=67108864
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --security-opt seccomp=unconfined
       --network llama-swap-vllm-backend
       --name vllm-swift-1-5-qwen3-8-flash-next
       --env HF_TOKEN --env HF_HOME=/models/huggingface
-      --env VLLM_PLE_CPU_OFFLOAD=1
-      --env VLLM_CACHE_ROOT=/models/vllm
-      --env MAX_JOBS=4 --env VLLM_ENABLE_STARTUP_PLAN=1
+      --env PROFILE=qwen38-flash-next --env TP=1 --env DCP=1 --env PORT=8000
+      --env MAX_MODEL_LEN=131072 --env MAX_NUM_SEQS=4
+      --env MAX_NUM_BATCHED_TOKENS=4096 --env GPU_MEMORY_UTILIZATION=0.96
+      --env VLLM_PLE_TABLE_MEMORY=disk
+      --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=8
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
       --volume /mnt/models:/models
+      --volume /mnt/models/swift-1.5-qwen3.8-flash-next-runtime:/cache
       --volume llama-swap_llama-swap-config:/config:ro
       --label io.mspiegel.llama-swap.managed=true
       --label io.mspiegel.llama-swap.model=${MODEL_ID}
       ${VLLM_IMAGE}
-      ${checkpoint} --served-model-name ${MODEL_ID}
-      --host 0.0.0.0 --port 8000
-      --load-format safetensors --dtype bfloat16 --quantization modelopt_mixed
-      --max-model-len 131072 --max-num-seqs 4
-      --max-num-batched-tokens 4096 --gpu-memory-utilization 0.96
-      --kv-cache-dtype fp8 --mamba-cache-mode align
-      --enable-prefix-caching --no-language-model-only
+      --model ${checkpoint} --served-model-name ${MODEL_ID}
+      --load-format safetensors
+      --mode mtp --draft-tokens 3
       --cpu-offload-gb 12 --cpu-offload-params experts
       --max-cudagraph-capture-size 16
-      --reasoning-parser qwen3 --tool-call-parser qwen3_xml
-      --enable-auto-tool-choice
       --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
     cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-flash-next
 
