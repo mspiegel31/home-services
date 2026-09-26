@@ -106,11 +106,30 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "max_tokens": 16})))
 
     def test_swift_1_5_defaults_to_xhigh_with_froggeric_template(self):
-        result = call_hook(chat({"model": "swift-1.5-qwen3.8-27b-nvfp4"}))
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {"enable_thinking": True, "reasoning_effort": "xhigh"},
-        )
+        for model in (
+            "swift-1.5-qwen3.8-27b-nvfp4",
+            "swift-1.5-qwen3.8-flash-next-nvfp4",
+        ):
+            with self.subTest(model=model):
+                result = call_hook(chat({"model": model}))
+                self.assertEqual(
+                    result["chat_template_kwargs"],
+                    {"enable_thinking": True, "reasoning_effort": "xhigh"},
+                )
+
+    def test_flash_next_thinking_off_does_not_rearm_from_effort(self):
+        for model in (
+            "qwen3.8-flash-next-nvfp4",
+            "swift-1.5-qwen3.8-flash-next-nvfp4",
+        ):
+            with self.subTest(model=model):
+                result = call_deployment_hook(chat({
+                    "model": f"hosted_vllm/{model}",
+                    "reasoning_effort": "high",
+                    "thinking_token_budget": 0,
+                }))
+                self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
+                self.assertNotIn("reasoning_effort", result)
 
 
     def test_unknown_effort_passes_through(self):
@@ -119,6 +138,8 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
     def test_retained_variants_are_targets(self):
         for model in (
             "qwen3.8-27b-fp8",
+            "qwen3.8-flash-next-nvfp4",
+            "swift-1.5-qwen3.8-flash-next-nvfp4",
             "swift-1.5-qwen3.8-27b-nvfp4",
             "swift-1.5-qwen3.8-27b-bf16",
         ):

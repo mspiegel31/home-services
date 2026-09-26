@@ -46,6 +46,111 @@ macros:
   QWEN38_COMMON: "--reasoning-parser qwen3 --tool-call-parser qwen3_xml --enable-auto-tool-choice"
 
 models:
+  "qwen3.8-flash-next-nvfp4":
+    name: Qwen3.8 Flash Next NVFP4
+    description: Qwen3.8 Flash Next QAD NVFP4 with 131,072-token context, disk-backed PLE, native RAM prefix cache, and MTP3
+    concurrencyLimit: 4
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 131072
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      VLLM_IMAGE: "ghcr.io/local-inference-lab/vllm:karmic-kraken-beta-20260922-3221ccacf71002ea@sha256:bf2c8f5da6f1de82b345367102b528692231a23eadc1b49c180c82c397c77522"
+      checkpoint: "/models/huggingface/models/local-inference-lab/Qwen3.8-Flash-Next-NVFP4"
+    proxy: http://vllm-qwen3-8-flash-next:8000
+    # https://github.com/local-inference-lab/rtx6kpro/blob/master/models/qwen38-flash-next.md
+    # The LIL profile owns its launcher flags and JIT cache paths; stock
+    # VLLM_COMMON/DOCKER_PREFIX overrides are not compatible with that contract.
+    # Disk PLE preserves the checkpoint's table, not the Primitive AI sidecar.
+    # io_uring needs a relaxed seccomp filter, limited to this container.
+    # Non-PLE weights occupy 71.71 GiB before KV and working memory;
+    # expert-weight offload and the native SimpleCPU prefix tier are separate.
+    # InstantTensor's GPU staging OOMs during MTP loading on this 72 GB GPU;
+    # safetensors loads the same weights without that transient allocation.
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --security-opt seccomp=unconfined
+      --network llama-swap-vllm-backend
+      --name vllm-qwen3-8-flash-next
+      --env HF_TOKEN --env HF_HOME=/models/huggingface
+      --env PROFILE=qwen38-flash-next --env TP=1 --env DCP=1 --env PORT=8000
+      --env MAX_MODEL_LEN=131072 --env MAX_NUM_SEQS=4
+      --env MAX_NUM_BATCHED_TOKENS=4096 --env GPU_MEMORY_UTILIZATION=0.96
+      --env VLLM_PLE_TABLE_MEMORY=disk
+      --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=8
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --volume /mnt/models:/models
+      --volume llama-swap_llama-swap-config:/config:ro
+      --volume /mnt/models/qwen3.8-flash-next-runtime:/cache
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      ${VLLM_IMAGE}
+      --model ${checkpoint} --served-model-name ${MODEL_ID}
+      --load-format safetensors
+      --mode mtp --draft-tokens 3
+      --cpu-offload-gb 12 --cpu-offload-params experts
+      --max-cudagraph-capture-size 16
+      --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
+    cmdStop: docker stop --time 90 vllm-qwen3-8-flash-next
+
+  "swift-1.5-qwen3.8-flash-next-nvfp4":
+    name: Swift 1.5 Qwen3.8 Flash Next NVFP4
+    description: Swift 1.5 Flash Next NVFP4 with 131,072-token served context, disk-backed PLE, native RAM prefix cache, and MTP3
+    concurrencyLimit: 4
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 131072
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      VLLM_IMAGE: "ghcr.io/local-inference-lab/vllm:karmic-kraken-beta-20260922-3221ccacf71002ea@sha256:bf2c8f5da6f1de82b345367102b528692231a23eadc1b49c180c82c397c77522"
+      checkpoint: "/models/huggingface/models/ukisai/Swift-1.5-Qwen3.8-Flash-Next-NVFP4"
+    proxy: http://vllm-swift-1-5-qwen3-8-flash-next:8000
+    # Swift's checkpoint uses the same Qwen4Exp ModelOpt NVFP4 architecture.
+    # The fastokens vLLM 0.30.0 image recognizes it but lacks the disk PLE
+    # table backend needed for this 174 GiB checkpoint on 64 GiB host RAM;
+    # retain LIL's qwen38-flash-next profile and isolate its JIT cache.
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --security-opt seccomp=unconfined
+      --network llama-swap-vllm-backend
+      --name vllm-swift-1-5-qwen3-8-flash-next
+      --env HF_TOKEN --env HF_HOME=/models/huggingface
+      --env PROFILE=qwen38-flash-next --env TP=1 --env DCP=1 --env PORT=8000
+      --env MAX_MODEL_LEN=131072 --env MAX_NUM_SEQS=4
+      --env MAX_NUM_BATCHED_TOKENS=4096 --env GPU_MEMORY_UTILIZATION=0.96
+      --env VLLM_PLE_TABLE_MEMORY=disk
+      --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=8
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --volume /mnt/models:/models
+      --volume /mnt/models/swift-1.5-qwen3.8-flash-next-runtime:/cache
+      --volume llama-swap_llama-swap-config:/config:ro
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      ${VLLM_IMAGE}
+      --model ${checkpoint} --served-model-name ${MODEL_ID}
+      --load-format safetensors
+      --mode mtp --draft-tokens 3
+      --cpu-offload-gb 12 --cpu-offload-params experts
+      --max-cudagraph-capture-size 16
+      --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
+    cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-flash-next
+
   "swift-1.5-qwen3.8-27b-nvfp4":
     name: Swift 1.5 Qwen3.8 27B NVFP4
     description: UkisAI Swift-1.5-Qwen3.8-27b NVFP4 with native MTP spec decode and auto-fit context (native 262,144 when served alone)
@@ -177,4 +282,6 @@ routing:
     settings:
       matrix:
         sets:
+          qwen-flash-next: "qwen3.8-flash-next-nvfp4"
+          swift-flash-next: "swift-1.5-qwen3.8-flash-next-nvfp4"
           co-resident: "qwen3.8-27b-fp8 | swift-1.5-qwen3.8-27b-nvfp4 | swift-1.5-qwen3.8-27b-bf16"
