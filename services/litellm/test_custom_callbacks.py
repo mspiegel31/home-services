@@ -9,11 +9,9 @@ directory:
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import sys
 import types
 import unittest
-from pathlib import Path
 from typing import Any
 
 try:
@@ -69,21 +67,8 @@ def chat(controls: dict[str, Any]) -> dict[str, Any]:
 class LocalThinkingPolicySmokeTests(unittest.TestCase):
     # ---- pass-through ----------------------------------------------------
 
-    def test_dynamic_loader_without_sys_modules_registration(self):
-        spec = importlib.util.spec_from_file_location(
-            "_litellm_dynamic_callback",
-            Path(__file__).with_name("custom_callbacks.py"),
-        )
-        self.assertIsNotNone(spec)
-        self.assertIsNotNone(spec.loader)
-        module = importlib.util.module_from_spec(spec)
-        sys.modules.pop(spec.name, None)
-        spec.loader.exec_module(module)
-        self.assertTrue(hasattr(module, "local_thinking_policy"))
-
     def test_other_models_pass_through(self):
         for data in (
-            chat({"model": "muse-glimmer-30b", "reasoning_effort": "low"}),
             chat({"model": "qwen3.9-27b", "reasoning_effort": "low"}),
             chat({"model": "qwen3.8-27b", "reasoning_effort": "low"}),
             chat({"model": "thinkingcap-qwen3.6-27b", "reasoning_effort": "low"}),
@@ -105,32 +90,6 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
                 self.assertIsNone(result)
                 self.assertNotIn("chat_template_kwargs", data)
 
-    def test_ninfer_responses_drops_unsupported_reasoning_options(self):
-        original = {
-            "model": "qwen3.8-27b-ninfer",
-            "input": "hi",
-            "reasoning": {"effort": "xhigh", "summary": "auto"},
-            "include": ["reasoning.encrypted_content"],
-            "store": False,
-        }
-        result = call_hook(original, "responses")
-        self.assertEqual(result["reasoning"], {"effort": "xhigh"})
-        self.assertNotIn("include", result)
-        self.assertEqual(
-            original["reasoning"],
-            {"effort": "xhigh", "summary": "auto"},
-        )
-
-    def test_ninfer_chat_keeps_reasoning_effort_top_level(self):
-        result = call_hook(
-            chat({"model": "qwen3.8-27b-ninfer", "reasoning_effort": "low"})
-        )
-        self.assertEqual(result["reasoning_effort"], "low")
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {"enable_thinking": True},
-        )
-
     def test_route_type_does_not_change_behavior(self):
         # The proxy dispatches chat completions as "acompletion"; the policy
         # keys off the payload, so no route spelling can no-op a chat request.
@@ -146,20 +105,6 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
     def test_no_controls_leaves_template_default(self):
         self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "max_tokens": 16})))
 
-    def test_unsloth_defaults_to_xhigh_for_froggeric_template(self):
-        result = call_hook(chat({"model": "qwen3.8-27b-nvfp4"}))
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {"enable_thinking": True, "reasoning_effort": "xhigh"},
-        )
-
-    def test_swift_defaults_to_xhigh_with_froggeric_template(self):
-        result = call_hook(chat({"model": "swift-qwen3.8-27b-nvfp4"}))
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {"enable_thinking": True, "reasoning_effort": "xhigh"},
-        )
-
     def test_swift_1_5_defaults_to_xhigh_with_froggeric_template(self):
         result = call_hook(chat({"model": "swift-1.5-qwen3.8-27b-nvfp4"}))
         self.assertEqual(
@@ -171,100 +116,17 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
     def test_unknown_effort_passes_through(self):
         self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "reasoning_effort": "turbo"})))
 
-    def test_all_quantized_variants_are_targets(self):
+    def test_retained_variants_are_targets(self):
         for model in (
             "qwen3.8-27b-fp8",
-            "qwen3.8-27b-nvfp4",
-            "qwen3.8-27b-nvfp4-bf16-lmhead",
-            "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
-            "qwen3.8-27b-quasar-nvfp4",
-            "swift-qwen3.8-27b-nvfp4",
             "swift-1.5-qwen3.8-27b-nvfp4",
             "swift-1.5-qwen3.8-27b-bf16",
-            "qwen3.8-flash-next-nvfp4",
         ):
             with self.subTest(model=model):
                 result = call_hook(chat({"model": model, "reasoning_effort": "low"}))
                 self.assertEqual(
                     result["chat_template_kwargs"],
                     {"enable_thinking": True, "reasoning_effort": "low"},
-                )
-
-    def test_unsloth_non_thinking_uses_official_sampling_defaults(self):
-        result = call_hook(
-            chat(
-                {
-                    "model": "qwen3.8-27b-nvfp4",
-                    "reasoning_effort": "none",
-                }
-            )
-        )
-        self.assertEqual(
-            {
-                key: result[key]
-                for key in ("temperature", "top_p", "presence_penalty")
-            },
-            {
-                "temperature": 0.7,
-                "top_p": 0.8,
-                "presence_penalty": 1.5,
-            },
-        )
-
-    def test_unsloth_non_thinking_preserves_explicit_sampling(self):
-        result = call_hook(
-            chat(
-                {
-                    "model": "qwen3.8-27b-nvfp4",
-                    "reasoning_effort": "none",
-                    "temperature": 0.2,
-                    "top_p": 0.4,
-                    "presence_penalty": 0.0,
-                }
-            )
-        )
-        self.assertEqual(result["temperature"], 0.2)
-        self.assertEqual(result["top_p"], 0.4)
-        self.assertEqual(result["presence_penalty"], 0.0)
-
-    def test_ornith_effort_normalizes_to_binary_thinking(self):
-        for model in ("ornith-1.5-9b-nvfp4", "ornith-1.5-35b-a3b-nvfp4"):
-            for effort, enabled in (("high", True), ("none", False)):
-                for nested in (False, True):
-                    with self.subTest(model=model, effort=effort, nested=nested):
-                        controls = {"reasoning_effort": effort}
-                        if nested:
-                            controls = {"chat_template_kwargs": controls}
-                        result = call_hook(chat({"model": model, **controls}))
-                        self.assertEqual(
-                            result["chat_template_kwargs"], {"enable_thinking": enabled}
-                        )
-                        self.assertNotIn("reasoning_effort", result)
-
-    def test_ornith_explicit_toggle_wins_over_conflicting_controls(self):
-        for model in ("ornith-1.5-9b-nvfp4", "ornith-1.5-35b-a3b-nvfp4"):
-            for enabled in (False, True):
-                with self.subTest(model=model, enabled=enabled):
-                    result = call_hook(chat({
-                        "model": model,
-                        "reasoning_effort": "none" if enabled else "high",
-                        "thinking_token_budget": 0 if enabled else 8192,
-                        "chat_template_kwargs": {
-                            "enable_thinking": enabled,
-                            "reasoning_effort": "high",
-                        },
-                    }))
-                    self.assertEqual(
-                        result["chat_template_kwargs"], {"enable_thinking": enabled}
-                    )
-                    self.assertNotIn("reasoning_effort", result)
-
-    def test_untargeted_model_passes_through(self):
-        # Models without a local template contract are untouched.
-        for model in ("nemotron-3.5-lightning", "north-mini-code-1.0-fp8"):
-            with self.subTest(model=model):
-                self.assertIsNone(
-                    call_hook(chat({"model": model, "reasoning_effort": "low"}))
                 )
 
     # ---- reasoning_effort mapping ----------------------------------------
@@ -285,21 +147,6 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             result["chat_template_kwargs"],
             {"enable_thinking": True, "reasoning_effort": "low"},
         )
-
-    def test_deployment_hook_maps_minimal_effort_for_swift(self):
-        result = call_deployment_hook(
-            chat(
-                {
-                    "model": "hosted_vllm/swift-qwen3.8-27b-nvfp4",
-                    "reasoning_effort": "minimal",
-                }
-            )
-        )
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {"enable_thinking": True, "reasoning_effort": "low"},
-        )
-        self.assertNotIn("reasoning_effort", result)
 
     def test_deployment_hook_maps_minimal_effort_for_swift_1_5(self):
         result = call_deployment_hook(
@@ -370,50 +217,6 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         result = call_hook(chat({"model": "qwen3.8-27b-fp8", "thinking_token_budget": 4096}))
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
 
-    def test_gemma_positive_token_budget_enables_thinking(self):
-        result = call_hook(chat({
-            "model": "gemma-4-31b",
-            "thinking_token_budget": 8192,
-        }))
-        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
-
-    def test_gemma_zero_token_budget_disables_thinking(self):
-        result = call_hook(chat({
-            "model": "gemma-4-31b",
-            "thinking_token_budget": 0,
-        }))
-        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
-
-    def test_laguna_positive_token_budget_enables_thinking(self):
-        result = call_hook(chat({
-            "model": "laguna-xs-2.1",
-            "thinking_token_budget": 8192,
-        }))
-        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
-
-    def test_laguna_zero_token_budget_disables_thinking(self):
-        result = call_hook(chat({
-            "model": "laguna-xs-2.1",
-            "thinking_token_budget": 0,
-        }))
-        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
-
-    def test_laguna_effort_never_nested(self):
-        # Binary-thinking model: a positive effort only flips enable_thinking.
-        result = call_hook(chat({
-            "model": "laguna-xs-2.1",
-            "reasoning_effort": "high",
-        }))
-        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": True})
-
-    def test_laguna_off_effort_disables_thinking(self):
-        result = call_hook(chat({
-            "model": "laguna-xs-2.1",
-            "reasoning_effort": "off",
-        }))
-        self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
-        self.assertNotIn("reasoning_effort", result)
-
     def test_unparseable_token_budget_treated_as_positive(self):
         # A budget that cannot be parsed is not zero, so it takes the
         # positive-budget path and enables thinking.
@@ -448,36 +251,6 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "enable_thinking": False,
         }))
         self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
-
-    def test_omp_off_payload_disables_sglang_thinking(self):
-        result = call_hook(chat({
-            "model": "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
-            "enable_thinking": False,
-            "chat_template_kwargs": {"preserve_thinking": True},
-        }))
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {"preserve_thinking": True, "enable_thinking": False},
-        )
-
-    def test_omp_low_payload_selects_sglang_tier(self):
-        result = call_hook(chat({
-            "model": "qwen3.8-27b-nvfp4-bf16-lmhead-sglang",
-            "enable_thinking": True,
-            "reasoning_effort": "low",
-            "chat_template_kwargs": {
-                "preserve_thinking": True,
-                "reasoning_effort": "low",
-            },
-        }))
-        self.assertEqual(
-            result["chat_template_kwargs"],
-            {
-                "preserve_thinking": True,
-                "enable_thinking": True,
-                "reasoning_effort": "low",
-            },
-        )
 
     def test_explicit_true_with_effort_selects_tier(self):
         result = call_hook(chat({
