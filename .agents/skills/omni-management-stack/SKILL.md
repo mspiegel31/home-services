@@ -205,6 +205,42 @@ auto-generates inside `data/keys/jwt_private_key.json` on first start, so
 the durable state directory *is* the key material. Back it up with the
 database, never expose it, and restoring the directory restores the key.
 
+## Minting an operator login code
+
+Pocket ID v0.53.0 is passkey-only, so an operator who has lost their passkey
+signs in with a one-time code. The code endpoint takes the owner **only from
+the JSON body**: `createAdminOneTimeAccessTokenHandler` calls the handler with
+`own=false`, so `dto.OneTimeAccessTokenCreateDto.UserID` (`json:"userId"`) is
+never backfilled from the `:id` path segment
+(`backend/internal/controller/user_controller.go`).
+
+```sh
+U=<pocket-id-user-uuid>
+curl -sk -c /tmp/s.txt -o /dev/null -X POST \
+  https://192.168.1.51:9411/api/one-time-access-token/setup \
+  -H 'Content-Type: application/json' -d '{}'
+EXPIRES=$(date -u -d "+30 minutes" +%Y-%m-%dT%H:%M:%SZ)
+TOK=$(curl -sk -b /tmp/s.txt -X POST \
+  "https://192.168.1.51:9411/api/users/$U/one-time-access-token" \
+  -H 'Content-Type: application/json' \
+  -d "{\"userId\": \"$U\", \"expiresAt\": \"$EXPIRES\"}" |
+  python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+echo "https://192.168.1.51:9411/lc/$TOK"
+```
+
+Omitting `userId` still returns `201` with a token, and the exchange still
+returns `200` and sets `__Host-access_token` — but the stored row has an empty
+`user_id`, so the issued JWT carries an empty `sub` and every later request
+fails `401 "You are not signed in"`. That is indistinguishable from a cookie or
+TLS fault, so confirm the owner landed before handing a code out:
+
+```sh
+python3 -c "import sqlite3;print(list(sqlite3.connect('/opt/omni-mgmt/pocket-id/pocket-id.db').execute('SELECT token, user_id FROM one_time_access_tokens ORDER BY rowid DESC LIMIT 3')))"
+```
+
+`POST /api/one-time-access-token/setup` is the exception: it derives the initial
+admin itself, so a session obtained that way authenticates correctly.
+
 ## Backups and recovery
 
 Native consistent exports (Omni etcd/datastore, Pocket ID database, monitor
