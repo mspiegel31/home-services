@@ -1,11 +1,20 @@
-# Management reverse proxy — dynamic routes (plan §5).
+# Management reverse proxy — dynamic routes (TrueNAS variant).
 #
-# This file is consumed by the Traefik file provider, which natively renders
-# Go templates. The {{ env "..." }} placeholders are resolved from the
-# container environment at load time — no entrypoint script, no sed.
+# Consumed by the Traefik file provider, which renders this file as a Go
+# template: the {{ env "..." }} placeholders are resolved from the container
+# environment at load time (no entrypoint script, no sed, no templating
+# sidecar). watch=false in the static config, so a change here takes effect
+# on a deliberate Traefik restart.
 #
-# Hostnames (set in docker-compose.yml environment):
-#   OMNI_HOSTNAME, OMNI_K8S_HOSTNAME, POCKET_ID_HOSTNAME, MONITOR_HOSTNAME
+# Hostnames, set in the compose `traefik.environment` block:
+#   OMNI_HOSTNAME, OMNI_K8S_HOSTNAME, POCKET_ID_HOSTNAME, MONITOR_HOSTNAME,
+#   MGMT_DOMAIN (the management subzone, used for the wildcard certificate)
+#
+# Certificates: every router requests the SAME wildcard via the `mgmt` ACME
+# resolver, so Traefik performs exactly one DNS-01 order for
+# `*.<MGMT_DOMAIN>` and reuses that single certificate for all four SNI
+# names. A per-router resolver without `domains` would instead issue four
+# separate certificates and consume four ACME orders.
 #
 # Upstream topology (loopback-only, host network):
 #   Omni API     h2c://127.0.0.1:8443   cleartext HTTP/2, gRPC-capable
@@ -13,7 +22,8 @@
 #   Pocket ID    http://127.0.0.1:1411  bridge service on host loopback
 #   Kuma         http://127.0.0.1:3001  bridge service on host loopback
 #
-# Unmatched hosts receive Traefik's default 404 (no catch-all router).
+# Unmatched hosts receive Traefik's default 404: there is no catch-all router.
+
 http:
   routers:
     omni:
@@ -23,6 +33,11 @@ http:
       service: omni-svc
       tls:
         certResolver: mgmt
+        domains:
+          - main: '{{ env "MGMT_DOMAIN" }}'
+            sans:
+              - '*.{{ env "MGMT_DOMAIN" }}'
+
     omni-k8s:
       rule: Host(`{{ env "OMNI_K8S_HOSTNAME" }}`)
       entryPoints:
@@ -30,6 +45,11 @@ http:
       service: k8sproxy-svc
       tls:
         certResolver: mgmt
+        domains:
+          - main: '{{ env "MGMT_DOMAIN" }}'
+            sans:
+              - '*.{{ env "MGMT_DOMAIN" }}'
+
     pocket-id:
       rule: Host(`{{ env "POCKET_ID_HOSTNAME" }}`)
       entryPoints:
@@ -37,6 +57,11 @@ http:
       service: pocketid-svc
       tls:
         certResolver: mgmt
+        domains:
+          - main: '{{ env "MGMT_DOMAIN" }}'
+            sans:
+              - '*.{{ env "MGMT_DOMAIN" }}'
+
     monitor:
       rule: Host(`{{ env "MONITOR_HOSTNAME" }}`)
       entryPoints:
@@ -44,27 +69,37 @@ http:
       service: kuma-svc
       tls:
         certResolver: mgmt
+        domains:
+          - main: '{{ env "MGMT_DOMAIN" }}'
+            sans:
+              - '*.{{ env "MGMT_DOMAIN" }}'
 
   services:
     omni-svc:
       loadBalancer:
         servers:
           - url: h2c://127.0.0.1:8443
+
     k8sproxy-svc:
       loadBalancer:
         servers:
           - url: https://127.0.0.1:8095
         serversTransport: k8sproxy
+
     pocketid-svc:
       loadBalancer:
         servers:
           - url: http://127.0.0.1:1411
+
     kuma-svc:
       loadBalancer:
         servers:
           - url: http://127.0.0.1:3001
 
-  # Upstream trust for the Omni k8s-proxy hop: internal CA, SNI pinned.
+  # Upstream trust for the Omni k8s-proxy hop: the internal CA, with SNI
+  # pinned to the hostname Omni's listener certificate carries. This is the
+  # only remaining private CA: it is machine-facing (talosctl/kubectl), never
+  # presented to a browser, so it needs no client trust store changes.
   serversTransports:
     k8sproxy:
       serverName: {{ env "OMNI_K8S_HOSTNAME" }}
