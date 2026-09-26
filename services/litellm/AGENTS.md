@@ -76,11 +76,12 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 ## Local reasoning-model thinking policy
 
 `custom_callbacks.py` translates public thinking controls before LiteLLM
-forwards Chat Completions requests. It handles Qwen3.8 FP8 and both Swift 1.5
-routes with nested three-tier effort.
-Swift 1.5 uses the pinned Froggeric template, so requests without thinking
-controls receive an explicit xhigh default; Qwen3.8 FP8 leaves its template
-default intact.
+forwards Chat Completions requests. It handles Qwen3.8 FP8, both Flash Next
+NVFP4 routes, and both Swift 1.5 27B routes with nested three-tier effort.
+Both Flash Next backends mount the repo's Froggeric template from the
+llama-swap git-sync volume. Swift 1.5 requests without thinking controls
+receive an explicit xhigh default; base Qwen3.8 routes leave the Froggeric
+medium default intact.
 
 `LocalReasoningRequestAdapter` dispatches to `ChatTemplateThinkingPolicy`.
 Recognized models are listed in `LocalReasoningModel`; client controls are
@@ -95,13 +96,13 @@ discovery therefore directs OMP to Chat Completions, where its thinking controls
 reach this callback. The CPU embedding deployment uses the same provider for
 OpenAI-compatible `/v1/embeddings`; callback payload detection leaves it unchanged.
 
-- Qwen3.8 FP8 and Swift 1.5 map `minimal`/`low` to nested effort `low`,
-  `medium` to `medium`, and `high`/`xhigh`/`max` to `xhigh`.
+- The local Qwen3.8 and Swift 1.5 routes map `minimal`/`low` to nested effort
+  `low`, `medium` to `medium`, and `high`/`xhigh`/`max` to `xhigh`.
 - zero `thinking_token_budget` -> `enable_thinking=false`
 - positive `thinking_token_budget` -> `enable_thinking=true`
 - explicit `enable_thinking` wins over effort
-- Chat Completions without explicit controls leave the Qwen3.8 FP8 template
-  default intact; Swift 1.5 receives xhigh.
+- Chat Completions without explicit controls leave base Qwen3.8 template
+  defaults intact; Swift 1.5 receives xhigh.
 - when the resolved state is thinking-off, any top-level `reasoning_effort` is
   stripped so the backend cannot re-arm it
 
