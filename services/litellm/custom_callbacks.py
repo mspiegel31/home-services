@@ -40,6 +40,8 @@ class LocalReasoningModel(str, Enum):
     """Model IDs requiring local chat-template thinking controls."""
 
     QWEN38_FP8 = "qwen3.8-27b-fp8"
+    QWEN38_FLASH_NEXT_NVFP4 = "qwen3.8-flash-next-nvfp4"
+    QWEN38_SWIFT_1_5_FLASH_NEXT_NVFP4 = "swift-1.5-qwen3.8-flash-next-nvfp4"
     QWEN38_SWIFT_1_5_NVFP4 = "swift-1.5-qwen3.8-27b-nvfp4"
     QWEN38_SWIFT_1_5_BF16 = "swift-1.5-qwen3.8-27b-bf16"
 
@@ -269,6 +271,7 @@ class LocalReasoningRequestAdapter(CustomLogger):
         uses_froggeric_xhigh_default = model in (
             LocalReasoningModel.QWEN38_SWIFT_1_5_NVFP4,
             LocalReasoningModel.QWEN38_SWIFT_1_5_BF16,
+            LocalReasoningModel.QWEN38_SWIFT_1_5_FLASH_NEXT_NVFP4,
         )
         if not uses_froggeric_xhigh_default:
             return transformed
