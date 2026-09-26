@@ -1,6 +1,6 @@
 ---
 name: omni-management-stack
-description: Bring up, update, and operate the outside-cluster management Compose stack (Omni, Omni-only Pocket ID, stock-Traefik management reverse proxy, Uptime Kuma, opt-in Proxmox infra provider) deployed as a Portainer repository stack on the management VM (192.168.1.51). IP-only, self-signed design: four dedicated Traefik entrypoint ports, one IP-SAN cert, no DNS. Use when the user asks to deploy, stage, debug, redeploy, or back up the management stack, set its Portainer variables, enable the Proxmox provider, or change the Traefik route config. Don't use for Proxmox cluster formation from standalone hosts (see omni-proxmox-cluster), household Pocket ID, or in-cluster Kubernetes work.
+description: Bring up, update, and operate the outside-cluster management Compose stack (Omni, Omni-only Pocket ID, stock-Traefik management reverse proxy, Uptime Kuma, opt-in Proxmox infra provider) deployed as a Portainer repository stack on the management VM (192.168.1.51). Self-signed design: four dedicated Traefik entrypoint ports, one cert carrying both the `omni-mgmt.home.arpa` DNS name and the IP SAN, one required local A record. Use when the user asks to deploy, stage, debug, redeploy, or back up the management stack, set its Portainer variables, enable the Proxmox provider, or change the Traefik route config. Don't use for Proxmox cluster formation from standalone hosts (see omni-proxmox-cluster), household Pocket ID, or in-cluster Kubernetes work.
 ---
 
 # Management Stack
@@ -21,8 +21,13 @@ lives in `home-prod/docs/management-stack.md`.
 - A plain `docker compose up -d` **never** starts the Proxmox provider.
   Only `docker compose --profile provider up -d omni-infra-provider-proxmox`
   does. Initial bring-up must not mutate Proxmox.
-- Endpoints are LAN/VPN-only, reached by **IP on dedicated ports** — no DNS
-  names, no DNS-01. Management-host downtime is accepted and must not stop
+- Endpoints are LAN/VPN-only on dedicated ports. **Browser-facing** ones use
+  the local name `omni-mgmt.home.arpa`; **machine-facing** ones (machine API
+  gRPC `:8090`, SideroLink `:50180`) stay on the IP. One local A record is
+  required, and not for convenience: WebAuthn requires the RP ID to be a
+  domain name, so passkey enrolment is impossible at a bare-IP origin
+  (`SecurityError: This is an invalid domain`). No DNS-01. Management-host
+  downtime is accepted and must not stop
   household identity or existing Kubernetes workloads.
 - Secrets never enter this repository. Only the compose file is tracked;
   every cert, key, and `omni-config.yaml` is operator-protected on the
@@ -46,7 +51,9 @@ the final design:
 | `8090/tcp` | Omni machine API (direct, not proxied) | Talos nodes → `0.0.0.0:8090` |
 | `50180/udp` | SideroLink WireGuard (direct) | — |
 
-- One **IP-SAN self-signed cert** (mgmt CA) serves all four entrypoints
+- One **self-signed cert** (mgmt CA) with
+  `subjectAltName = DNS:omni-mgmt.home.arpa,IP:192.168.1.51` serves all four
+  entrypoints
   via the Traefik v3 **default store** (`tls.stores.default.defaultCertificate`
   in the dynamic file — the no-SNI/IP fallback).
 - The mgmt CA must be generated with `basicConstraints=critical,CA:TRUE` and
@@ -110,7 +117,8 @@ plan-mandated machine API and SideroLink.
    `1000:1000`),
    `/opt/omni-mgmt/omni-k8s-ca/` (internal CA + k8s-proxy cert with
    `IP:192.168.1.51` SAN), `/opt/omni-mgmt/mgmt-tls/` (mgmt cert with
-   `IP:192.168.1.51` SAN), `/opt/omni-mgmt/mgmt-ca/combined-ca-bundle.pem`
+   `DNS:omni-mgmt.home.arpa` + `IP:192.168.1.51` SANs, plus `mgmt-ca.key`),
+   `/opt/omni-mgmt/mgmt-ca/combined-ca-bundle.pem`
    (distro roots + mgmt CA, for Omni's `SSL_CERT_FILE`),
    `/opt/omni-mgmt/traefik/dynamic.yaml` (static routes).
    **Prerequisite:** `/dev/net/tun` must exist on the VM. Omni v1.12.2
@@ -130,8 +138,10 @@ plan-mandated machine API and SideroLink.
    ```sh
    docker compose up -d omni
    ```
-3. Verify HTTPS on all four entrypoint ports (self-signed IP-SAN cert) and
-   the Omni login flow.
+3. Verify HTTPS on all four entrypoint ports (self-signed cert; SNI
+   `omni-mgmt.home.arpa` and the IP must both validate) and the Omni login
+   flow. Passkey enrolment requires the hostname origin and a browser that
+   trusts the mgmt CA as a root.
 
 ## Provider enablement gate
 
@@ -154,7 +164,7 @@ retain the public roots plus the PVE CA. Self-signed Proxmox —
 | Variable | Used by | Notes |
 |---|---|---|
 | `MGMT_LAN_IP` | traefik, omni | management VM LAN/VPN address the entrypoints bind to (192.168.1.51) |
-| `POCKET_ID_APP_URL` | pocket-id | issuer URL, `https://192.168.1.51:9411` |
+| `POCKET_ID_APP_URL` | pocket-id | issuer URL, `https://omni-mgmt.home.arpa:9411` — must be a domain, not the IP, or passkey enrolment is impossible |
 | `TZ` | all | time zone (default UTC) |
 | `OMNI_STATE_DIR` | omni | host path for durable state (default `/opt/omni-mgmt/omni`) |
 | `OMNI_CONFIG_DIR` | omni | host path for reviewed config (default `/opt/omni-mgmt/omni-config`) |
@@ -217,15 +227,15 @@ never backfilled from the `:id` path segment
 ```sh
 U=<pocket-id-user-uuid>
 curl -sk -c /tmp/s.txt -o /dev/null -X POST \
-  https://192.168.1.51:9411/api/one-time-access-token/setup \
+  https://omni-mgmt.home.arpa:9411/api/one-time-access-token/setup \
   -H 'Content-Type: application/json' -d '{}'
 EXPIRES=$(date -u -d "+30 minutes" +%Y-%m-%dT%H:%M:%SZ)
 TOK=$(curl -sk -b /tmp/s.txt -X POST \
-  "https://192.168.1.51:9411/api/users/$U/one-time-access-token" \
+  "https://omni-mgmt.home.arpa:9411/api/users/$U/one-time-access-token" \
   -H 'Content-Type: application/json' \
   -d "{\"userId\": \"$U\", \"expiresAt\": \"$EXPIRES\"}" |
   python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
-echo "https://192.168.1.51:9411/lc/$TOK"
+echo "https://omni-mgmt.home.arpa:9411/lc/$TOK"
 ```
 
 Omitting `userId` still returns `201` with a token, and the exchange still
@@ -263,7 +273,10 @@ state), encrypted before off-site upload, are specified in
 `home-prod/docs/management-stack.md`. A live embedded etcd directory copy
 is not a consistent backup. Break-glass material (account UUID, etcd GPG
 key, datastore recovery) is stored independently of the managed cluster.
-The mgmt CA + `mgmt.key` and the internal CA + k8s-proxy key are part of
-the backup set: losing a CA means regenerating the cert pair and updating
-every consumer (Traefik tlsStore, k8sproxy serversTransport, Omni trust
-bundle).
+The mgmt CA + `mgmt-ca.key` + `mgmt.key` and the internal CA + k8s-proxy
+key are part of the backup set: losing a CA means regenerating the cert
+pair, re-importing the new root in every browser, and updating every
+consumer (Traefik tlsStore, k8sproxy serversTransport, Omni trust bundle).
+This stack lost its `mgmt-ca.key` once; the recovery cost was a new CA and
+a fresh trust import on every client. Never leave it only in a temp
+directory.
