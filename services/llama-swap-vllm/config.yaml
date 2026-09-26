@@ -123,13 +123,21 @@ models:
     # The fastokens vLLM 0.30.0 image recognizes it but lacks the disk PLE
     # table backend needed for this 174 GiB checkpoint on 64 GiB host RAM;
     # retain LIL's qwen38-flash-next profile and isolate its JIT cache.
-    # MTP3 was disabled at 12 GiB offload: the draft layer (~0.5-1 GiB) plus
-    # its KV left only 2.45 GiB for KV (174K tokens, 1.33x at 131K). At
-    # 16 GiB expert offload the KV pool grows to ~6 GiB; measured cost is
-    # ~15.1 KiB/token (fp8, 12 full-attention layers of 48), so 262,144
-    # tokens (~3.9 GiB) plus the draft layer fits with headroom. Host RAM
-    # (49 GiB) is the binding constraint: 16 GiB offload + 24 GiB native
-    # tier runs close to the VM ceiling; if the box swaps, drop the tier.
+    # Measured residency (2026-09-26): GPU-eligible tensors total 78.19 GiB
+    # (56.25 NVFP4 + 7.03 FP8 + 6.85 BF16 body, 4.86 MTP draft, 1.18
+    # embed_tokens, 1.18 lm_head, 0.84 vision) against 71.16 GiB usable VRAM,
+    # and the 95.37 GiB PLE table stays on disk. Full residency is therefore
+    # impossible, and the load-time floor is 20 GiB of expert offload: the
+    # draft MoE layout conversion allocates a transient 3.12 GiB copy, and 19
+    # GiB OOMs after KV allocation (also with CUDA graph profiling enabled).
+    # 20 GiB yields a 4.56 GiB KV pool = 294,690 tokens (1.12x at 262,144);
+    # the pool is graph-unaccounted because the profile pins
+    # VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=0, so raising
+    # --gpu-memory-utilization past 0.96 or the batched-token chunk to 8192
+    # shrinks it (1.76 GiB measured) and fails startup.
+    # Host RAM (51 GiB) is the other binding constraint: the 20 GiB pinned
+    # offload plus a 24 GiB native tier exhausted the VM (1.6 GiB available,
+    # 7.0 GiB swap); an 8 GiB tier leaves ~9.7 GiB available.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
@@ -141,7 +149,7 @@ models:
       --env MAX_MODEL_LEN=262144 --env MAX_NUM_SEQS=4
       --env MAX_NUM_BATCHED_TOKENS=4096 --env GPU_MEMORY_UTILIZATION=0.96
       --env VLLM_PLE_TABLE_MEMORY=disk
-      --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=24
+      --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=8
       --env MAX_JOBS=4
       --env VLLM_ENABLE_STARTUP_PLAN=1
       --volume /mnt/models:/models
@@ -153,7 +161,7 @@ models:
       --model ${checkpoint} --served-model-name ${MODEL_ID}
       --load-format safetensors
       --mode mtp --draft-tokens 3
-      --cpu-offload-gb 16 --cpu-offload-params experts
+      --cpu-offload-gb 20 --cpu-offload-params experts
       --max-cudagraph-capture-size 16
       --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
     cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-flash-next
