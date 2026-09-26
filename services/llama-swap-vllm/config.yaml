@@ -128,8 +128,8 @@ models:
     # 16 GiB expert offload the KV pool grows to ~6 GiB; measured cost is
     # ~15.1 KiB/token (fp8, 12 full-attention layers of 48), so 262,144
     # tokens (~3.9 GiB) plus the draft layer fits with headroom. Host RAM
-    # (49 GiB) is the binding constraint: 16 GiB offload + 8 GiB native
-    # tier runs with ~13 GiB spare; if the box swaps, drop to 14.
+    # (49 GiB) is the binding constraint: 16 GiB offload + 24 GiB native
+    # tier runs close to the VM ceiling; if the box swaps, drop the tier.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
@@ -141,7 +141,7 @@ models:
       --env MAX_MODEL_LEN=262144 --env MAX_NUM_SEQS=4
       --env MAX_NUM_BATCHED_TOKENS=4096 --env GPU_MEMORY_UTILIZATION=0.96
       --env VLLM_PLE_TABLE_MEMORY=disk
-      --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=8
+      --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=24
       --env MAX_JOBS=4
       --env VLLM_ENABLE_STARTUP_PLAN=1
       --volume /mnt/models:/models
@@ -149,7 +149,6 @@ models:
       --volume llama-swap_llama-swap-config:/config:ro
       --label io.mspiegel.llama-swap.managed=true
       --label io.mspiegel.llama-swap.model=${MODEL_ID}
-      ${VLLM_IMAGE}
       --model ${checkpoint} --served-model-name ${MODEL_ID}
       --load-format safetensors
       --mode mtp --draft-tokens 3
