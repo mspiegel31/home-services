@@ -393,7 +393,7 @@ models:
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
-      --kv-cache-dtype fp8_e4m3
+      --kv-cache-dtype bfloat16
       --mamba-cache-mode align
       --kv-offloading-size 8
       --kv-offloading-backend native
