@@ -77,15 +77,15 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 
 `custom_callbacks.py` translates public thinking controls before LiteLLM
 forwards Chat Completions requests. It handles Qwen3.8 FP8 and both Swift 1.5
-routes (nested three-tier effort), plus Laguna XS 2.1 (binary thinking).
+routes with nested three-tier effort.
 Swift 1.5 uses the pinned Froggeric template, so requests without thinking
 controls receive an explicit xhigh default; Qwen3.8 FP8 leaves its template
 default intact.
 
 `LocalReasoningRequestAdapter` dispatches to `ChatTemplateThinkingPolicy`.
-Recognized models are listed in `LocalReasoningModel` and `_CAPABILITIES`;
-client controls are parsed into `ThinkingControls` before mutation. The only
-runtime LiteLLM import is `CustomLogger`. Keep type-only hook annotations
+Recognized models are listed in `LocalReasoningModel`; client controls are
+parsed into `ThinkingControls` before mutation. The only runtime LiteLLM
+import is `CustomLogger`. Keep type-only hook annotations
 quoted: LiteLLM loads callback files without registering the module in
 `sys.modules`, which breaks dataclass annotation resolution under postponed
 annotations.
@@ -95,9 +95,6 @@ discovery therefore directs OMP to Chat Completions, where its thinking controls
 reach this callback. The CPU embedding deployment uses the same provider for
 OpenAI-compatible `/v1/embeddings`; callback payload detection leaves it unchanged.
 
-- Laguna uses binary thinking: only `chat_template_kwargs.enable_thinking`.
-  Explicit toggles win; otherwise zero budgets or `none`/`off` disable
-  thinking, and positive budgets or effort enable it.
 - Qwen3.8 FP8 and Swift 1.5 map `minimal`/`low` to nested effort `low`,
   `medium` to `medium`, and `high`/`xhigh`/`max` to `xhigh`.
 - zero `thinking_token_budget` -> `enable_thinking=false`
