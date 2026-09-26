@@ -75,73 +75,36 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 
 ## Local reasoning-model thinking policy
 
-`custom_callbacks.py` translates public thinking controls for local models
-whose chat templates need them before LiteLLM forwards Chat Completions
-requests. The policy covers Gemma 4 31B (binary thinking), Qwen3.8
-(`qwen3.8-27b-fp8`, `-nvfp4`, `-nvfp4-bf16-lmhead`,
-`-nvfp4-bf16-lmhead-sglang`, `-quasar-nvfp4`, `-ninfer`), Swift
-(`swift-qwen3.8-27b-nvfp4`, a reasoning-efficient Qwen3.8 derivative whose
-template speaks the same three-tier nested-effort contract), Laguna XS 2.1,
-and both Ornith NVFP4 routes (9B and 35B-A3B). NInfer
-has a separate wire-compatibility branch because
-it accepts top-level Chat Completions effort but not nested effort, and it
-intentionally omits Responses API summaries and encrypted reasoning output.
+`custom_callbacks.py` translates public thinking controls before LiteLLM
+forwards Chat Completions requests. It handles Qwen3.8 FP8 and both Swift 1.5
+routes (nested three-tier effort), plus Laguna XS 2.1 (binary thinking).
+Swift 1.5 uses the pinned Froggeric template, so requests without thinking
+controls receive an explicit xhigh default; Qwen3.8 FP8 leaves its template
+default intact.
 
-Flash Next (`qwen3.8-flash-next-nvfp4`) uses the same three-tier nested-effort
-policy. Its bundled template already defaults to xhigh; keep it outside the
-Froggeric default-injection and Unsloth sampling branches.
-
-The Unsloth NVFP4 lane uses the pinned Froggeric v22.5 template bundled in the
-`vllm-fastokens` image. Froggeric defaults to medium effort, so the callback
-explicitly supplies Unsloth's xhigh default when a client omits thinking
-controls. `generation_config.json` supplies the thinking sampling profile. When
-a request disables thinking, the callback fills Unsloth's differing defaults
-(`temperature=0.7`, `top_p=0.8`, `presence_penalty=1.5`) only when the client
-omitted them. Both profiles retain `top_k=20`, `min_p=0`, and
-`repetition_penalty=1`; explicit client values win.
-
-Module structure: `LocalReasoningRequestAdapter` (the registered
-`CustomLogger` pre-call hook) dispatches to `NInferResponsesPolicy` (Responses
-request sanitizing) and `ChatTemplateThinkingPolicy` (chat-template control
-translation). Recognized models are the `LocalReasoningModel` enum with
-per-model `ModelCapabilities`; client controls are parsed into a
-`ThinkingControls` dataclass before any mutation. The hook boundary uses
-LiteLLM's own types (`UserAPIKeyAuth`, `DualCache`, `CallTypesLiteral`) under
-`TYPE_CHECKING`; the only runtime LiteLLM import is `CustomLogger`, so the
-stdlib test stub still works. Do not enable postponed annotations in this
-module: LiteLLM executes callback files without adding their module object to
-`sys.modules`, while Python dataclasses resolve postponed annotations through
-that registry. Keep the three type-only hook annotations quoted instead.
+`LocalReasoningRequestAdapter` dispatches to `ChatTemplateThinkingPolicy`.
+Recognized models are listed in `LocalReasoningModel` and `_CAPABILITIES`;
+client controls are parsed into `ThinkingControls` before mutation. The only
+runtime LiteLLM import is `CustomLogger`. Keep type-only hook annotations
+quoted: LiteLLM loads callback files without registering the module in
+`sys.modules`, which breaks dataclass annotation resolution under postponed
+annotations.
 
 All local chat deployments declare `custom_llm_provider: hosted_vllm`. LiteLLM
 discovery therefore directs OMP to Chat Completions, where its thinking controls
 reach this callback. The CPU embedding deployment uses the same provider for
 OpenAI-compatible `/v1/embeddings`; callback payload detection leaves it unchanged.
-For Flash Next, the personal OMP profile selects `thinkingFormat:
-qwen-chat-template` and `qwenTemplateReasoningEffort: true` to encode off and
-effort selections explicitly. It also sets `replayReasoningContent: true`
-and `qwenPreserveThinking: true`: OMP 18.3.0 otherwise omitted reasoning
-history in the tool-round-trip probe, changing the rendered conversation.
 
-- Gemma 4, Laguna XS 2.1, and Ornith use binary thinking. Their templates
-  receive only `chat_template_kwargs.enable_thinking`; neither discovery
-  metadata nor backend requests should contain an effort ladder.
-- For binary models, explicit toggles win over budgets and effort. Otherwise,
-  zero budgets or `none`/`off` disable thinking; positive budgets or effort
-  enable it. Unsupported effort fields are removed at both request levels.
-- `reasoning_effort` `none`/`off` -> `chat_template_kwargs.enable_thinking=false`
-- vLLM/SGLang Qwen3.8 `minimal`/`low` -> `enable_thinking=true`, nested `reasoning_effort=low`
-- vLLM/SGLang Qwen3.8 `medium` -> `enable_thinking=true`, nested `reasoning_effort=medium`
-- vLLM/SGLang Qwen3.8 `high`/`xhigh`/`max` -> nested `reasoning_effort=xhigh`
-- NInfer Chat Completions keeps `reasoning_effort` top-level and adds only
-  `chat_template_kwargs.enable_thinking`
-- NInfer Responses requests drop `reasoning.summary` and
-  `include: ["reasoning.encrypted_content"]`; NInfer returns raw reasoning text
-  but cannot produce either requested representation
+- Laguna uses binary thinking: only `chat_template_kwargs.enable_thinking`.
+  Explicit toggles win; otherwise zero budgets or `none`/`off` disable
+  thinking, and positive budgets or effort enable it.
+- Qwen3.8 FP8 and Swift 1.5 map `minimal`/`low` to nested effort `low`,
+  `medium` to `medium`, and `high`/`xhigh`/`max` to `xhigh`.
 - zero `thinking_token_budget` -> `enable_thinking=false`
 - positive `thinking_token_budget` -> `enable_thinking=true`
 - explicit `enable_thinking` wins over effort
-- Chat Completions requests with no explicit controls leave the template default
+- Chat Completions without explicit controls leave the Qwen3.8 FP8 template
+  default intact; Swift 1.5 receives xhigh.
 - when the resolved state is thinking-off, any top-level `reasoning_effort` is
   stripped so the backend cannot re-arm it
 
