@@ -1,6 +1,6 @@
 ---
 name: omni-management-stack
-description: Bring up, update, and operate the outside-cluster management Compose stack (Omni, Omni-only Pocket ID, stock-Traefik reverse proxy, Uptime Kuma, opt-in Proxmox infra provider, git-sync config sidecar) deployed as a Portainer repository stack on the management VM. Use when the user asks to deploy, stage, debug, redeploy, or back up the management stack, set its Portainer variables, enable the Proxmox provider, or change the Traefik route config. Don't use for Proxmox cluster formation from standalone hosts (see omni-proxmox-cluster), household Pocket ID, or in-cluster Kubernetes work.
+description: Bring up, update, and operate the outside-cluster management Compose stack (Omni, Omni-only Pocket ID, stock-Traefik reverse proxy, Uptime Kuma, opt-in Proxmox infra provider, git-sync config sidecar) deployed as a Portainer CE edge stack on the TrueNAS SCALE host. Browser-facing endpoints use public hostnames under one management subzone with Let's Encrypt DNS-01 via Cloudflare. Use when the user asks to deploy, stage, debug, redeploy, or back up the management stack, set its Portainer variables, enable the Proxmox provider, or change the Traefik route config. Don't use for Proxmox cluster formation from standalone hosts (see omni-proxmox-cluster), household Pocket ID, or in-cluster Kubernetes work.
 ---
 
 # Management Stack
@@ -8,61 +8,91 @@ description: Bring up, update, and operate the outside-cluster management Compos
 Deploy and operate the outside-cluster management Compose stack (home-prod
 plan §5) from `services/omni/docker-compose.yml` in this repository:
 self-hosted Omni, the Omni-only Pocket ID instance, the official Proxmox
-infrastructure provider, a stock-Traefik management reverse proxy, and the
-outside-cluster availability monitor. It runs on a dedicated general-purpose
-VM on the management host and is the first service group of the migration.
+infrastructure provider, a stock-Traefik management reverse proxy, the
+outside-cluster availability monitor, and a git-sync config sidecar.
 
-Bootstrap inputs (DNS helper, DNS record allowlist, Omni config example)
-live in `home-prod/bootstrap/management/`; the full deployment/operations
-procedure lives in `home-prod/docs/management-stack.md`.
+It runs on the **TrueNAS SCALE host** (`192.168.1.39`, bare-metal Docker)
+alongside the household application stacks, as a **Portainer CE edge stack**
+on the `truenas` environment. Bootstrap inputs (DNS record allowlist, Omni
+config example) live in `home-prod/bootstrap/management/`; the full
+deployment/operations procedure lives in `home-prod/docs/management-stack.md`.
 
 **Hard rules:**
-- A plain `docker compose up -d` **never** starts the Proxmox provider.
-  Only `docker compose --profile provider up -d omni-infra-provider-proxmox`
-  does. Initial bring-up must not mutate Proxmox.
+- A plain deployment **never** starts the Proxmox provider. Only the
+  `provider` profile does. Initial bring-up must not mutate Proxmox.
 - Endpoints are LAN/VPN-only. Management-host downtime is accepted and must
   not stop household identity or existing Kubernetes workloads.
 - Secrets never enter this repository. Only the non-secret proxy config
   (`traefik/dynamic.yaml`) is tracked; everything else is operator-protected
-  on the management host.
+  on the host.
+
+## Why public hostnames instead of an IP + private CA
+
+This is not cosmetic, and reverting to an IP-only design breaks passkeys:
+
+- **WebAuthn requires a domain-shaped RP ID.** At an `https://<ip>` origin
+  the browser rejects credential creation outright with
+  `SecurityError: This is an invalid domain`, before contacting any
+  authenticator. `GET /api/webauthn/register/start` still returns `200` in
+  that case and `/register/finish` is never posted — it reads like a server
+  fault but is the client refusing the RP ID.
+- **A private CA forces per-client trust imports**, and Firefox blocks
+  WebAuthn entirely on origins reached through a certificate *exception*
+  (Mozilla bug 1977284). Trusting the CA as a root is mandatory; an
+  exception is not a substitute.
+- **DNS-01 needs no inbound reachability**, so the names resolve to a
+  private LAN address and nothing is exposed to the internet.
+- The management subzone is **separate from the application namespace** so
+  it cannot collide with the public proxy records already published for the
+  application zone.
+
+Passkeys are bound to the RP ID, so **changing the issuer hostname
+invalidates existing passkeys** — re-enrolment is required, and
+`POST /api/one-time-access-token/setup` only works while the initial admin
+has no WebAuthn credential.
 
 ## Stack
 
 | Service | Image | Role |
 |---|---|---|
 | `omni` | `ghcr.io/siderolabs/omni:v1.12.2` | Node lifecycle + cluster management; embedded etcd, OIDC to Pocket ID, break-glass enabled |
-| `pocket-id` | `ghcr.io/pocket-id/pocket-id:2.16.0` | Omni-only identity; separate issuer/DB/keys/clients from the household instance |
-| `traefik` | `traefik:v3.7.6` (pinned digest) | Management HTTPS; public DNS-01 via the Cloudflare provider bundled in the stock image (scoped token) |
+| `pocket-id` | `ghcr.io/pocket-id/pocket-id:v2.16.0` | Omni-only identity; separate issuer/DB/key/clients from any household instance |
+| `traefik` | `traefik:v3.7.6` (pinned digest) | Management HTTPS; wildcard certificate via public DNS-01 using the Cloudflare provider bundled in the stock image |
 | `uptime-kuma` | `ghcr.io/louislam/uptime-kuma:2.5.5` | Outside-cluster availability monitor, SMTP notifications via UI config |
 | `omni-infra-provider-proxmox` | `ghcr.io/siderolabs/omni-infra-provider-proxmox:v0.3.0` | Proxmox VM provisioning; **opt-in profile, disabled by default** |
-| `git-sync` | `registry.k8s.io/git-sync/git-sync:v4.4.2` (pinned digest) | Places the non-secret proxy config (`traefik/dynamic.yaml`) on the server for the Portainer stack; anonymous HTTPS (public repo) |
+| `git-sync` | `registry.k8s.io/git-sync/git-sync:v4.4.2` (pinned digest) | Delivers the non-secret proxy config (`traefik/dynamic.yaml`) into a shared volume; anonymous HTTPS (public repo) |
 
 ## Topology
 
 Loopback-minimal; no private API is bound to `0.0.0.0` except the
 plan-mandated machine API. External LAN/VPN exposure is exactly
-`443/tcp` (Traefik TLS), `8090/tcp` (Omni machine API) and
+`9443/tcp` (Traefik TLS), `8090/tcp` (Omni machine API) and
 `50180/udp` (SideroLink WireGuard).
 
-- **Traefik** — host network; binds `${MGMT_LAN_IP}:443` (TLS, DNS-01).
-  The only listener. File provider only: no Docker socket, no labels
-  provider, no dashboard. All static config is passed as CLI flags; the
-  only file is the dynamic route config `traefik/dynamic.yaml`, a native
-  Go template the file provider renders from `{{ env "..." }}` at load
-  time (no entrypoint script). It is placed on the server by the
-  `git-sync` sidecar.
+- **Traefik** — host network; binds `192.168.1.39:9443` (TLS, DNS-01).
+  This is the **only** listener: TrueNAS owns 80/443 for its own UI, and
+  Host-based routing means no per-service host ports exist. File provider
+  only: no Docker socket, no labels provider, no dashboard. All static
+  config is CLI flags; the dynamic route config is a native Go template
+  rendered from `{{ env "..." }}`, placed by the `git-sync` sidecar.
 - **Omni** — host network; listeners set in the reviewed
   `omni-config.yaml`: API `127.0.0.1:8443` (cleartext h2c), k8s-proxy
   `127.0.0.1:8095` (TLS, internal CA), machine API `0.0.0.0:8090`
   (LAN/VPN direct from Talos nodes).
 - **Pocket ID / Uptime Kuma** — bridge network, published to host loopback
-  only (`127.0.0.1:1411`, `127.0.0.1:3001`); Traefik reaches them via
-  `127.0.0.1`.
+  only (`127.0.0.1:1411`, `127.0.0.1:3001`); Traefik reaches them there.
 - **Provider** — host network (opt-in profile) so it reaches the loopback
-  Omni API; `OMNI_ENDPOINT` is the fixed loopback path for the same-VM
-  internal use. External clients still use HTTPS.
+  Omni API. External clients still use HTTPS.
 
-Routes (single `:443` listener, one hostname each):
+`/dev/net/tun` is **mandatory** and already present on this host. Omni
+v1.12.2 uses only userspace wireguard-go for SideroLink: its siderolink
+manager always passes a non-nil `Bind` and a non-empty
+`InputPacketFilters`, and siderolabs/siderolink forces userspace whenever
+either is set (`ForceUserspace = ForceUserspace || Bind != nil ||
+InputPacketFilters != nil`), so the native kernel-wg branch is unreachable.
+There is no configuration option to skip it.
+
+Routes (single `:9443` listener; one hostname each):
 
 | Hostname | Upstream |
 |---|---|
@@ -72,124 +102,165 @@ Routes (single `:443` listener, one hostname each):
 | `monitor.<MGMT_DOMAIN>` | `http://127.0.0.1:3001` |
 | anything else | Traefik default 404 (no catch-all router) |
 
+## Certificates
+
+One **wildcard** certificate per management subzone. All four routers carry
+the same `tls.domains` block, so Traefik performs exactly one DNS-01 order
+for `*.<MGMT_DOMAIN>` and reuses that certificate for every SNI name. A
+router with `certResolver` but no `domains` would instead issue a separate
+certificate per hostname and consume an ACME order each time.
+
+**Two traps in `traefik/dynamic.yaml`** — both silent until deploy:
+
+1. The template file must be valid YAML *including* the placeholder text,
+   so `main:` and the wildcard entry are single-quoted. Unquoted, `{{` is
+   parsed as a YAML flow mapping and `*` as an alias.
+2. Do **not** put quotes inside the templated value to achieve (1).
+   Traefik parses the YAML first and templates the resulting *value*, so
+   `'"*.{{ env "MGMT_DOMAIN" }}"'` yields a domain string with literal
+   quote characters, and ACME then tries to order a certificate for
+   `"*.…"`. Verify with the Traefik API (`/api/http/routers`) that `sans`
+   reads `*.mgmt.example.net`, not `"*.mgmt.example.net"`.
+
+## DNS
+
+Four A records (or one wildcard) pointing at the host address:
+
+```text
+omni.<MGMT_DOMAIN>      A  192.168.1.39
+omni-k8s.<MGMT_DOMAIN>  A  192.168.1.39
+pocket-id.<MGMT_DOMAIN> A  192.168.1.39
+monitor.<MGMT_DOMAIN>   A  192.168.1.39
+```
+
+Two resolution hazards:
+
+- **DNS rebinding protection.** Gateways (UniFi) and some resolvers refuse
+  public names that resolve to private addresses. Allow-list the management
+  subzone, or the names fail to resolve and it looks like a stack fault.
+- **The host itself must resolve them.** Omni reaches the Pocket ID issuer
+  by hostname, so the TrueNAS host's resolver must return the private
+  address too. If it does not, add a host override rather than weakening the
+  issuer URL.
+
 ## Bring-up order
 
-1. Create the host directories and one-time secrets on the VM (see
-   `home-prod/docs/management-stack.md` for the exact procedure):
-   `/opt/omni-mgmt/omni`, `/opt/omni-mgmt/omni-config` (config + `omni.asc`
-   + internal TLS), `/opt/omni-mgmt/pocket-id` (state),
-   `/opt/omni-mgmt/pocket-id-key` (`encryption.key`),
-   `/opt/omni-mgmt/omni-k8s-ca/ca.crt`, `/opt/omni-mgmt/provider`
-   (provider `config.yaml`), `/opt/omni-mgmt/pve-ca-bundle.pem`.
-2. Run the management DNS helper (home-prod
-   `bootstrap/management/dns.py`) from the workstation: preview, then apply
-   the local UniFi A records for the four management hostnames.
-3. Stage the dependencies **before** Omni, so Omni finds a running issuer
-   and proxy on first start (no restart loop):
+1. Create the host directory tree on TrueNAS under
+   `/mnt/tank/container-configs/omni-mgmt/` (repo convention for services on
+   this host, so ZFS snapshots and backups cover it):
+   `omni/` (state), `omni-config/` (reviewed config + `omni.asc` + internal
+   TLS), `pocket-id/`, `pocket-id-key/encryption.key`, `omni-k8s-ca/ca.crt`,
+   `provider/`, `pve-ca-bundle.pem`, `git/`, `acme/`, `kuma/`.
+   Then fix ownership for the identity service:
    ```sh
-   docker compose up -d pocket-id traefik uptime-kuma
+   chown -R 1000:1000 /mnt/tank/container-configs/omni-mgmt/pocket-id
    ```
-   Then create the operator user and the Omni OIDC client in Pocket ID
-   (`/setup`), complete `omni-config.yaml` (client ID/secret, account UUID,
-   etcd GPG key), and start Omni:
-   ```sh
-   docker compose up -d omni
-   ```
-4. Verify HTTPS on all four hostnames (DNS-01 certs are issued by Traefik)
-   and the Omni login flow.
+2. Create the scoped Cloudflare API token (Zone → DNS → Edit, limited to
+   the management zone only) and the four DNS records.
+3. Create the edge stack in Portainer (Edge Stacks → Add stack → Repository)
+   pointing at this repository, the compose path
+   `services/omni/docker-compose.yml`, and the branch or SHA you intend to
+   run; set every variable from the table below. `OMNI_CONFIG_REF` must
+   match the deployed ref.
+4. Let the first stage come up (git-sync → traefik → pocket-id → kuma), then
+   create the operator user and passkey at
+   `https://pocket-id.<MGMT_DOMAIN>:9443/setup`, register the Omni OIDC
+   client, complete `omni-config.yaml` (client ID/secret, account UUID, etcd
+   GPG key), and redeploy so `omni` starts.
+5. Verify: certificates issued (green padlock, no trust import), the four
+   hostnames resolve and route, and the Omni login flow completes.
 
 ## Provider enablement gate
 
-The Proxmox provider starts **only** with an explicit opt-in:
-
-```sh
-docker compose --profile provider up -d omni-infra-provider-proxmox
-```
-
-Before enabling, complete the Proxmox cluster prerequisites (the
-`omni-proxmox-cluster` skill) and create the least-privilege Proxmox
-token; PVE-version-dependent ACL verification is an operator gate, not an
-assumed least privilege. The provider connects with verified TLS: mount
-the Proxmox API CA as `pve-ca-bundle.pem` (`SSL_CERT_FILE`); the bundle
-must retain the public roots plus the PVE CA; do not use
-`insecureSkipVerify`.
+The Proxmox provider starts **only** with an explicit opt-in (enable the
+`provider` profile for the stack). Before enabling, complete the Proxmox
+cluster prerequisites (the `omni-proxmox-cluster` skill) and create the
+least-privilege Proxmox token; PVE-version-dependent ACL verification is an
+operator gate, not an assumed least privilege. The provider connects with
+verified TLS against `pve-ca-bundle.pem`, which must retain the public roots
+plus the PVE CA; do not use `insecureSkipVerify`.
 
 ## Portainer variables (UI, no env_file)
+
+Required values use the fail-fast `${VAR:?message}` form, so a missing value
+fails the deployment loudly instead of resolving to an empty string.
 
 | Variable | Used by | Notes |
 |---|---|---|
 | `TZ` | all | time zone |
-| `MGMT_LAN_IP` | traefik | management VM LAN/VPN address the `:443` listener binds to (default 127.0.0.1) |
+| `PUID`, `PGID` | pocket-id | container user for `/app/data`; use a dedicated app uid/gid on the host |
 | `ACME_EMAIL` | traefik | ACME account email for DNS-01 |
-| `CF_DNS_API_TOKEN` | traefik | scoped Cloudflare zone:edit DNS token for private DNS-01; lego official name; provisioned outside ESO |
-| `OMNI_CONFIG_REF` | git-sync | config ref to sync; default `main` post-merge, branch or immutable SHA pre-merge; must match the Portainer stack ref |
-| `OMNI_HOSTNAME` | traefik | e.g. `omni.<mgmt-domain>` |
-| `OMNI_K8S_HOSTNAME` | traefik | e.g. `omni-k8s.<mgmt-domain>` |
-| `POCKET_ID_APP_URL` | pocket-id | issuer URL, e.g. `https://pocket-id.<mgmt-domain>` |
-| `OMNI_STATE_DIR`, `OMNI_CONFIG_DIR` | omni | host paths for durable state and reviewed config |
-| `SMTP_HOST`/`SMTP_PORT`/`SMTP_FROM`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_TLS` | pocket-id | recovery/verification email; empty leaves defaults |
-| `POCKET_ID_STATE_DIR`, `POCKET_ID_KEY_DIR` | pocket-id | host paths for state and encryption key |
-| `OMNI_K8S_CA` | traefik | host path to the internal CA for the Traefik→Omni k8s-proxy hop |
-| `PROVIDER_KEY` | provider | infra provider key; injected via env, never argv |
-| `PROVIDER_CONFIG_DIR` | provider | host path to the provider `config.yaml` (Proxmox token) |
-| `PVE_CA_BUNDLE` | provider | host path to the Proxmox API CA bundle (public roots + PVE CA) |
+| `CF_DNS_API_TOKEN` | traefik | scoped Cloudflare token, **Zone:DNS:Edit for the management zone only** — never a Global API Key |
+| `MGMT_DOMAIN` | traefik | the management subzone, e.g. `mgmt.example.net`; the wildcard is derived from it |
+| `OMNI_HOSTNAME` | traefik | e.g. `omni.mgmt.example.net` |
+| `OMNI_K8S_HOSTNAME` | traefik | e.g. `omni-k8s.mgmt.example.net` |
+| `POCKET_ID_HOSTNAME` | traefik | e.g. `pocket-id.mgmt.example.net` |
+| `MONITOR_HOSTNAME` | traefik | e.g. `monitor.mgmt.example.net` |
+| `POCKET_ID_URL` | pocket-id | issuer URL, must match `POCKET_ID_HOSTNAME` and include the port, e.g. `https://pocket-id.mgmt.example.net:9443` |
+| `OMNI_CONFIG_REF` | git-sync | config ref to sync; must match the edge-stack ref |
+| `PROVIDER_KEY` | provider | infra provider key; injected via env, never argv (provider profile only) |
 
-The provider's `OMNI_ENDPOINT` is the fixed loopback `http://127.0.0.1:8443`
-(same-VM internal path); it is not a UI variable.
-
-Uptime Kuma monitors, SMTP notification and email alerts are configured in
-its UI (the pinned release does not read `SMTP_*` environment variables);
-the monitor set is documented in home-prod `docs/management-stack.md`.
+Host paths and the listener address are hardcoded in the compose, matching
+the other stacks on this host (`/mnt/tank/container-configs/omni-mgmt/...`,
+`192.168.1.39:9443`). The provider's `OMNI_ENDPOINT` is the fixed loopback
+`http://127.0.0.1:8443` and is not a UI variable.
 
 ## Config placement (git-sync sidecar)
 
-Portainer CE deploys a repository stack from the server-side image; it does
-not read this repository's relative `./traefik/dynamic.yaml` bind. The
-`git-sync` sidecar places the non-secret proxy config on the server so the
-stack is self-contained:
+Portainer CE drops compose `configs:` and does not resolve relative
+bind-mount paths, so the proxy config cannot ride in the stack definition.
+The `git-sync` sidecar places the non-secret config into a shared volume:
 
-- Image: `registry.k8s.io/git-sync/git-sync:v4.4.2` (pinned digest), the
-  same named-volume pattern as the litellm stack. The repository is
-  public, so it pulls over anonymous HTTPS — no token.
-- Named volume `omni-config:/git` (Docker-managed, not a host bind);
-  `user: "0:0"` because the volume is Docker-owned. Sparse checkout of
-  `services/omni/`; `--root=/git`, `--link=current`, `--depth=1`,
-  `--period=30s`.
-- Traefik mounts `omni-config:/config:ro` and reads
+- Image `registry.k8s.io/git-sync/git-sync:v4.4.2` (pinned digest),
+  `user: "0:0"`, host bind `/mnt/tank/container-configs/omni-mgmt/git:/git`.
+  The repository is public, so it pulls over anonymous HTTPS — no token.
+- **No sparse-checkout file.** The upstream design passed one through
+  compose `configs:`, which Portainer drops; this variant takes a full
+  `--depth=1` checkout instead of adding an init container.
+- Traefik mounts the same volume read-only and reads
   `/config/current/services/omni/traefik/dynamic.yaml`.
-- The config ref must match the Portainer stack ref: default `main`
-  post-merge; use a branch or immutable SHA via `OMNI_CONFIG_REF`
-  pre-merge.
 - `--providers.file.watch=false` is deliberate: after a sync, restart or
-  redeploy the stack to pick up the new route config (no assumed
-  symlink-watch).
+  redeploy to pick up a route change.
+- The sidecar's healthcheck asserts the route file exists (the file provider
+  loads it once at startup, so a missing file means no routes at all) and
+  that its HTTP endpoint answers; Traefik depends on that health.
 
 **Separation of secrets from config:** the operator-protected host files —
-Omni `omni-config.yaml` + `omni.asc`, the provider `config.yaml`, and every
-secret (Pocket ID key, internal CA, PVE CA bundle, all `${VAR}` values) —
-stay on the management host and are never checked in. Only the non-secret
+Omni `omni-config.yaml` + `omni.asc`, the provider `config.yaml`, the Pocket
+ID encryption key, the internal CA, the PVE CA bundle, and all `${VAR}`
+values — stay on the host and are never checked in. Only the non-secret
 proxy config travels through git-sync.
 
 ## Pocket ID state and key ownership
 
-The Pocket ID image runs as UID/GID **1000** (official image default
-`PUID`/`PGID`). The state and key directories are created on the host with
-`umask 077` by root, which makes them unreadable to the container unless
-ownership is set explicitly. On first setup:
+v2.x renamed these from the v0.53.x names — do not copy environment from the
+older IP-only stack:
 
-```sh
-chown -R 1000:1000 /opt/omni-mgmt/pocket-id /opt/omni-mgmt/pocket-id-key
-```
+| v2.x | v0.53.x |
+|---|---|
+| `APP_URL` | `PUBLIC_APP_URL` |
+| `UI_CONFIG_DISABLED` | `PUBLIC_UI_CONFIG_DISABLED` |
 
-Restrict ownership to the image UID (`1000:1000`, or an explicitly verified
-image UID if the image changes). Do **not** use `chmod 777` or any general
-unprotected permission. The `encryption.key` file and the SQLite state
-remain readable only by the container user and root.
+Image contract verified against v2.16.0 source and image: entrypoint
+`/app/docker/entrypoint.sh`, binary `/app/pocket-id`, state `/app/data`
+(chowned to `PUID`/`PGID` by the entrypoint), port `1411/tcp`, and the image
+supplies its own healthcheck (no override needed). `ENCRYPTION_KEY_FILE`
+must contain **at least 16 bytes** (`openssl rand -base64 32`).
+
+State and key directories are created on the host owned by the container
+user; do **not** use `chmod 777`. The tag is `v2.16.0` **with the `v`** —
+`2.16.0` does not exist and fails as `manifest unknown`.
 
 ## Backups and recovery
 
-Native consistent exports (Omni etcd/datastore, Pocket ID database, monitor
-state), encrypted before off-site upload, are specified in
-`home-prod/docs/management-stack.md`. A live embedded etcd directory copy
-is not a consistent backup. Break-glass material (account UUID, etcd GPG
-key, datastore recovery) is stored independently of the managed cluster.
+All durable state lives under `/mnt/tank/container-configs/omni-mgmt/`, so
+it is covered by the existing ZFS snapshot and backup policy: Omni's
+embedded etcd + sqlite, the Pocket ID database **and its encryption key**,
+Kuma's state, and Traefik's `acme/` (account key + issued certificates —
+losing it means re-issuing on every restart and risking the ACME rate
+limits). A live embedded etcd directory copy is not a consistent backup.
+Break-glass material (account UUID, etcd GPG key, datastore recovery) is
+stored independently of the managed cluster.
+
+Restoring Pocket ID without its `encryption.key` leaves stored secrets
+unreadable; the two belong together in the backup set.
