@@ -16,9 +16,8 @@ When the resolved state is thinking-off, a stale top-level
 has nothing to act on.
 
 The Froggeric template defaults to medium thinking when none of those controls
-is present, so this module deliberately does not invent a default. Laguna XS
-2.1 receives ``enable_thinking`` but never an effort tier. Swift 1.5's pinned
-Froggeric template instead receives an explicit xhigh default.
+is present; Qwen3.8 FP8 keeps that default. Swift 1.5's pinned Froggeric
+template instead receives an explicit xhigh default.
 """
 
 
@@ -43,7 +42,6 @@ class LocalReasoningModel(str, Enum):
     QWEN38_FP8 = "qwen3.8-27b-fp8"
     QWEN38_SWIFT_1_5_NVFP4 = "swift-1.5-qwen3.8-27b-nvfp4"
     QWEN38_SWIFT_1_5_BF16 = "swift-1.5-qwen3.8-27b-bf16"
-    LAGUNA_XS_2_1 = "laguna-xs-2.1"
 
 
 class TemplateEffort(str, Enum):
@@ -54,34 +52,6 @@ class TemplateEffort(str, Enum):
     XHIGH = "xhigh"
 
 
-@dataclass(frozen=True)
-class ModelCapabilities:
-    """Which chat-template contract a deployment speaks.
-
-    Qwen3.8 and Swift 1.5 collapse the public effort vocabulary into three
-    tiers nested under ``chat_template_kwargs``. Laguna XS 2.1 accepts only
-    ``enable_thinking``.
-    """
-
-    three_tier_effort: bool
-    nested_effort: bool
-
-
-# Qwen3.8 and Swift 1.5 expose three effort tiers; Laguna is binary-only.
-_CAPABILITIES: Final[Mapping[LocalReasoningModel, ModelCapabilities]] = {
-    LocalReasoningModel.QWEN38_FP8: ModelCapabilities(
-        three_tier_effort=True, nested_effort=True
-    ),
-    LocalReasoningModel.QWEN38_SWIFT_1_5_NVFP4: ModelCapabilities(
-        three_tier_effort=True, nested_effort=True
-    ),
-    LocalReasoningModel.QWEN38_SWIFT_1_5_BF16: ModelCapabilities(
-        three_tier_effort=True, nested_effort=True
-    ),
-    LocalReasoningModel.LAGUNA_XS_2_1: ModelCapabilities(
-        three_tier_effort=False, nested_effort=False
-    ),
-}
 
 _KW_ENABLE_THINKING: Final[str] = "enable_thinking"
 _KW_REASONING_EFFORT: Final[str] = "reasoning_effort"
@@ -200,29 +170,15 @@ def _extract_controls(data: Mapping[str, Any]) -> ThinkingControls:
 
 
 class ChatTemplateThinkingPolicy:
-    """Translates public thinking controls into the model's template contract."""
+    """Translates public thinking controls into the Qwen3.8 template contract."""
 
-    def transform(
-        self, data: dict[str, Any], model: LocalReasoningModel
-    ) -> dict[str, Any] | None:
+    def transform(self, data: dict[str, Any]) -> dict[str, Any] | None:
         if not isinstance(data.get("messages"), list):
             return None
 
-        caps = _CAPABILITIES[model]
-        binary_thinking = not caps.three_tier_effort and not caps.nested_effort
         kwargs_in = data.get("chat_template_kwargs")
         kwargs: dict[str, Any] = dict(kwargs_in) if isinstance(kwargs_in, dict) else {}
         controls = _extract_controls(data)
-        if (
-            binary_thinking
-            and controls.effort is None
-            and _KW_REASONING_EFFORT in kwargs
-        ):
-            controls = ThinkingControls(
-                effort=kwargs.get(_KW_REASONING_EFFORT),
-                explicit_enable=controls.explicit_enable,
-                thinking_token_budget=controls.thinking_token_budget,
-            )
         if controls.is_empty:
             return None
 
@@ -230,14 +186,9 @@ class ChatTemplateThinkingPolicy:
         if controls.explicit_enable is not None and _KW_ENABLE_THINKING not in kwargs:
             kwargs[_KW_ENABLE_THINKING] = controls.explicit_enable
             changed = True
-        if not binary_thinking or controls.explicit_enable is None:
-            changed |= self._apply_effort(data, kwargs, controls.effort, caps)
-            changed |= self._apply_budget(kwargs, controls.thinking_token_budget)
+        changed |= self._apply_effort(data, kwargs, controls.effort)
+        changed |= self._apply_budget(kwargs, controls.thinking_token_budget)
         changed |= self._strip_stale_effort(data, kwargs, controls.effort)
-        if binary_thinking:
-            changed |= data.pop(_KW_REASONING_EFFORT, None) is not None
-            changed |= kwargs.pop(_KW_REASONING_EFFORT, None) is not None
-
         if not changed:
             return None
         data["chat_template_kwargs"] = kwargs
@@ -248,7 +199,6 @@ class ChatTemplateThinkingPolicy:
         data: dict[str, Any],
         kwargs: dict[str, Any],
         effort: Any,
-        caps: ModelCapabilities,
     ) -> bool:
         if effort is None or kwargs.get(_KW_ENABLE_THINKING) is False:
             return False
@@ -257,23 +207,17 @@ class ChatTemplateThinkingPolicy:
             kwargs[_KW_ENABLE_THINKING] = False
             return True
 
-        if caps.three_tier_effort:
-            tier = _canonical_effort(effort)
-            if tier is None:
-                return False
-            wire_effort: Any = tier.value
-        else:
-            wire_effort = effort
-
+        tier = _canonical_effort(effort)
+        if tier is None:
+            return False
         changed = False
         if kwargs.get(_KW_ENABLE_THINKING) is not True:
             kwargs[_KW_ENABLE_THINKING] = True
             changed = True
-        if caps.nested_effort:
-            if kwargs.get(_KW_REASONING_EFFORT) != wire_effort:
-                kwargs[_KW_REASONING_EFFORT] = wire_effort
-                changed = True
-            changed |= data.pop(_KW_REASONING_EFFORT, None) is not None
+        if kwargs.get(_KW_REASONING_EFFORT) != tier.value:
+            kwargs[_KW_REASONING_EFFORT] = tier.value
+            changed = True
+        changed |= data.pop(_KW_REASONING_EFFORT, None) is not None
         return changed
 
     def _apply_budget(self, kwargs: dict[str, Any], budget: Any) -> bool:
@@ -321,7 +265,7 @@ class LocalReasoningRequestAdapter(CustomLogger):
         if model is None:
             return None
 
-        transformed = self._chat_policy.transform(data, model)
+        transformed = self._chat_policy.transform(data)
         uses_froggeric_xhigh_default = model in (
             LocalReasoningModel.QWEN38_SWIFT_1_5_NVFP4,
             LocalReasoningModel.QWEN38_SWIFT_1_5_BF16,
