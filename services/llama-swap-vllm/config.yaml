@@ -103,13 +103,13 @@ models:
 
   "swift-1.5-qwen3.8-flash-next-nvfp4":
     name: Swift 1.5 Qwen3.8 Flash Next NVFP4
-    description: Swift 1.5 Flash Next NVFP4 with 131,072-token context, disk-backed PLE, native RAM prefix cache, and no speculative decoding
+    description: Swift 1.5 Flash Next NVFP4 with 262,144-token served context, disk-backed PLE, native RAM prefix cache, and MTP3
     concurrencyLimit: 4
     capabilities:
       in: ["text", "image"]
       out: ["text"]
       tools: true
-      context: 131072
+      context: 262144
     metadata:
       reasoning: true
       thinking: true
@@ -123,7 +123,13 @@ models:
     # The fastokens vLLM 0.30.0 image recognizes it but lacks the disk PLE
     # table backend needed for this 174 GiB checkpoint on 64 GiB host RAM;
     # retain LIL's qwen38-flash-next profile and isolate its JIT cache.
-    # Its MTP draft exhausts VRAM while processing NVFP4 weights on this 72 GB GPU.
+    # MTP3 was disabled at 12 GiB offload: the draft layer (~0.5-1 GiB) plus
+    # its KV left only 2.45 GiB for KV (174K tokens, 1.33x at 131K). At
+    # 16 GiB expert offload the KV pool grows to ~6 GiB; measured cost is
+    # ~15.1 KiB/token (fp8, 12 full-attention layers of 48), so 262,144
+    # tokens (~3.9 GiB) plus the draft layer fits with headroom. Host RAM
+    # (49 GiB) is the binding constraint: 16 GiB offload + 8 GiB native
+    # tier runs with ~13 GiB spare; if the box swaps, drop to 14.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
@@ -132,7 +138,7 @@ models:
       --name vllm-swift-1-5-qwen3-8-flash-next
       --env HF_TOKEN --env HF_HOME=/models/huggingface
       --env PROFILE=qwen38-flash-next --env TP=1 --env DCP=1 --env PORT=8000
-      --env MAX_MODEL_LEN=131072 --env MAX_NUM_SEQS=4
+      --env MAX_MODEL_LEN=262144 --env MAX_NUM_SEQS=4
       --env MAX_NUM_BATCHED_TOKENS=4096 --env GPU_MEMORY_UTILIZATION=0.96
       --env VLLM_PLE_TABLE_MEMORY=disk
       --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=8
@@ -146,8 +152,8 @@ models:
       ${VLLM_IMAGE}
       --model ${checkpoint} --served-model-name ${MODEL_ID}
       --load-format safetensors
-      --mode off
-      --cpu-offload-gb 12 --cpu-offload-params experts
+      --mode mtp --draft-tokens 3
+      --cpu-offload-gb 16 --cpu-offload-params experts
       --max-cudagraph-capture-size 16
       --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
     cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-flash-next
