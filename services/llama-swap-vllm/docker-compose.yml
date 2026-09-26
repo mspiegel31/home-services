@@ -24,12 +24,19 @@ configs:
       /services/
       !/services/*/
       /services/llama-swap-vllm/
+      /images/
+      !/images/*/
+      /images/vllm-fastokens/
 
 
 name: llama-swap-vllm
 
+# Backend containers mount this same git-sync volume for the Froggeric template.
+# Keep the deployed legacy volume name so a Compose project rename does not
+# orphan the live checkout on the inference host.
 volumes:
   llama-swap-config:
+    name: llama-swap_llama-swap-config
 
 networks:
   backend:
