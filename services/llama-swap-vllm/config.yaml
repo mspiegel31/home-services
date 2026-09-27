@@ -186,6 +186,9 @@ models:
     proxy: http://vllm-swift-1-5-nvfp4:8000
     # Use the repo's patched Froggeric template rather than the checkpoint's
     # bundled template to preserve the three-tier OMP/LiteLLM effort contract.
+    # Run NVFP4 weights through Marlin W4A16; keep FP8 layer dispatch automatic.
+    # The override key describes the checkpoint scheme, not the selected kernel's
+    # activation precision. No checkpoint changes; retain BF16 KV and use MTP5.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-nvfp4
@@ -194,6 +197,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --kernel-config '{"linear_backend_per_quant":{"nvfp4_w4a4":"marlin","nvfp4_w4a16":"marlin"}}'
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
@@ -203,7 +207,7 @@ models:
       --kv-offloading-backend native
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":5}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-nvfp4
 
