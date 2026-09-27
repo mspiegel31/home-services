@@ -232,32 +232,37 @@ models:
     #
     # KV cache: fp8 with unit scales (the qwen3_5 loader does not apply
     # checkpoint KV scales yet, vllm#54623 — a plain cast, no calibration).
-    # This halves per-token KV: the pool is measured at 73.5 KiB/token in
-    # bf16 (15.21 GiB -> auto-fit 216,240), so 262,144 needs ~18.6 GiB and
-    # does not fit; in fp8 it is ~41.5 KiB/token (~10.2 GiB) and fits with
-    # ~5 GiB of headroom. Decode is bandwidth-bound on KV reads, so this
-    # also speeds decode; prefill is compute-bound and unaffected.
+    # Only the 16 full-attention layers' KV is affected; the 48 GDN state
+    # caches stay bf16. Effective cost measured 41.5 KiB/token.
+    #
+    # Prefill-graph OOM (2026-09-27): with fp8 KV the auto-fit pool grows to
+    # 14.83 GiB (401,764 tokens, full 262,144 context) and the prefill AOT
+    # graph at the derived 8192-token chunk then asks for a 544 MiB bf16
+    # activation buffer with ~100 MiB free — while 902 MiB sits
+    # reserved-but-unallocated because DOCKER_PREFIX pins
+    # expandable_segments:False. Two lane-local fixes: override the
+    # allocator to expandable_segments:True (later --env wins in docker
+    # run), and pin the prefill chunk to 4096 (halves the buffer to 272
+    # MiB; matches the flash-next lanes).
     #
     # Spec decode: native MTP head at 5 draft tokens — the official
     # Qwen3.8-27B recipe's rtx_pro_6000 override; family BF16 draft
     # acceptance measured 92.2%. Graph cap 16 keeps graph memory out of the
     # KV pool and the mamba cache lines above the capture size (vllm#34571).
     # The 24 GiB CPU tier fits because the router never co-resides this
-    # lane with the flash-next lanes (it evicts across sets).
-    #
-    # Max context: 262,144 served (verified 2026-09-26: 15.21 GiB pool at
-    # util 0.98 + 8 seqs, fp8 KV above). CPU tiers only extend prefix
-    # reuse, never max_model_len: an active sequence's KV must stay
-    # GPU-resident.
+    # lane with the flash-next lanes (it evicts across sets). CPU tiers
+    # only extend prefix reuse, never max_model_len.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-qwen3-8-27b-bf16
       --env MAX_JOBS=4
       --env VLLM_ENABLE_STARTUP_PLAN=1
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
+      --env PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-num-seqs 8
+      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.98
