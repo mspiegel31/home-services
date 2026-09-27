@@ -189,6 +189,12 @@ models:
     # Run NVFP4 weights through Marlin W4A16; keep FP8 layer dispatch automatic.
     # The override key describes the checkpoint scheme, not the selected kernel's
     # activation precision. No checkpoint changes; retain BF16 KV and use MTP5.
+    # CPU KV offloading dropped 2026-09-27: 5h of logs showed the 8 GB tier
+    # never served an external hit (0.0% across all samples) while the GPU
+    # prefix cache sat at 85%, and long-prefill requests filled the arena
+    # fast enough to spam "cannot store chunks" (6k+ lines, 7 requests).
+    # The 582k-token GPU pool (~2.2x a full 262k context) already covers the
+    # working set; re-add only if contexts start evicting from GPU KV.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-nvfp4
@@ -203,8 +209,6 @@ models:
       --gpu-memory-utilization 0.9
       --kv-cache-dtype bfloat16
       --mamba-cache-mode align
-      --kv-offloading-size 8
-      --kv-offloading-backend native
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
@@ -319,7 +323,9 @@ models:
     #
     # bf16 KV is ~64 KiB/token, so 262,144 needs ~17 GiB effective; at
     # util 0.9 the pool is ~40 GiB — full context with ~2x headroom. The
-    # 16 GiB CPU tier mirrors ~256K tokens of prefix retention.
+    # 16 GiB CPU tier was dropped 2026-09-27: the same 0% external-hit
+    # finding as the NVFP4 lane, and the 2x GPU headroom makes the tier
+    # redundant (re-add only if contexts start evicting from GPU KV).
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-awq
@@ -333,8 +339,6 @@ models:
       --gpu-memory-utilization 0.9
       --kv-cache-dtype bfloat16
       --mamba-cache-mode align
-      --kv-offloading-size 16
-      --kv-offloading-backend native
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
       --speculative-config '{"method":"mtp","num_speculative_tokens":5}'
