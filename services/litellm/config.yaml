@@ -101,6 +101,10 @@ model_list:
       # flash-next anchor would cap clients at 131K.
       context_window: 262144
       max_input_tokens: 262144
+      # OMP derives a 32768 max-tokens clamp from LiteLLM's known-model DB
+      # fallback; these custom ids match nothing there. Advertise the real
+      # output ceiling (input+output share the 262,144 window).
+      max_output_tokens: 262144
 
 
   - model_name: swift-1.5-nvfp4
@@ -112,6 +116,7 @@ model_list:
     model_info:
       <<: *qwen38_model_info
       reasoning_effort: [low, medium, xhigh]
+      max_output_tokens: 262144
       supports_function_calling: true
       supports_tool_choice: true
       supported_openai_params:
@@ -135,6 +140,7 @@ model_list:
     model_info:
       <<: *qwen38_model_info
       reasoning_effort: [low, medium, xhigh]
+      max_output_tokens: 262144
       supports_function_calling: true
       supports_tool_choice: true
       supported_openai_params:
@@ -158,6 +164,7 @@ model_list:
     model_info:
       <<: *qwen38_model_info
       reasoning_effort: [low, medium, xhigh]
+      max_output_tokens: 262144
       supports_function_calling: true
       supports_tool_choice: true
       supported_openai_params:
