@@ -227,7 +227,7 @@ models:
     proxy: http://vllm-swift-1-5-qwen3-8-27b-bf16:8000
     # BF16 quality canary that mirrors the swift-1.5 NVFP4 lane. Measured
     # weights 51.75 GiB (31.88 MLP, 13.49 attn, 2.37 embed, 2.37 lm_head,
-    # 0.86 vision, 0.79 MTP draft) need no expert offload; 0.96 utilization
+    # 0.86 vision, 0.79 MTP draft) need no expert offload; 0.98 utilization
     # leaves ~16 GiB for KV + graphs, and the CPU tier fits 24 GiB.
     #
     # KV cache: fp8 with unit scales (the qwen3_5 loader does not apply
@@ -238,12 +238,12 @@ models:
     # Prefill-graph OOM (2026-09-27): with fp8 KV the auto-fit pool grows to
     # 14.83 GiB (401,764 tokens, full 262,144 context) and the prefill AOT
     # graph at the derived 8192-token chunk then asks for a 544 MiB bf16
-    # activation buffer with ~100 MiB free — while 902 MiB sits
-    # reserved-but-unallocated because DOCKER_PREFIX pins
-    # expandable_segments:False. Two lane-local fixes: override the
-    # allocator to expandable_segments:True (later --env wins in docker
-    # run), and pin the prefill chunk to 4096 (halves the buffer to 272
-    # MiB; matches the flash-next lanes).
+    # activation buffer with ~100 MiB free. Fix: pin the prefill chunk to
+    # 4096, halving that buffer to 272 MiB (matches the flash-next lanes).
+    # expandable_segments:True would also reclaim the ~902 MiB of stranded
+    # allocator fragmentation, but VllmConfig rejects it here: the native KV
+    # offloading connector pins host memory for DMA and VMM remapping would
+    # invalidate those registrations (hence the DOCKER_PREFIX default).
     #
     # Spec decode: native MTP head at 5 draft tokens — the official
     # Qwen3.8-27B recipe's rtx_pro_6000 override; family BF16 draft
@@ -258,7 +258,6 @@ models:
       --env MAX_JOBS=4
       --env VLLM_ENABLE_STARTUP_PLAN=1
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
-      --env PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-num-seqs 8
