@@ -230,9 +230,13 @@ models:
     # 0.86 vision, 0.79 MTP draft) need no expert offload; 0.96 utilization
     # leaves ~16 GiB for KV + graphs, and the CPU tier fits 24 GiB.
     #
-    # The checkpoint carries no calibrated KV scales, so the KV cache stays
-    # bfloat16 (the qwen3_5 loader does not apply checkpoint KV scales yet,
-    # vllm#54623); fp8 would run with unit scales.
+    # KV cache: fp8 with unit scales (the qwen3_5 loader does not apply
+    # checkpoint KV scales yet, vllm#54623 — a plain cast, no calibration).
+    # This halves per-token KV: the pool is measured at 73.5 KiB/token in
+    # bf16 (15.21 GiB -> auto-fit 216,240), so 262,144 needs ~18.6 GiB and
+    # does not fit; in fp8 it is ~41.5 KiB/token (~10.2 GiB) and fits with
+    # ~5 GiB of headroom. Decode is bandwidth-bound on KV reads, so this
+    # also speeds decode; prefill is compute-bound and unaffected.
     #
     # Spec decode: native MTP head at 5 draft tokens — the official
     # Qwen3.8-27B recipe's rtx_pro_6000 override; family BF16 draft
@@ -241,13 +245,10 @@ models:
     # The 24 GiB CPU tier fits because the router never co-resides this
     # lane with the flash-next lanes (it evicts across sets).
     #
-    # Max context: bf16 KV is 64 KiB/token (16 full-attn layers x 4 KV
-    # heads x 256 head_dim), so 262,144 tokens needs ~16.2-17.2 GiB of
-    # pool with MTP5 draft KV. At util 0.96 + 64 seq slots the pool was
-    # 13.67 GiB -> auto-fit 193,392. seqs 8 (frees ~1.5 GiB of GDN state)
-    # and util 0.98 (matches the flash-next lanes' pinned-graph margin)
-    # recover the ~3 GiB gap. CPU tiers only extend prefix reuse, never
-    # max_model_len: an active sequence's KV must stay GPU-resident.
+    # Max context: 262,144 served (verified 2026-09-26: 15.21 GiB pool at
+    # util 0.98 + 8 seqs, fp8 KV above). CPU tiers only extend prefix
+    # reuse, never max_model_len: an active sequence's KV must stay
+    # GPU-resident.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-qwen3-8-27b-bf16
@@ -260,7 +261,7 @@ models:
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.98
-      --kv-cache-dtype bfloat16
+      --kv-cache-dtype fp8
       --mamba-cache-mode align
       --kv-offloading-size 24
       --kv-offloading-backend native
