@@ -278,7 +278,7 @@ models:
 
   "swift-1.5-awq":
     name: Swift 1.5 Qwen3.8 27B AWQ
-    description: UkisAI Swift-1.5-Qwen3.8-27b W4A16 AWQ (measured parity) with bf16 KV and 262,144 context, no speculative decoding
+    description: UkisAI Swift-1.5-Qwen3.8-27b W4A16 AWQ (measured parity) with bf16 KV, DFlash2 spec decode, and 262,144 context
     concurrencyLimit: 4
     capabilities:
       in: ["text", "image"]
@@ -303,17 +303,18 @@ models:
     # so fp8 KV would run at unit scales — bf16 KV is this lane's identity
     # vs the bf16 lane, which trades fp8 KV for full context.
     #
-    # No speculative decoding — upstream export bug. The bf16 MTP tensors
-    # are on disk (manifest: "15 original BF16 tensors preserved"), but
-    # llm-compressor 0.13 serialized the ignore list without the mtp
-    # entries (QUANTIZATION_MANIFEST declares "re:.*mtp.*"), so vLLM
-    # builds the draft quantized and rejects the bf16 weights
-    # ("no module or parameter named 'fc.weight' in
-    # Qwen3_5MultiTokenPredictor"). The manifest itself says
-    # runtime_validation "pending" — it was never booted by the publisher.
-    # Run MTP-less rather than patch the checkpoint; spec decode is
-    # lossless, so this costs decode speed only. Revisit if ukisai fixes
-    # the config upstream.
+    # Spec decode: external DFlash2 drafter at depth 7 (block_size 8 minus
+    # one, per the official Qwen3.8-27B recipe) — the same pairing as the
+    # qwen3.8-27b-fp8 lane, already cached on this box. The checkpoint's
+    # own MTP head is unusable: llm-compressor 0.13 serialized the ignore
+    # list without the mtp entries (QUANTIZATION_MANIFEST declares
+    # "re:.*mtp.*" and preserves the 15 bf16 draft tensors), so vLLM
+    # builds the draft quantized and rejects the bf16 weights. An external
+    # drafter bypasses the broken config entirely. Caveat: DFlash2 is
+    # distilled from base Qwen3.8-27B while this target is Swift-post-
+    # trained, so acceptance is unmeasured; spec decode is lossless, so
+    # poor acceptance only costs speed. Check the engine's "Avg Draft
+    # acceptance rate" under real load; drop spec decode if it reads low.
     #
     # bf16 KV is ~64 KiB/token, so 262,144 needs ~17 GiB effective; at
     # util 0.9 the pool is ~40 GiB — full context with ~2x headroom. The
@@ -335,6 +336,7 @@ models:
       --kv-offloading-backend native
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-awq
 
