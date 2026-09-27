@@ -298,11 +298,20 @@ models:
     # ukisai's measured-parity export (2026-09-21 single-seed: AIME 86.67
     # = their bf16, GPQA 90.91 vs 91.41, IFBench 72.00 = bf16). 18.21 GiB
     # on disk: group-4-bit W4A16 (group 128, int8 zero-points) on the MLP
-    # and full-attn projections only; the 303-entry ignore list keeps every
-    # GDN linear_attn projection, lm_head, embeddings, vision tower, and
+    # and full-attn projections only; the ignore list keeps every GDN
+    # linear_attn projection, lm_head, embeddings, vision tower, and
     # the MTP draft head in bf16. kv_cache_scheme is null, so fp8 KV would
     # run at unit scales — bf16 KV is this lane's identity vs the bf16
     # lane, which trades fp8 KV for full context.
+    # CHECKPOINT PATCHED LOCALLY (2026-09-27): the export's ignore list
+    # omitted the MTP head, so vLLM built the draft as quantized Linears
+    # and rejected the bf16 mtp.* tensors ("no module or parameter named
+    # 'fc.weight' in Qwen3_5MultiTokenPredictor"). config.json's
+    # quantization_config.ignore now carries the 8 mtp Linear leaves
+    # (fc, layers.0 mlp/self_attn projections), matching ukisai's own
+    # NVFP4 export ('mtp*'). Original saved beside it as
+    # config.json.bak-pre-mtp-patch — a re-download needs the patch
+    # re-applied.
     # bf16 KV is ~64 KiB/token, so 262,144 needs ~17 GiB effective; at
     # util 0.9 the pool is ~40 GiB — full context with ~2x headroom. The
     # 16 GiB CPU tier mirrors ~256K tokens of prefix retention. MTP3
