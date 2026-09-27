@@ -207,7 +207,7 @@ models:
       --kv-offloading-backend native
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"mtp","num_speculative_tokens":5}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-nvfp4
 
