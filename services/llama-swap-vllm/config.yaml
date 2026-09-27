@@ -278,7 +278,7 @@ models:
 
   "swift-1.5-awq":
     name: Swift 1.5 Qwen3.8 27B AWQ
-    description: UkisAI Swift-1.5-Qwen3.8-27b W4A16 AWQ (measured parity) with bf16 KV, native MTP3, and 262,144 context
+    description: UkisAI Swift-1.5-Qwen3.8-27b W4A16 AWQ (measured parity) with bf16 KV and 262,144 context, no speculative decoding
     concurrencyLimit: 4
     capabilities:
       in: ["text", "image"]
@@ -296,27 +296,28 @@ models:
       checkpoint: "ukisai/Swift-1.5-Qwen3.8-27b-W4A16-AWQ"
     proxy: http://vllm-swift-1-5-awq:8000
     # ukisai's measured-parity export (2026-09-21 single-seed: AIME 86.67
-    # = their bf16, GPQA 90.91 vs 91.41, IFBench 72.00 = bf16). 18.21 GiB
+    # = their bf16, GPQA 88.38 vs 91.41, IFBench 72.00 = bf16). 18.21 GiB
     # on disk: group-4-bit W4A16 (group 128, int8 zero-points) on the MLP
-    # and full-attn projections only; the ignore list keeps every GDN
-    # linear_attn projection, lm_head, embeddings, vision tower, and
-    # the MTP draft head in bf16. kv_cache_scheme is null, so fp8 KV would
-    # run at unit scales — bf16 KV is this lane's identity vs the bf16
-    # lane, which trades fp8 KV for full context.
-    # CHECKPOINT PATCHED LOCALLY (2026-09-27): the export's ignore list
-    # omitted the MTP head, so vLLM built the draft as quantized Linears
-    # and rejected the bf16 mtp.* tensors ("no module or parameter named
-    # 'fc.weight' in Qwen3_5MultiTokenPredictor"). config.json's
-    # quantization_config.ignore now carries the 8 mtp Linear leaves
-    # (fc, layers.0 mlp/self_attn projections), matching ukisai's own
-    # NVFP4 export ('mtp*'). Original saved beside it as
-    # config.json.bak-pre-mtp-patch — a re-download needs the patch
-    # re-applied.
+    # and full-attn projections; lm_head, embeddings, vision tower, and
+    # all GDN linear_attn projections stay bf16. kv_cache_scheme is null,
+    # so fp8 KV would run at unit scales — bf16 KV is this lane's identity
+    # vs the bf16 lane, which trades fp8 KV for full context.
+    #
+    # No speculative decoding — upstream export bug. The bf16 MTP tensors
+    # are on disk (manifest: "15 original BF16 tensors preserved"), but
+    # llm-compressor 0.13 serialized the ignore list without the mtp
+    # entries (QUANTIZATION_MANIFEST declares "re:.*mtp.*"), so vLLM
+    # builds the draft quantized and rejects the bf16 weights
+    # ("no module or parameter named 'fc.weight' in
+    # Qwen3_5MultiTokenPredictor"). The manifest itself says
+    # runtime_validation "pending" — it was never booted by the publisher.
+    # Run MTP-less rather than patch the checkpoint; spec decode is
+    # lossless, so this costs decode speed only. Revisit if ukisai fixes
+    # the config upstream.
+    #
     # bf16 KV is ~64 KiB/token, so 262,144 needs ~17 GiB effective; at
     # util 0.9 the pool is ~40 GiB — full context with ~2x headroom. The
-    # 16 GiB CPU tier mirrors ~256K tokens of prefix retention. MTP3
-    # matches the nvfp4 lane; deep-position acceptance is marginal even
-    # at bf16 (positions 4-5 measured 0.33/0.20 on the bf16 lane).
+    # 16 GiB CPU tier mirrors ~256K tokens of prefix retention.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-awq
@@ -334,7 +335,6 @@ models:
       --kv-offloading-backend native
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-awq
 
