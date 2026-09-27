@@ -352,8 +352,8 @@ models:
       reasoning: true
       thinking: true
       vision: true
-      # reasoning_effort: [low, medium, xhigh]
-      reasoning_effort: [low]
+      # All Qwen3.8-derived lanes share the Froggeric three-tier contract.
+      reasoning_effort: [low, medium, xhigh]
     macros:
       USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"

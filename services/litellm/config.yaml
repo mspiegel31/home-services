@@ -51,7 +51,7 @@ model_list:
       supports_reasoning: true
       vision: true
       supports_vision: true
-      reasoning_effort: [low]   # match llama-swap's advertised FP8 tier
+      reasoning_effort: [low, medium, xhigh]   # uniform Froggeric tiers; OMP pins the same list via its profile models.yml
       supported_parameters:
         - temperature
         - top_p
