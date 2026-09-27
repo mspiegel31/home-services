@@ -107,8 +107,10 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
 
     def test_swift_1_5_defaults_to_xhigh_with_froggeric_template(self):
         for model in (
-            "swift-1.5-qwen3.8-27b-nvfp4",
-            "swift-1.5-qwen3.8-flash-next-nvfp4",
+            "swift-1.5-nvfp4",
+            "swift-1.5-bf16",
+            "swift-1.5-flash-nvfp4",
+            "swift-1.5-awq",
         ):
             with self.subTest(model=model):
                 result = call_hook(chat({"model": model}))
@@ -120,7 +122,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
     def test_flash_next_thinking_off_does_not_rearm_from_effort(self):
         for model in (
             "qwen3.8-flash-next-nvfp4",
-            "swift-1.5-qwen3.8-flash-next-nvfp4",
+            "swift-1.5-flash-nvfp4",
         ):
             with self.subTest(model=model):
                 result = call_deployment_hook(chat({
@@ -139,9 +141,10 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         for model in (
             "qwen3.8-27b-fp8",
             "qwen3.8-flash-next-nvfp4",
-            "swift-1.5-qwen3.8-flash-next-nvfp4",
-            "swift-1.5-qwen3.8-27b-nvfp4",
-            "swift-1.5-qwen3.8-27b-bf16",
+            "swift-1.5-flash-nvfp4",
+            "swift-1.5-nvfp4",
+            "swift-1.5-bf16",
+            "swift-1.5-awq",
         ):
             with self.subTest(model=model):
                 result = call_hook(chat({"model": model, "reasoning_effort": "low"}))
@@ -173,7 +176,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         result = call_deployment_hook(
             chat(
                 {
-                    "model": "hosted_vllm/swift-1.5-qwen3.8-27b-nvfp4",
+                    "model": "hosted_vllm/swift-1.5-nvfp4",
                     "reasoning_effort": "minimal",
                 }
             )
@@ -188,7 +191,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         result = call_deployment_hook(
             chat(
                 {
-                    "model": "hosted_vllm/swift-1.5-qwen3.8-27b-bf16",
+                    "model": "hosted_vllm/swift-1.5-bf16",
                     "reasoning_effort": "minimal",
                 }
             )

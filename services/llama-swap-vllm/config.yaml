@@ -101,7 +101,7 @@ models:
       --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
     cmdStop: docker stop --time 90 vllm-qwen3-8-flash-next
 
-  "swift-1.5-qwen3.8-flash-next-nvfp4":
+  "swift-1.5-flash-nvfp4":
     name: Swift 1.5 Qwen3.8 Flash Next NVFP4
     description: Swift 1.5 Flash Next NVFP4 with 262,144-token served context, disk-backed PLE, native RAM prefix cache, and MTP3
     concurrencyLimit: 4
@@ -118,7 +118,7 @@ models:
     macros:
       VLLM_IMAGE: "ghcr.io/local-inference-lab/vllm:karmic-kraken-beta-20260922-3221ccacf71002ea@sha256:bf2c8f5da6f1de82b345367102b528692231a23eadc1b49c180c82c397c77522"
       checkpoint: "/models/huggingface/models/ukisai/Swift-1.5-Qwen3.8-Flash-Next-NVFP4"
-    proxy: http://vllm-swift-1-5-qwen3-8-flash-next:8000
+    proxy: http://vllm-swift-1-5-flash-nvfp4:8000
     # Swift's checkpoint uses the same Qwen4Exp ModelOpt NVFP4 architecture.
     # The fastokens vLLM 0.30.0 image recognizes it but lacks the disk PLE
     # table backend needed for this 174 GiB checkpoint on 64 GiB host RAM;
@@ -143,7 +143,7 @@ models:
       --ulimit memlock=-1 --ulimit stack=67108864
       --security-opt seccomp=unconfined
       --network llama-swap-vllm-backend
-      --name vllm-swift-1-5-qwen3-8-flash-next
+      --name vllm-swift-1-5-flash-nvfp4
       --env HF_TOKEN --env HF_HOME=/models/huggingface
       --env PROFILE=qwen38-flash-next --env TP=1 --env DCP=1 --env PORT=8000
       --env MAX_MODEL_LEN=262144 --env MAX_NUM_SEQS=4
@@ -164,9 +164,9 @@ models:
       --cpu-offload-gb 20 --cpu-offload-params experts
       --max-cudagraph-capture-size 16
       --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
-    cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-flash-next
+    cmdStop: docker stop --time 90 vllm-swift-1-5-flash-nvfp4
 
-  "swift-1.5-qwen3.8-27b-nvfp4":
+  "swift-1.5-nvfp4":
     name: Swift 1.5 Qwen3.8 27B NVFP4
     description: UkisAI Swift-1.5-Qwen3.8-27b NVFP4 with native MTP spec decode and auto-fit context (native 262,144 when served alone)
     capabilities:
@@ -183,12 +183,12 @@ models:
       USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "ukisai/Swift-1.5-Qwen3.8-27b-NVFP4"
-    proxy: http://vllm-swift-1-5-qwen3-8-27b-nvfp4:8000
+    proxy: http://vllm-swift-1-5-nvfp4:8000
     # Use the repo's patched Froggeric template rather than the checkpoint's
     # bundled template to preserve the three-tier OMP/LiteLLM effort contract.
     cmd: >-
       ${DOCKER_PREFIX}
-      --name vllm-swift-1-5-qwen3-8-27b-nvfp4
+      --name vllm-swift-1-5-nvfp4
       --env MAX_JOBS=4
       --env VLLM_ENABLE_STARTUP_PLAN=1
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
@@ -205,9 +205,9 @@ models:
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
-    cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-27b-nvfp4
+    cmdStop: docker stop --time 90 vllm-swift-1-5-nvfp4
 
-  "swift-1.5-qwen3.8-27b-bf16":
+  "swift-1.5-bf16":
     name: Swift 1.5 Qwen3.8 27B BF16
     description: UkisAI Swift-1.5-Qwen3.8-27b BF16 (quality canary) with native MTP5 spec decode and auto-fit context (native 262,144 when served alone)
     capabilities:
@@ -224,7 +224,7 @@ models:
       USE_FASTOKENS: "1"
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "ukisai/Swift-1.5-Qwen3.8-27b"
-    proxy: http://vllm-swift-1-5-qwen3-8-27b-bf16:8000
+    proxy: http://vllm-swift-1-5-bf16:8000
     # BF16 quality canary that mirrors the swift-1.5 NVFP4 lane. Measured
     # weights 51.75 GiB (31.88 MLP, 13.49 attn, 2.37 embed, 2.37 lm_head,
     # 0.86 vision, 0.79 MTP draft) need no expert offload; 0.98 utilization
@@ -254,7 +254,7 @@ models:
     # only extend prefix reuse, never max_model_len.
     cmd: >-
       ${DOCKER_PREFIX}
-      --name vllm-swift-1-5-qwen3-8-27b-bf16
+      --name vllm-swift-1-5-bf16
       --env MAX_JOBS=4
       --env VLLM_ENABLE_STARTUP_PLAN=1
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
@@ -274,7 +274,60 @@ models:
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
       --speculative-config '{"method":"mtp","num_speculative_tokens":5}'
       ${QWEN38_COMMON}
-    cmdStop: docker stop --time 90 vllm-swift-1-5-qwen3-8-27b-bf16
+    cmdStop: docker stop --time 90 vllm-swift-1-5-bf16
+
+  "swift-1.5-awq":
+    name: Swift 1.5 Qwen3.8 27B AWQ
+    description: UkisAI Swift-1.5-Qwen3.8-27b W4A16 AWQ (measured parity) with bf16 KV, native MTP3, and 262,144 context
+    concurrencyLimit: 4
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "ukisai/Swift-1.5-Qwen3.8-27b-W4A16-AWQ"
+    proxy: http://vllm-swift-1-5-awq:8000
+    # ukisai's measured-parity export (2026-09-21 single-seed: AIME 86.67
+    # = their bf16, GPQA 90.91 vs 91.41, IFBench 72.00 = bf16). 18.21 GiB
+    # on disk: group-4-bit W4A16 (group 128, int8 zero-points) on the MLP
+    # and full-attn projections only; the 303-entry ignore list keeps every
+    # GDN linear_attn projection, lm_head, embeddings, vision tower, and
+    # the MTP draft head in bf16. kv_cache_scheme is null, so fp8 KV would
+    # run at unit scales — bf16 KV is this lane's identity vs the bf16
+    # lane, which trades fp8 KV for full context.
+    # bf16 KV is ~64 KiB/token, so 262,144 needs ~17 GiB effective; at
+    # util 0.9 the pool is ~40 GiB — full context with ~2x headroom. The
+    # 16 GiB CPU tier mirrors ~256K tokens of prefix retention. MTP3
+    # matches the nvfp4 lane; deep-position acceptance is marginal even
+    # at bf16 (positions 4-5 measured 0.33/0.20 on the bf16 lane).
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-swift-1-5-awq
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --long-prefill-token-threshold 2048
+      --max-model-len auto
+      --gpu-memory-utilization 0.9
+      --kv-cache-dtype bfloat16
+      --mamba-cache-mode align
+      --kv-offloading-size 16
+      --kv-offloading-backend native
+      --generation-config auto
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-swift-1-5-awq
 
   "qwen3.8-27b-fp8":
     name: Qwen3.8 27B FP8
@@ -316,5 +369,5 @@ routing:
       matrix:
         sets:
           qwen-flash-next: "qwen3.8-flash-next-nvfp4"
-          swift-flash-next: "swift-1.5-qwen3.8-flash-next-nvfp4"
-          co-resident: "qwen3.8-27b-fp8 | swift-1.5-qwen3.8-27b-nvfp4 | swift-1.5-qwen3.8-27b-bf16"
+          swift-flash-next: "swift-1.5-flash-nvfp4"
+          co-resident: "qwen3.8-27b-fp8 | swift-1.5-nvfp4 | swift-1.5-bf16 | swift-1.5-awq"

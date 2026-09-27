@@ -89,9 +89,9 @@ model_list:
         - tool_choice
 
 
-  - model_name: swift-1.5-qwen3.8-flash-next-nvfp4
+  - model_name: swift-1.5-flash-nvfp4
     litellm_params:
-      model: swift-1.5-qwen3.8-flash-next-nvfp4
+      model: swift-1.5-flash-nvfp4
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
       custom_llm_provider: hosted_vllm
@@ -103,9 +103,9 @@ model_list:
       max_input_tokens: 262144
 
 
-  - model_name: swift-1.5-qwen3.8-27b-nvfp4
+  - model_name: swift-1.5-nvfp4
     litellm_params:
-      model: swift-1.5-qwen3.8-27b-nvfp4
+      model: swift-1.5-nvfp4
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
       custom_llm_provider: hosted_vllm
@@ -126,9 +126,32 @@ model_list:
         - tools
         - tool_choice
 
-  - model_name: swift-1.5-qwen3.8-27b-bf16
+  - model_name: swift-1.5-bf16
     litellm_params:
-      model: swift-1.5-qwen3.8-27b-bf16
+      model: swift-1.5-bf16
+      api_base: http://192.168.1.98:11437/v1
+      api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: hosted_vllm
+    model_info:
+      <<: *qwen38_model_info
+      reasoning_effort: [low, medium, xhigh]
+      supports_function_calling: true
+      supports_tool_choice: true
+      supported_openai_params:
+        - temperature
+        - top_p
+        - top_k
+        - repetition_penalty
+        - presence_penalty
+        - max_tokens
+        - stream
+        - reasoning_effort
+        - tools
+        - tool_choice
+
+  - model_name: swift-1.5-awq
+    litellm_params:
+      model: swift-1.5-awq
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
       custom_llm_provider: hosted_vllm
