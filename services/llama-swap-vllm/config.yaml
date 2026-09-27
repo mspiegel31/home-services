@@ -282,7 +282,7 @@ models:
 
   "swift-1.5-awq":
     name: Swift 1.5 Qwen3.8 27B AWQ
-    description: UkisAI Swift-1.5-Qwen3.8-27b W4A16 AWQ (measured parity) with bf16 KV, DFlash2 spec decode, and 262,144 context
+    description: UkisAI Swift-1.5-Qwen3.8-27b W4A16 AWQ (measured parity) with bf16 KV, native MTP5 spec decode, and 262,144 context
     concurrencyLimit: 4
     capabilities:
       in: ["text", "image"]
@@ -307,18 +307,15 @@ models:
     # so fp8 KV would run at unit scales — bf16 KV is this lane's identity
     # vs the bf16 lane, which trades fp8 KV for full context.
     #
-    # Spec decode: external DFlash2 drafter at depth 7 (block_size 8 minus
-    # one, per the official Qwen3.8-27B recipe) — the same pairing as the
-    # qwen3.8-27b-fp8 lane, already cached on this box. The checkpoint's
-    # own MTP head is unusable: llm-compressor 0.13 serialized the ignore
-    # list without the mtp entries (QUANTIZATION_MANIFEST declares
-    # "re:.*mtp.*" and preserves the 15 bf16 draft tensors), so vLLM
-    # builds the draft quantized and rejects the bf16 weights. An external
-    # drafter bypasses the broken config entirely. Caveat: DFlash2 is
-    # distilled from base Qwen3.8-27B while this target is Swift-post-
-    # trained, so acceptance is unmeasured; spec decode is lossless, so
-    # poor acceptance only costs speed. Check the engine's "Avg Draft
-    # acceptance rate" under real load; drop spec decode if it reads low.
+    # Native MTP5, matching the bf16 lane. The checkpoint's MTP head was
+    # unusable as shipped: llm-compressor 0.13 dropped the mtp entry from
+    # quantization_config.ignore, so vLLM built the draft quantized and
+    # rejected the 15 bf16 tensors in model-mtp-bf16.safetensors. Fixed by
+    # adding the canonical compressed-tensors pattern "re:^mtp.*" (what its
+    # own save_mtp_tensors_to_checkpoint writes) to the cached config.json in
+    # the HF hub snapshot — backup at config.json.orig. The patch lives
+    # outside git: a cache re-download restores the buggy config and the lane
+    # stops booting. Check "Avg Draft acceptance rate" under load.
     #
     # bf16 KV is ~64 KiB/token, so 262,144 needs ~17 GiB effective; at
     # util 0.9 the pool is ~40 GiB — full context with ~2x headroom. The
@@ -340,7 +337,7 @@ models:
       --kv-offloading-backend native
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":5}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-awq
 
