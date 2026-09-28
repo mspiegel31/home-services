@@ -192,18 +192,17 @@ models:
     #
     # Preserve BF16 full-attention KV and FP32 recurrent SSM state.
     # Select FlashInfer attention explicitly rather than the BF16 default FA2.
-    # Reserve 20% VRAM for runtime/autotuning headroom: the Qwen NVFP4 lane
-    # hit FP4 GEMM autotuning OOM fallbacks at 90% utilization on this GPU.
+    # Prioritize cache capacity at 96% utilization; fresh autotuning may hit
+    # workspace OOM fallbacks (observed on the Qwen lane at 90%).
     # Bound prefill to 4096 tokens to limit activation/workspace pressure.
-    # Verified on vLLM 0.30.0: fresh FP4 autotuning completed without OOM,
-    # repeated JSON generation passed; 468,496 cache tokens, 262,144 max context.
+    # Historical verification at 80% on vLLM 0.30.0: fresh autotuning had no
+    # OOMs and repeated JSON generation passed; not a validation of 96%.
     # FlashInfer rebuilds metadata between MTP steps (no fused multi-step path).
     # CPU KV offloading dropped 2026-09-27: 5h of logs showed the 8 GB tier
     # never served an external hit (0.0% across all samples) while the GPU
     # prefix cache sat at 85%, and long-prefill requests filled the arena
     # fast enough to spam "cannot store chunks" (6k+ lines, 7 requests).
-    # Re-add CPU offload only if contexts start evicting from GPU KV;
-    # cache capacity must be rechecked with FP32 state and the smaller pool.
+    # Re-add CPU offload only if contexts start evicting from GPU KV.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-nvfp4
@@ -215,7 +214,7 @@ models:
       --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
-      --gpu-memory-utilization 0.80
+      --gpu-memory-utilization 0.96
       --attention-backend FLASHINFER
       --kv-cache-dtype bfloat16
       --mamba-ssm-cache-dtype float32
@@ -400,10 +399,10 @@ models:
   # GDN recurrent SSM state in FP32; neither restores quantized weight precision.
   # The checkpoint ships its own MTP head (mtp.* tensors, 1 layer), so the
   # FP8 lane's MTP3 spec decode carries over unchanged.
-  # FlashInfer attention retains BF16 KV without defaulting to FA2. Reserve
-  # 20% VRAM: FP4 GEMM autotuning hit OOM fallbacks at 90% utilization.
-  # Verified on vLLM 0.30.0: fresh FP4 autotuning completed without OOM,
-  # repeated JSON generation passed; 470,789 cache tokens, 262,144 max context.
+  # FlashInfer attention retains BF16 KV without defaulting to FA2.
+  # Prioritize cache capacity at 96%; autotuning workspace OOM fallbacks remain
+  # possible (observed at 90%). The successful fresh-autotune and generation
+  # checks on vLLM 0.30.0 were at 80%, not a validation of 96%.
   # FlashInfer rebuilds metadata between MTP steps (no fused multi-step path).
   "qwen3.8-27b-nvfp4":
     name: Qwen3.8 27B NVFP4
@@ -432,7 +431,7 @@ models:
       --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
-      --gpu-memory-utilization 0.80
+      --gpu-memory-utilization 0.96
       --attention-backend FLASHINFER
       --kv-cache-dtype bfloat16
       --mamba-ssm-cache-dtype float32
