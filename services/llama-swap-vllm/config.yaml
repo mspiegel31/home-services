@@ -356,7 +356,7 @@ models:
   # Prefix caching stays enabled; cached-repeat correctness needs runtime validation.
   "qwen3.8-27b-fp8":
     name: Qwen3.8 27B FP8
-    description: Qwen3.8 27B FP8 with auto-fit context (native 262,144 when served alone)
+    description: Qwen3.8 27B FP8 weights with BF16 KV and auto-fit context (native 262,144 when served alone)
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -373,6 +373,9 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "Qwen/Qwen3.8-27B-FP8"
     proxy: http://vllm-qwen3-8-27b-fp8:8000
+    # Match the other quantized dense 27B lanes' BF16 KV; the resulting KV
+    # pool has not been measured. The BF16 Swift and Flash Next lanes retain
+    # FP8 KV to preserve their measured long-context memory budgets.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b-fp8
@@ -383,7 +386,7 @@ models:
       --max-model-len auto
       --gpu-memory-utilization 0.90
       --attention-backend FLASHINFER
-      --kv-cache-dtype fp8
+      --kv-cache-dtype bfloat16
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
