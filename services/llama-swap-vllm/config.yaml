@@ -48,13 +48,13 @@ macros:
 models:
   "qwen3.8-flash-next-nvfp4":
     name: Qwen3.8 Flash Next NVFP4
-    description: Qwen3.8 Flash Next QAD NVFP4 with 131,072-token context, disk-backed PLE, native RAM prefix cache, and MTP3
+    description: Qwen3.8 Flash Next QAD NVFP4 with 262,144-token context, disk-backed PLE, native RAM prefix cache, and MTP3
     concurrencyLimit: 4
     capabilities:
       in: ["text", "image"]
       out: ["text"]
       tools: true
-      context: 131072
+      context: 262144
     metadata:
       reasoning: true
       thinking: true
@@ -73,6 +73,14 @@ models:
     # expert-weight offload and the native SimpleCPU prefix tier are separate.
     # InstantTensor's GPU staging OOMs during MTP loading on this 72 GB GPU;
     # safetensors loads the same weights without that transient allocation.
+    # Validated 2026-09-28 on the 5700G / PCIe 3.0 x16 host: 15 GiB expert
+    # offload yields 5.47 GiB GPU cache (353,864 tokens, 1.35x at 262,144).
+    # An uncached 261,632-token prompt + 512 output tokens passed retrieval:
+    # 152.9s TTFT, ~25.7 output tok/s. VM retained ~15 GiB available RAM.
+    # Four independent 65,536-token prompts + 512 output tokens each also
+    # passed retrieval; all four ran together at ~36-39 aggregate decode tok/s
+    # after prefill, with ~97% GPU cache usage.
+    # Concurrency remains four, sharing this cache; four full windows do not fit.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
@@ -81,7 +89,7 @@ models:
       --name vllm-qwen3-8-flash-next
       --env HF_TOKEN --env HF_HOME=/models/huggingface
       --env PROFILE=qwen38-flash-next --env TP=1 --env DCP=1 --env PORT=8000
-      --env MAX_MODEL_LEN=131072 --env MAX_NUM_SEQS=4
+      --env MAX_MODEL_LEN=262144 --env MAX_NUM_SEQS=4
       --env MAX_NUM_BATCHED_TOKENS=4096 --env GPU_MEMORY_UTILIZATION=0.96
       --env VLLM_PLE_TABLE_MEMORY=disk
       --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=8
@@ -96,7 +104,7 @@ models:
       --model ${checkpoint} --served-model-name ${MODEL_ID}
       --load-format safetensors
       --mode mtp --draft-tokens 3
-      --cpu-offload-gb 12 --cpu-offload-params experts
+      --cpu-offload-gb 15 --cpu-offload-params experts
       --max-cudagraph-capture-size 16
       --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
     cmdStop: docker stop --time 90 vllm-qwen3-8-flash-next

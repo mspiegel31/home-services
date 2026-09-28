@@ -87,8 +87,8 @@ model_list:
       custom_llm_provider: hosted_vllm
     model_info: &flash_next_model_info
       <<: *qwen38_model_info
-      context_window: 131072
-      max_input_tokens: 131072
+      context_window: 262144
+      max_input_tokens: 262144
       reasoning_effort: [low, medium, xhigh]
       supports_function_calling: true
       supports_tool_choice: true
