@@ -283,6 +283,7 @@ models:
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.98
+      --attention-backend FLASHINFER
       --kv-cache-dtype fp8
       --mamba-cache-mode align
       --kv-offloading-size 24
@@ -347,6 +348,7 @@ models:
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.9
+      --attention-backend FLASHINFER
       --kv-cache-dtype bfloat16
       --mamba-cache-mode align
       --generation-config auto
@@ -386,6 +388,7 @@ models:
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.90
+      --attention-backend FLASHINFER
       --kv-cache-dtype fp8
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
