@@ -353,6 +353,8 @@ models:
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-awq
 
+  # Use built-in MTP3 instead of DFlash2 after cached-prefix corruption.
+  # Prefix caching stays enabled; cached-repeat correctness needs runtime validation.
   "qwen3.8-27b-fp8":
     name: Qwen3.8 27B FP8
     description: Qwen3.8 27B FP8 with auto-fit context (native 262,144 when served alone)
@@ -384,7 +386,7 @@ models:
       --gpu-memory-utilization 0.90
       --kv-cache-dtype fp8
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-fp8
 
