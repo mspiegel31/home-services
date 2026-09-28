@@ -206,7 +206,7 @@ models:
       --kernel-config '{"linear_backend_per_quant":{"nvfp4_w4a4":"marlin","nvfp4_w4a16":"marlin"}}'
       --long-prefill-token-threshold 2048
       --max-model-len auto
-      --gpu-memory-utilization 0.9
+      --gpu-memory-utilization 0.96
       --kv-cache-dtype bfloat16
       --mamba-cache-mode align
       --generation-config auto
