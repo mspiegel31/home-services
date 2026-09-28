@@ -155,10 +155,8 @@ model_list:
       custom_llm_provider: hosted_vllm
     model_info:
       <<: *qwen38_model_info
-      context_window: 196608
-      max_input_tokens: 196608
       reasoning_effort: [low, medium, xhigh]
-      max_output_tokens: 196608
+      max_output_tokens: 262144
       supports_function_calling: true
       supports_tool_choice: true
       supported_openai_params:

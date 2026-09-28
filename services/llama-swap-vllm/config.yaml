@@ -232,12 +232,12 @@ models:
 
   "swift-1.5-bf16":
     name: Swift 1.5 Qwen3.8 27B BF16
-    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 with FlashAttention, BF16 KV, MTP3, and 196,608-token context
+    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 with FlashInfer, FP8 KV, native MTP3, and 262,144-token context
     capabilities:
       in: ["text", "image"]
       out: ["text"]
       tools: true
-      context: 196608
+      context: 262144
     metadata:
       reasoning: true
       thinking: true
@@ -249,15 +249,13 @@ models:
       checkpoint: "ukisai/Swift-1.5-Qwen3.8-27b"
     proxy: http://vllm-swift-1-5-bf16:8000
     # The 51.75 GiB BF16 weights stay on GPU; no dense-weight CPU offload.
-    # FLASH_ATTN cannot use FP8 KV on this SM120 GPU (vLLM 0.30.0), so keep
-    # attention KV in BF16 and the model's recurrent SSM state in FP32.
-    # An earlier BF16-KV run at 0.98 utilization auto-fit to 216,240 tokens
-    # with eight sequences. Cap serving and advertised context at 196,608
-    # to leave room for graph/workspace variation; 262,144 is not viable
-    # with this weight precision and BF16 KV on the current GPU.
+    # FlashInfer supports FP8 full-attention KV on SM120. The checkpoint's
+    # KV scales are not applied by this loader, so FP8 uses unit scales;
+    # the model's recurrent SSM state remains FP32.
+    # Measured on vLLM 0.30.0: 14.94 GiB / 420,309 GPU cache tokens at
+    # 0.98 utilization, enough for one full 262,144-token window.
     # Retain the 4096-token prefill chunk after the 8192-token graph OOM.
-    # Keep the 24 GiB CPU tier for cold prefix reuse, not active context.
-    # It does not extend max_model_len. MTP3 remains unchanged for comparison.
+    # The 24 GiB CPU tier caches cold prefixes, not active context.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-bf16
@@ -269,10 +267,10 @@ models:
       --max-num-seqs 8
       --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
-      --max-model-len 196608
+      --max-model-len auto
       --gpu-memory-utilization 0.98
-      --attention-backend FLASH_ATTN
-      --kv-cache-dtype bfloat16
+      --attention-backend FLASHINFER
+      --kv-cache-dtype fp8
       --mamba-cache-mode align
       --kv-offloading-size 24
       --kv-offloading-backend native
