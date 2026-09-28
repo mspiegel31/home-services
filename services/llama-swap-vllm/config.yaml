@@ -393,8 +393,8 @@ models:
   # NVIDIA ModelOpt export of the same Qwen3.8-27B recipe: NVFP4 (group 16)
   # on the MLP projections and lm_head, static FP8 on the GDN linear_attn and
   # full-attn projections, vision tower/norms unquantized — a W4A4 mix, so
-  # activations are quantized too. kv_cache_quant_algo is null, so fp8 KV runs
-  # at unit scales exactly as on the FP8 lane (vllm#54623, plain cast).
+  # activations are quantized too. Keep full-attention KV in BF16 and the
+  # GDN recurrent SSM state in FP32; neither restores quantized weight precision.
   # The checkpoint ships its own MTP head (mtp.* tensors, 1 layer), so the
   # FP8 lane's MTP3 spec decode carries over unchanged.
   "qwen3.8-27b-nvfp4":
@@ -425,7 +425,8 @@ models:
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.90
-      --kv-cache-dtype fp8
+      --kv-cache-dtype bfloat16
+      --mamba-ssm-cache-dtype float32
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
       --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
