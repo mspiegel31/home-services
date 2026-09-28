@@ -332,11 +332,10 @@ models:
     # outside git: a cache re-download restores the buggy config and the lane
     # stops booting. Check "Avg Draft acceptance rate" under load.
     #
-    # bf16 KV is ~64 KiB/token, so 262,144 needs ~17 GiB effective; at
-    # util 0.9 the pool is ~40 GiB — full context with ~2x headroom. The
-    # 16 GiB CPU tier was dropped 2026-09-27: the same 0% external-hit
-    # finding as the NVFP4 lane, and the 2x GPU headroom makes the tier
-    # redundant (re-add only if contexts start evicting from GPU KV).
+    # bf16 KV is ~64 KiB/token, so 262,144 needs ~16 GiB before overhead.
+    # Match the NVFP4 lane's 0.96 utilization; the resulting KV pool has not
+    # been measured. The 16 GiB CPU tier was dropped 2026-09-27 after 0%
+    # external hits; re-add only if contexts start evicting from GPU KV.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-awq
@@ -347,7 +346,7 @@ models:
       ${VLLM_COMMON}
       --long-prefill-token-threshold 2048
       --max-model-len auto
-      --gpu-memory-utilization 0.9
+      --gpu-memory-utilization 0.96
       --attention-backend FLASHINFER
       --kv-cache-dtype bfloat16
       --mamba-cache-mode align
