@@ -76,8 +76,9 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 ## Local reasoning-model thinking policy
 
 `custom_callbacks.py` translates public thinking controls before LiteLLM
-forwards Chat Completions requests. It handles Qwen3.8 FP8, both Flash Next
-NVFP4 routes, and both Swift 1.5 27B routes with nested three-tier effort.
+forwards Chat Completions requests. It handles both Qwen3.8 27B routes (FP8 and
+NVFP4), both Flash Next NVFP4 routes, and both Swift 1.5 27B routes with nested
+three-tier effort.
 Both Flash Next backends mount the repo's Froggeric template from the
 llama-swap git-sync volume. Swift 1.5 requests without thinking controls
 receive an explicit xhigh default; base Qwen3.8 routes leave the Froggeric

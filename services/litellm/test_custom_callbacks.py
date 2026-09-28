@@ -140,6 +140,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
     def test_retained_variants_are_targets(self):
         for model in (
             "qwen3.8-27b-fp8",
+            "qwen3.8-27b-nvfp4",
             "qwen3.8-flash-next-nvfp4",
             "swift-1.5-flash-nvfp4",
             "swift-1.5-nvfp4",
