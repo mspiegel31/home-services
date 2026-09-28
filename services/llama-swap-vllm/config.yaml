@@ -232,12 +232,12 @@ models:
 
   "swift-1.5-bf16":
     name: Swift 1.5 Qwen3.8 27B BF16
-    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 (quality canary) with native MTP3 spec decode and auto-fit context (native 262,144 when served alone)
+    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 with FlashAttention, BF16 KV, MTP3, and 196,608-token context
     capabilities:
       in: ["text", "image"]
       out: ["text"]
       tools: true
-      context: 262144
+      context: 196608
     metadata:
       reasoning: true
       thinking: true
@@ -248,32 +248,16 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "ukisai/Swift-1.5-Qwen3.8-27b"
     proxy: http://vllm-swift-1-5-bf16:8000
-    # BF16 quality canary that mirrors the swift-1.5 NVFP4 lane. Measured
-    # weights 51.75 GiB (31.88 MLP, 13.49 attn, 2.37 embed, 2.37 lm_head,
-    # 0.86 vision, 0.79 MTP draft) need no expert offload; 0.98 utilization
-    # leaves ~16 GiB for KV + graphs, and the CPU tier fits 24 GiB.
-    #
-    # KV cache: fp8 with unit scales (the qwen3_5 loader does not apply
-    # checkpoint KV scales yet, vllm#54623 — a plain cast, no calibration).
-    # Only the 16 full-attention layers' KV is affected; the 48 GDN state
-    # caches stay bf16. Effective cost measured 41.5 KiB/token.
-    #
-    # Prefill-graph OOM (2026-09-27): with fp8 KV the auto-fit pool grows to
-    # 14.83 GiB (401,764 tokens, full 262,144 context) and the prefill AOT
-    # graph at the derived 8192-token chunk then asks for a 544 MiB bf16
-    # activation buffer with ~100 MiB free. Fix: pin the prefill chunk to
-    # 4096, halving that buffer to 272 MiB (matches the flash-next lanes).
-    # expandable_segments:True would also reclaim the ~902 MiB of stranded
-    # allocator fragmentation, but VllmConfig rejects it here: the native KV
-    # offloading connector pins host memory for DMA and VMM remapping would
-    # invalidate those registrations (hence the DOCKER_PREFIX default).
-    #
-    # Spec decode: native MTP head at 3 draft tokens, matching the other
-    # dense 27B and Flash Next lanes. Graph cap 16 keeps graph memory out of
-    # KV pool and the mamba cache lines above the capture size (vllm#34571).
-    # The 24 GiB CPU tier fits because the router never co-resides this
-    # lane with the flash-next lanes (it evicts across sets). CPU tiers
-    # only extend prefix reuse, never max_model_len.
+    # The 51.75 GiB BF16 weights stay on GPU; no dense-weight CPU offload.
+    # FLASH_ATTN cannot use FP8 KV on this SM120 GPU (vLLM 0.30.0), so keep
+    # attention KV in BF16 and the model's recurrent SSM state in FP32.
+    # An earlier BF16-KV run at 0.98 utilization auto-fit to 216,240 tokens
+    # with eight sequences. Cap serving and advertised context at 196,608
+    # to leave room for graph/workspace variation; 262,144 is not viable
+    # with this weight precision and BF16 KV on the current GPU.
+    # Retain the 4096-token prefill chunk after the 8192-token graph OOM.
+    # Keep the 24 GiB CPU tier for cold prefix reuse, not active context.
+    # It does not extend max_model_len. MTP3 remains unchanged for comparison.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-bf16
@@ -285,10 +269,10 @@ models:
       --max-num-seqs 8
       --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
-      --max-model-len auto
+      --max-model-len 196608
       --gpu-memory-utilization 0.98
-      --attention-backend FLASHINFER
-      --kv-cache-dtype fp8
+      --attention-backend FLASH_ATTN
+      --kv-cache-dtype bfloat16
       --mamba-cache-mode align
       --kv-offloading-size 24
       --kv-offloading-backend native
