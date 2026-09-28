@@ -194,9 +194,7 @@ models:
     # Select FlashInfer attention explicitly rather than the BF16 default FA2.
     # Prioritize cache capacity at 96% utilization; fresh autotuning may hit
     # workspace OOM fallbacks (observed on the Qwen lane at 90%).
-    # Bound prefill to 4096 tokens to limit activation/workspace pressure.
-    # Historical verification at 80% on vLLM 0.30.0: fresh autotuning had no
-    # OOMs and repeated JSON generation passed; not a validation of 96%.
+    # No explicit batched-token cap; vLLM derives it from the other limits.
     # FlashInfer rebuilds metadata between MTP steps (no fused multi-step path).
     # CPU KV offloading dropped 2026-09-27: 5h of logs showed the 8 GB tier
     # never served an external hit (0.0% across all samples) while the GPU
@@ -211,7 +209,6 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.96
@@ -297,8 +294,7 @@ models:
 
   "swift-1.5-awq":
     name: Swift 1.5 Qwen3.8 27B AWQ
-    description: UkisAI Swift-1.5-Qwen3.8-27b W4A16 AWQ (measured parity) with bf16 KV, native MTP5 spec decode, and 262,144 context
-    concurrencyLimit: 4
+    description: UkisAI Swift-1.5-Qwen3.8-27b W4A16 AWQ (measured parity) with bf16 KV, native MTP3 spec decode, and 262,144 context
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -316,13 +312,13 @@ models:
     proxy: http://vllm-swift-1-5-awq:8000
     # ukisai's measured-parity export (2026-09-21 single-seed: AIME 86.67
     # = their bf16, GPQA 88.38 vs 91.41, IFBench 72.00 = bf16). 18.21 GiB
-    # on disk: group-4-bit W4A16 (group 128, int8 zero-points) on the MLP
-    # and full-attn projections; lm_head, embeddings, vision tower, and
-    # all GDN linear_attn projections stay bf16. kv_cache_scheme is null,
-    # so fp8 KV would run at unit scales — bf16 KV is this lane's identity
-    # vs the bf16 lane, which trades fp8 KV for full context.
+    # including the separate MTP head: group-4-bit W4A16 (group 128, int8
+    # zero-points) on the MLP, full-attn, and GDN qkv/z/out projections;
+    # lm_head, embeddings, vision, and GDN a/b projections remain bf16.
+    # kv_cache_scheme is null, so fp8 KV would run at unit scales — bf16 KV
+    # is this lane's identity vs the bf16 lane, which trades fp8 KV for context.
     #
-    # Native MTP5, matching the bf16 lane. The checkpoint's MTP head was
+    # Native MTP3. The checkpoint's MTP head was
     # unusable as shipped: llm-compressor 0.13 dropped the mtp entry from
     # quantization_config.ignore, so vLLM built the draft quantized and
     # rejected the 15 bf16 tensors in model-mtp-bf16.safetensors. Fixed by
@@ -349,10 +345,11 @@ models:
       --gpu-memory-utilization 0.96
       --attention-backend FLASHINFER
       --kv-cache-dtype bfloat16
+      --mamba-ssm-cache-dtype float32
       --mamba-cache-mode align
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"mtp","num_speculative_tokens":5}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-awq
 
