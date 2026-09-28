@@ -383,6 +383,7 @@ models:
       --max-model-len auto
       --gpu-memory-utilization 0.90
       --kv-cache-dtype fp8
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
       --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-fp8
