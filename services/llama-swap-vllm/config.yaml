@@ -195,6 +195,9 @@ models:
     # Reserve 20% VRAM for runtime/autotuning headroom: the Qwen NVFP4 lane
     # hit FP4 GEMM autotuning OOM fallbacks at 90% utilization on this GPU.
     # Bound prefill to 4096 tokens to limit activation/workspace pressure.
+    # Verified on vLLM 0.30.0: fresh FP4 autotuning completed without OOM,
+    # repeated JSON generation passed; 468,496 cache tokens, 262,144 max context.
+    # FlashInfer rebuilds metadata between MTP steps (no fused multi-step path).
     # CPU KV offloading dropped 2026-09-27: 5h of logs showed the 8 GB tier
     # never served an external hit (0.0% across all samples) while the GPU
     # prefix cache sat at 85%, and long-prefill requests filled the arena
@@ -399,6 +402,9 @@ models:
   # FP8 lane's MTP3 spec decode carries over unchanged.
   # FlashInfer attention retains BF16 KV without defaulting to FA2. Reserve
   # 20% VRAM: FP4 GEMM autotuning hit OOM fallbacks at 90% utilization.
+  # Verified on vLLM 0.30.0: fresh FP4 autotuning completed without OOM,
+  # repeated JSON generation passed; 470,789 cache tokens, 262,144 max context.
+  # FlashInfer rebuilds metadata between MTP steps (no fused multi-step path).
   "qwen3.8-27b-nvfp4":
     name: Qwen3.8 27B NVFP4
     description: NVIDIA Qwen3.8 27B NVFP4 (mixed NVFP4/FP8 ModelOpt) with auto-fit context (native 262,144 when served alone)
