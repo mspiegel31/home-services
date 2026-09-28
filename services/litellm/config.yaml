@@ -52,14 +52,21 @@ model_list:
       vision: true
       supports_vision: true
       reasoning_effort: [low, medium, xhigh]   # uniform Froggeric tiers; OMP pins the same list via its profile models.yml
-      supported_parameters:
+      # Explicit native-tool discovery prevents omp's text fallback from
+      # colliding with vLLM's qwen3_xml parser.
+      supports_function_calling: true
+      supports_tool_choice: true
+      supported_openai_params:
         - temperature
         - top_p
         - top_k
         - repetition_penalty
+        - presence_penalty
         - max_tokens
         - stream
         - reasoning_effort
+        - tools
+        - tool_choice
       input_cost_per_token: 0.0
       output_cost_per_token: 0.0
 
