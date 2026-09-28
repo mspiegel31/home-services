@@ -376,6 +376,7 @@ models:
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b-fp8
+      --env VLLM_ENABLE_STARTUP_PLAN=1
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
       --max-num-batched-tokens 4096
