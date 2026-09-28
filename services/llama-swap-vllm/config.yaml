@@ -186,9 +186,9 @@ models:
     proxy: http://vllm-swift-1-5-nvfp4:8000
     # Use the repo's patched Froggeric template rather than the checkpoint's
     # bundled template to preserve the three-tier OMP/LiteLLM effort contract.
-    # Run NVFP4 weights through Marlin W4A16; keep FP8 layer dispatch automatic.
-    # The override key describes the checkpoint scheme, not the selected kernel's
-    # activation precision. No checkpoint changes; MTP3.
+    # NVFP4 kernel is auto-selected (was FlashInferCutlassNvFp4LinearKernel,
+    # native W4A4); the forced Marlin W4A16 override from 3cfc75f is removed.
+    # No checkpoint changes; MTP3.
     #
     # KV cache: fp8 (e4m3) with unit scales — the checkpoint ships no
     # k/v scales (same plain cast as the bf16 lane, vllm#54623). Only the 16
@@ -212,7 +212,6 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --kernel-config '{"linear_backend_per_quant":{"nvfp4_w4a4":"marlin","nvfp4_w4a16":"marlin"}}'
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.96
