@@ -224,7 +224,7 @@ models:
 
   "swift-1.5-bf16":
     name: Swift 1.5 Qwen3.8 27B BF16
-    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 (quality canary) with native MTP5 spec decode and auto-fit context (native 262,144 when served alone)
+    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 (quality canary) with native MTP3 spec decode and auto-fit context (native 262,144 when served alone)
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -260,9 +260,8 @@ models:
     # offloading connector pins host memory for DMA and VMM remapping would
     # invalidate those registrations (hence the DOCKER_PREFIX default).
     #
-    # Spec decode: native MTP head at 5 draft tokens — the official
-    # Qwen3.8-27B recipe's rtx_pro_6000 override; family BF16 draft
-    # acceptance measured 92.2%. Graph cap 16 keeps graph memory out of the
+    # Spec decode: native MTP head at 3 draft tokens, matching the other
+    # dense 27B and Flash Next lanes. Graph cap 16 keeps graph memory out of
     # KV pool and the mamba cache lines above the capture size (vllm#34571).
     # The 24 GiB CPU tier fits because the router never co-resides this
     # lane with the flash-next lanes (it evicts across sets). CPU tiers
@@ -288,7 +287,7 @@ models:
       --generation-config auto
       --max-cudagraph-capture-size 16
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"mtp","num_speculative_tokens":5}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-bf16
 
@@ -380,7 +379,6 @@ models:
       --env VLLM_ENABLE_STARTUP_PLAN=1
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.90
@@ -427,7 +425,6 @@ models:
       --env VLLM_ENABLE_STARTUP_PLAN=1
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.96
