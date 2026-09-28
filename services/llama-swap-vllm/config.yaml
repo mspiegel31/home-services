@@ -190,20 +190,17 @@ models:
     # native W4A4); the forced Marlin W4A16 override from 3cfc75f is removed.
     # No checkpoint changes; MTP3.
     #
-    # KV cache: fp8 (e4m3) with unit scales — the checkpoint ships no
-    # k/v scales (same plain cast as the bf16 lane, vllm#54623). Only the 16
-    # full-attention layers' KV shrinks (64 -> 32 KiB/token); GDN state stays
-    # bf16. On sm120 FA2 cannot read fp8 KV, so this also moves attention
-    # from FLASH_ATTN to FLASHINFER — the intended test of the long-context
-    # step-time growth (44 ms @~29K -> 109 ms @~145K under bf16 KV/FA2).
-    # If the enlarged pool OOMs the prefill graph, pin
-    # --max-num-batched-tokens 4096 as on the bf16 lane.
+    # Preserve BF16 full-attention KV and FP32 recurrent SSM state.
+    # Select FlashInfer attention explicitly rather than the BF16 default FA2.
+    # Reserve 20% VRAM for runtime/autotuning headroom: the Qwen NVFP4 lane
+    # hit FP4 GEMM autotuning OOM fallbacks at 90% utilization on this GPU.
+    # Bound prefill to 4096 tokens to limit activation/workspace pressure.
     # CPU KV offloading dropped 2026-09-27: 5h of logs showed the 8 GB tier
     # never served an external hit (0.0% across all samples) while the GPU
     # prefix cache sat at 85%, and long-prefill requests filled the arena
     # fast enough to spam "cannot store chunks" (6k+ lines, 7 requests).
-    # The GPU pool (582k tokens under bf16 KV, ~2.2x a full 262k context) already covers the
-    # working set; re-add only if contexts start evicting from GPU KV.
+    # Re-add CPU offload only if contexts start evicting from GPU KV;
+    # cache capacity must be rechecked with FP32 state and the smaller pool.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-nvfp4
@@ -212,10 +209,13 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
-      --gpu-memory-utilization 0.96
-      --kv-cache-dtype fp8
+      --gpu-memory-utilization 0.80
+      --attention-backend FLASHINFER
+      --kv-cache-dtype bfloat16
+      --mamba-ssm-cache-dtype float32
       --mamba-cache-mode align
       --generation-config auto
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
@@ -397,6 +397,8 @@ models:
   # GDN recurrent SSM state in FP32; neither restores quantized weight precision.
   # The checkpoint ships its own MTP head (mtp.* tensors, 1 layer), so the
   # FP8 lane's MTP3 spec decode carries over unchanged.
+  # FlashInfer attention retains BF16 KV without defaulting to FA2. Reserve
+  # 20% VRAM: FP4 GEMM autotuning hit OOM fallbacks at 90% utilization.
   "qwen3.8-27b-nvfp4":
     name: Qwen3.8 27B NVFP4
     description: NVIDIA Qwen3.8 27B NVFP4 (mixed NVFP4/FP8 ModelOpt) with auto-fit context (native 262,144 when served alone)
@@ -424,7 +426,8 @@ models:
       --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
       --max-model-len auto
-      --gpu-memory-utilization 0.90
+      --gpu-memory-utilization 0.80
+      --attention-backend FLASHINFER
       --kv-cache-dtype bfloat16
       --mamba-ssm-cache-dtype float32
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
