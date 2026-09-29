@@ -1,7 +1,10 @@
+# Git source of truth. The running copy is /mnt/tank/container-configs/xberg/xberg.toml
+# on truenas (Portainer CE edge git deploys ship only the compose file) —
+# re-copy this file to the tank after editing.
+#
 # Xberg config for cookbook → Mealie.
 # VLM OCR + structured extraction both use the existing swift-1.5-bf16 vLLM lane.
 # The vLLM OpenAI-compatible base is reached via the llama-swap router.
-
 [ocr]
 language = ["eng"]
 # Classical backend runs first; only pages scoring below the threshold go to the VLM.
