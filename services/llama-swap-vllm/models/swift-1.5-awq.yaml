@@ -1,0 +1,65 @@
+# swift-1.5-awq — one model in the llama-swap config-dir split.
+# Shared macros (DOCKER_PREFIX, VLLM_COMMON, QWEN38_COMMON, ...) live in
+# ../config.yaml. This file defines exactly one top-level key: models.
+
+models:
+  "swift-1.5-awq":
+    name: Swift 1.5 Qwen3.8 27B AWQ
+    description: UkisAI Swift-1.5-Qwen3.8-27b W4A16 AWQ (measured parity) with bf16 KV, native MTP3 spec decode, and 262,144 context
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "ukisai/Swift-1.5-Qwen3.8-27b-W4A16-AWQ"
+    proxy: http://vllm-swift-1-5-awq:8000
+    # ukisai's measured-parity export (2026-09-21 single-seed: AIME 86.67
+    # = their bf16, GPQA 88.38 vs 91.41, IFBench 72.00 = bf16). 18.21 GiB
+    # including the separate MTP head: group-4-bit W4A16 (group 128, int8
+    # zero-points) on the MLP, full-attn, and GDN qkv/z/out projections;
+    # lm_head, embeddings, vision, and GDN a/b projections remain bf16.
+    # kv_cache_scheme is null, so fp8 KV would run at unit scales — bf16 KV
+    # is this lane's identity vs the bf16 lane, which trades fp8 KV for context.
+    #
+    # Native MTP3. The checkpoint's MTP head was
+    # unusable as shipped: llm-compressor 0.13 dropped the mtp entry from
+    # quantization_config.ignore, so vLLM built the draft quantized and
+    # rejected the 15 bf16 tensors in model-mtp-bf16.safetensors. Fixed by
+    # adding the canonical compressed-tensors pattern "re:^mtp.*" (what its
+    # own save_mtp_tensors_to_checkpoint writes) to the cached config.json in
+    # the HF hub snapshot — backup at config.json.orig. The patch lives
+    # outside git: a cache re-download restores the buggy config and the lane
+    # stops booting. Check "Avg Draft acceptance rate" under load.
+    #
+    # bf16 KV is ~64 KiB/token, so 262,144 needs ~16 GiB before overhead.
+    # Match the NVFP4 lane's 0.96 utilization; the resulting KV pool has not
+    # been measured. The 16 GiB CPU tier was dropped 2026-09-27 after 0%
+    # external hits; re-add only if contexts start evicting from GPU KV.
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-swift-1-5-awq
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --long-prefill-token-threshold 2048
+      --max-model-len auto
+      --gpu-memory-utilization 0.96
+      --attention-backend FLASHINFER
+      --kv-cache-dtype bfloat16
+      --mamba-ssm-cache-dtype float32
+      --mamba-cache-mode align
+      --generation-config auto
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-swift-1-5-awq

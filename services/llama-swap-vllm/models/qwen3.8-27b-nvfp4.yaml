@@ -1,0 +1,51 @@
+# qwen3.8-27b-nvfp4 — one model in the llama-swap config-dir split.
+# Shared macros (DOCKER_PREFIX, VLLM_COMMON, QWEN38_COMMON, ...) live in
+# ../config.yaml. This file defines exactly one top-level key: models.
+
+models:
+  # NVIDIA ModelOpt export of the same Qwen3.8-27B recipe: NVFP4 (group 16)
+  # on the MLP projections and lm_head, static FP8 on the GDN linear_attn and
+  # full-attn projections, vision tower/norms unquantized — a W4A4 mix, so
+  # activations are quantized too. Keep full-attention KV in BF16 and the
+  # GDN recurrent SSM state in FP32; neither restores quantized weight precision.
+  # The checkpoint ships its own MTP head (mtp.* tensors, 1 layer), so the
+  # FP8 lane's MTP3 spec decode carries over unchanged.
+  # FlashInfer attention retains BF16 KV without defaulting to FA2.
+  # Prioritize cache capacity at 96%; autotuning workspace OOM fallbacks remain
+  # possible (observed at 90%). The successful fresh-autotune and generation
+  # checks on vLLM 0.30.0 were at 80%, not a validation of 96%.
+  # FlashInfer rebuilds metadata between MTP steps (no fused multi-step path).
+  "qwen3.8-27b-nvfp4":
+    name: Qwen3.8 27B NVFP4
+    description: NVIDIA Qwen3.8 27B NVFP4 (mixed NVFP4/FP8 ModelOpt) with auto-fit context (native 262,144 when served alone)
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "nvidia/Qwen3.8-27B-NVFP4"
+    proxy: http://vllm-qwen3-8-27b-nvfp4:8000
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-qwen3-8-27b-nvfp4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --long-prefill-token-threshold 2048
+      --max-model-len auto
+      --gpu-memory-utilization 0.96
+      --attention-backend FLASHINFER
+      --kv-cache-dtype bfloat16
+      --mamba-ssm-cache-dtype float32
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4
