@@ -407,7 +407,7 @@ models:
 
   "qwen3.8-27b-bf16-sglang":
     name: Qwen3.8 27B BF16 (SGLang)
-    description: Qwen3.8 27B BF16 with SGLang, FlashInfer, FP8 KV, RadixArk DSpark, and 16 GiB CPU HiCache
+    description: Qwen3.8 27B BF16 with SGLang, FlashInfer, FP8 KV, native MTP3, and 16 GiB CPU HiCache
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -423,19 +423,16 @@ models:
       checkpoint: "Qwen/Qwen3.8-27B"
     proxy: http://sglang-qwen3-8-27b-bf16:8000
     # https://docs.sglang.io/cookbook/autoregressive/Qwen/Qwen3.8-27B
-    # Keep the vLLM lane's target, FP8 KV, FP32 SSM, and template. DSPARK
-    # stays only for the cross-engine comparison: the vLLM lane dropped both
-    # external drafters after cached-prefix reasoning corruption.
-    # The official image cannot parse Red Hat's speculators-format config;
-    # use the SGLang recipe's RadixArk DSpark checkpoint instead.
-    # DSPARK gamma=7 means seven proposals plus one verification/bonus slot.
+    # Match the vLLM lane's target, native MTP3, FP8 KV, FP32 SSM, and template.
+    # SGLang calls in-checkpoint MTP EAGLE: three steps, top-k 1, and four
+    # verification tokens including the bonus token. No external draft model.
     # HiCache retains evicted radix prefixes in a bounded 16 GiB host tier;
     # it does not extend active GPU context. CPU restore correctness with
-    # this hybrid/DSpark combination still needs validation after restart.
+    # this hybrid/MTP combination still needs validation after restart.
     # https://docs.sglang.io/docs/advanced_features/hicache_best_practices
     # SGLang's static fraction excludes activation/graph workspace, unlike
     # vLLM's utilization budget. Reserve 8% for graphs and vision processing;
-    # at 0.94, text passed but the first image request exhausted GPU memory.
+    # at 0.94 with DSpark, text passed but the first image request exhausted GPU memory.
     # Unset context-length/max-total-tokens retains native context metadata
     # and memory-derived pool sizing; actual capacity is reported at startup.
     # The FP32 Mamba state pool can reduce active concurrency below the
@@ -473,10 +470,10 @@ models:
       --reasoning-parser qwen3
       --tool-call-parser qwen3_coder
       --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
-      --speculative-algorithm DSPARK
-      --speculative-draft-model-path RadixArk/Qwen3.8-27B-DSpark
-      --speculative-dspark-block-size 7
-      --speculative-draft-attention-backend flashinfer
+      --speculative-algorithm EAGLE
+      --speculative-num-steps 3
+      --speculative-eagle-topk 1
+      --speculative-num-draft-tokens 4
     cmdStop: docker stop --time 90 sglang-qwen3-8-27b-bf16
 
   # Use built-in MTP3 instead of DFlash2 after cached-prefix corruption.
