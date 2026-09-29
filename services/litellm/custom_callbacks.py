@@ -40,6 +40,7 @@ class LocalReasoningModel(str, Enum):
     """Model IDs requiring local chat-template thinking controls."""
 
     QWEN38_FP8 = "qwen3.8-27b-fp8"
+    QWEN38_BF16 = "qwen3.8-27b-bf16"
     QWEN38_NVFP4 = "qwen3.8-27b-nvfp4"
     QWEN38_FLASH_NEXT_NVFP4 = "qwen3.8-flash-next-nvfp4"
     SWIFT_1_5_FLASH_NVFP4 = "swift-1.5-flash-nvfp4"

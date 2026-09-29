@@ -102,8 +102,10 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
                 self.assertEqual(result["chat_template_kwargs"], {"enable_thinking": False})
                 self.assertNotIn("reasoning_effort", result)
 
-    def test_no_controls_leaves_template_default(self):
-        self.assertIsNone(call_hook(chat({"model": "qwen3.8-27b-fp8", "max_tokens": 16})))
+    def test_no_controls_leaves_qwen_template_default(self):
+        for model in ("qwen3.8-27b-fp8", "qwen3.8-27b-bf16"):
+            with self.subTest(model=model):
+                self.assertIsNone(call_hook(chat({"model": model, "max_tokens": 16})))
 
     def test_swift_1_5_defaults_to_xhigh_with_froggeric_template(self):
         for model in (
@@ -140,6 +142,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
     def test_retained_variants_are_targets(self):
         for model in (
             "qwen3.8-27b-fp8",
+            "qwen3.8-27b-bf16",
             "qwen3.8-27b-nvfp4",
             "qwen3.8-flash-next-nvfp4",
             "swift-1.5-flash-nvfp4",

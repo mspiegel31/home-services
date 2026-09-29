@@ -352,6 +352,54 @@ models:
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-awq
 
+  "qwen3.8-27b-bf16":
+    name: Qwen3.8 27B BF16
+    description: Qwen3.8 27B BF16 with FlashInfer, FP8 KV, DFlash2, 262,144-token context, and RAM prefix cache
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "Qwen/Qwen3.8-27B"
+    proxy: http://vllm-qwen3-8-27b-bf16:8000
+    # Mirror Swift BF16's serving and cache settings. The vLLM recipe attaches
+    # incoai/Qwen3.8-27B-DFlash2 to the base checkpoint with seven draft tokens:
+    # https://recipes.vllm.ai/Qwen/Qwen3.8-27B#dflash2-opt-in
+    # GPU KV capacity and cached-prefix correctness with this drafter are
+    # unmeasured; the FP8 target previously showed DFlash2 prefix corruption.
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-qwen3-8-27b-bf16
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --max-num-seqs 8
+      --max-num-batched-tokens 4096
+      --long-prefill-token-threshold 2048
+      --max-model-len auto
+      --gpu-memory-utilization 0.98
+      --attention-backend FLASHINFER
+      --kv-cache-dtype fp8
+      --mamba-cache-mode align
+      --kv-offloading-size 24
+      --kv-offloading-backend native
+      --generation-config auto
+      --max-cudagraph-capture-size 16
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      --speculative-config '{"method":"dflash","model":"incoai/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-bf16
+
   # Use built-in MTP3 instead of DFlash2 after cached-prefix corruption.
   # Prefix caching stays enabled; cached-repeat correctness needs runtime validation.
   "qwen3.8-27b-fp8":
@@ -447,4 +495,4 @@ routing:
         sets:
           qwen-flash-next: "qwen3.8-flash-next-nvfp4"
           swift-flash-next: "swift-1.5-flash-nvfp4"
-          co-resident: "qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | swift-1.5-nvfp4 | swift-1.5-bf16 | swift-1.5-awq"
+          co-resident: "qwen3.8-27b-bf16 | qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | swift-1.5-nvfp4 | swift-1.5-bf16 | swift-1.5-awq"
