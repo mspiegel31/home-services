@@ -55,9 +55,8 @@ respected. Verify with `curl <key> /v2/model/info` → 200.
 ## Config management
 
 LiteLLM supports multiple config sources:
-1. Config file (highest priority): mounted from git-sync at `/config/current/services/litellm/config.yaml`.
+1. Config file (highest priority): mounted from git-sync at `/config/current/services/litellm/config.yaml`. Chat-model deployments live in `models/<model-id>.yaml`, pulled in via the `include` directive in `config.yaml` (explicit file list, no glob; `model_list` concatenates in listed order). LiteLLM `include` files are parsed separately, so YAML anchors/merge keys do not cross file boundaries — model files are fully self-contained.
 2. Environment variables override via `os.environ/` syntax in YAML.
-3. Native S3/GCS config loading: set `LITELLM_CONFIG_BUCKET_TYPE/NAME/OBJECT_KEY` env vars to load config from a bucket. This is the Litellm-provided alternative to git-sync and is preferred for large-scale deployments.
 
 For home-services consistency, git-sync is used here. Switch to S3 bucket config by:
 - Setting `LITELLM_CONFIG_BUCKET_TYPE`, `LITELLM_CONFIG_BUCKET_NAME`, `LITELLM_CONFIG_BUCKET_OBJECT_KEY`
