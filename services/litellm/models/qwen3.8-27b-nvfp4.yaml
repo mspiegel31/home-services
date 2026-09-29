@@ -1,0 +1,36 @@
+# qwen3.8-27b-nvfp4 — one deployment in the litellm config split.
+# Global settings (master_key, redis, cache, callbacks) live in ../config.yaml.
+# This file defines exactly one top-level key: model_list, with one entry.
+
+model_list:
+  - model_name: qwen3.8-27b-nvfp4
+    litellm_params:
+      model: qwen3.8-27b-nvfp4
+      api_base: http://192.168.1.98:11437/v1
+      api_key: os.environ/LLAMA_SWAP_API_KEY
+      custom_llm_provider: hosted_vllm
+    model_info:
+      context_window: 262144      # HF: 262,144 native (extensible to 1M)
+      max_input_tokens: 262144
+      reasoning: true
+      supports_reasoning: true
+      vision: true
+      supports_vision: true
+      reasoning_effort: [low, medium, xhigh]   # uniform Froggeric tiers; OMP pins the same list via its profile models.yml
+      # Explicit native-tool discovery prevents omp's text fallback from
+      # colliding with vLLM's qwen3_xml parser.
+      supports_function_calling: true
+      supports_tool_choice: true
+      supported_openai_params:
+        - temperature
+        - top_p
+        - top_k
+        - repetition_penalty
+        - presence_penalty
+        - max_tokens
+        - stream
+        - reasoning_effort
+        - tools
+        - tool_choice
+      input_cost_per_token: 0.0
+      output_cost_per_token: 0.0

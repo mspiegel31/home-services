@@ -70,7 +70,7 @@ services:
     volumes:
       - litellm-config:/git
     healthcheck:
-      test: ["CMD-SHELL", "test -f /git/current/services/litellm/config.yaml && curl -fsS http://127.0.0.1:1234/"]
+      test: ["CMD-SHELL", "test -f /git/current/services/litellm/config.yaml && ls /git/current/services/litellm/models/*.yaml >/dev/null && curl -fsS http://127.0.0.1:1234/"]
       interval: 5s
       timeout: 3s
       retries: 5
