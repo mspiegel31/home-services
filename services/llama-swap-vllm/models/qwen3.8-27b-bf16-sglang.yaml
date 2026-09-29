@@ -1,0 +1,75 @@
+# qwen3.8-27b-bf16-sglang — one model in the llama-swap config-dir split.
+# Shared macros (DOCKER_PREFIX, VLLM_COMMON, QWEN38_COMMON, ...) live in
+# ../config.yaml. This file defines exactly one top-level key: models.
+
+models:
+  "qwen3.8-27b-bf16-sglang":
+    name: Qwen3.8 27B BF16 (SGLang)
+    description: Qwen3.8 27B BF16 with SGLang, FlashInfer, FP8 KV, native MTP3, and 16 GiB CPU HiCache
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      SGLANG_IMAGE: "lmsysorg/sglang:v0.5.20@sha256:06e4f2ed21afde4ff513cda65070124e727ba23ccaeff7712b8c40e1097d611f"
+      checkpoint: "Qwen/Qwen3.8-27B"
+    proxy: http://sglang-qwen3-8-27b-bf16:8000
+    # https://docs.sglang.io/cookbook/autoregressive/Qwen/Qwen3.8-27B
+    # Match the vLLM lane's target, native MTP3, FP8 KV, FP32 SSM, and template.
+    # SGLang calls in-checkpoint MTP EAGLE: three steps, top-k 1, and four
+    # verification tokens including the bonus token. No external draft model.
+    # HiCache retains evicted radix prefixes in a bounded 16 GiB host tier;
+    # it does not extend active GPU context. CPU restore correctness with
+    # this hybrid/MTP combination still needs validation after restart.
+    # https://docs.sglang.io/docs/advanced_features/hicache_best_practices
+    # SGLang's static fraction excludes activation/graph workspace, unlike
+    # vLLM's utilization budget. Reserve 8% for graphs and vision processing;
+    # at 0.94 with DSpark, text passed but the first image request exhausted GPU memory.
+    # Unset context-length/max-total-tokens retains native context metadata
+    # and memory-derived pool sizing; actual capacity is reported at startup.
+    # The FP32 Mamba state pool can reduce active concurrency below the
+    # requested ceiling of 8; excess client requests queue.
+    # The stock image lacks fastokens; retain its Hugging Face tokenizer.
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --network llama-swap-vllm-backend
+      --name sglang-qwen3-8-27b-bf16
+      --env HF_TOKEN --env HF_HOME=/models/huggingface
+      --env SGLANG_CACHE_DIR=/models/sglang
+      --volume /mnt/models:/models
+      --volume llama-swap_llama-swap-config:/config:ro
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      ${SGLANG_IMAGE}
+      sglang serve
+      --model-path ${checkpoint}
+      --trust-remote-code
+      --served-model-name ${MODEL_ID}
+      --host 0.0.0.0 --port 8000
+      --dtype bfloat16
+      --mem-fraction-static 0.92
+      --max-running-requests 8
+      --chunked-prefill-size 4096
+      --max-prefill-tokens 4096
+      --cuda-graph-max-bs-decode 8
+      --attention-backend flashinfer
+      --kv-cache-dtype fp8_e4m3
+      --mamba-ssm-dtype float32
+      --mamba-radix-cache-strategy extra_buffer_lazy
+      --enable-hierarchical-cache
+      --hicache-size 16
+      --reasoning-parser qwen3
+      --tool-call-parser qwen3_coder
+      --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
+      --speculative-algorithm EAGLE
+      --speculative-num-steps 3
+      --speculative-eagle-topk 1
+      --speculative-num-draft-tokens 4
+    cmdStop: docker stop --time 90 sglang-qwen3-8-27b-bf16

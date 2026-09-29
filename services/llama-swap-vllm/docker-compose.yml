@@ -65,7 +65,7 @@ services:
     volumes:
       - llama-swap-config:/git
     healthcheck:
-      test: ["CMD-SHELL", "test -f /git/current/services/llama-swap-vllm/config.yaml && curl -fsS http://127.0.0.1:1234/"]
+      test: ["CMD-SHELL", "test -f /git/current/services/llama-swap-vllm/config.yaml && ls /git/current/services/llama-swap-vllm/models/*.yaml >/dev/null && curl -fsS http://127.0.0.1:1234/"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -94,7 +94,7 @@ services:
     environment:
       - LLAMA_SWAP_API_KEY=${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
       - HF_TOKEN=${HF_TOKEN:?Set HF_TOKEN in Portainer}
-    command: ["--config", "/config/current/services/llama-swap-vllm/config.yaml", "--listen", "0.0.0.0:8080"]
+    command: ["--config", "/config/current/services/llama-swap-vllm/config.yaml", "--config-dir", "/config/current/services/llama-swap-vllm/models", "--listen", "0.0.0.0:8080"]
     volumes:
       - llama-swap-config:/config:ro
       - /var/run/docker.sock:/var/run/docker.sock
