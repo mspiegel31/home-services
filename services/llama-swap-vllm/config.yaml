@@ -354,7 +354,7 @@ models:
 
   "qwen3.8-27b-bf16":
     name: Qwen3.8 27B BF16
-    description: Qwen3.8 27B BF16 with FlashInfer, FP8 KV, Red Hat DSpark, auto-fit context, and 16 GiB RAM prefix cache
+    description: Qwen3.8 27B BF16 with FlashInfer, FP8 KV, Red Hat DSpark, and auto-fit context (prefix cache disabled)
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -372,13 +372,13 @@ models:
     proxy: http://vllm-qwen3-8-27b-bf16:8000
     # Red Hat's vLLM deployment uses DSpark with seven draft tokens:
     # https://huggingface.co/RedHatAI/Qwen3.8-27B-speculator.dspark
-    # Keep max-model-len auto: the external drafter consumes GPU memory;
-    # the resulting DSpark KV capacity has not yet been measured.
-    # A 24 GiB native CPU KV tier could not allocate 24,575 MiB in /dev/shm
-    # (17,373 MiB free at first launch). Use 16 GiB instead; offloading
-    # evicted prefixes does not extend the active GPU context window.
-    # Cached-prefix correctness with DSpark still needs runtime validation;
-    # changing drafters is not a verified fix for the prior DFlash2 corruption.
+    # Keep max-model-len auto: the external drafter consumes GPU memory.
+    # Reused prefixes corrupted reasoning with both DFlash2 and DSpark:
+    # repeated "!ductduct..." coincided with prefix hits and zero draft
+    # acceptance. A fresh cache_salt on the same prompt produced a coherent
+    # tool call. Disable prefix reuse until the hybrid/spec cache path is fixed.
+    # Without reusable prefixes, the native CPU offload tier would reserve
+    # 16 GiB of /dev/shm without providing a useful cache.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b-bf16
@@ -387,6 +387,7 @@ models:
       --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --no-enable-prefix-caching
       --max-num-seqs 8
       --max-num-batched-tokens 4096
       --long-prefill-token-threshold 2048
@@ -395,8 +396,6 @@ models:
       --attention-backend FLASHINFER
       --kv-cache-dtype fp8
       --mamba-cache-mode align
-      --kv-offloading-size 16
-      --kv-offloading-backend native
       --generation-config auto
       --max-cudagraph-capture-size 16
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
