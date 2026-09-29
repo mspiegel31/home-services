@@ -103,7 +103,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
                 self.assertNotIn("reasoning_effort", result)
 
     def test_no_controls_leaves_qwen_template_default(self):
-        for model in ("qwen3.8-27b-fp8", "qwen3.8-27b-bf16"):
+        for model in ("qwen3.8-27b-fp8", "qwen3.8-27b-bf16", "qwen3.8-27b-bf16-sglang"):
             with self.subTest(model=model):
                 self.assertIsNone(call_hook(chat({"model": model, "max_tokens": 16})))
 
@@ -143,6 +143,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         for model in (
             "qwen3.8-27b-fp8",
             "qwen3.8-27b-bf16",
+            "qwen3.8-27b-bf16-sglang",
             "qwen3.8-27b-nvfp4",
             "qwen3.8-flash-next-nvfp4",
             "swift-1.5-flash-nvfp4",
