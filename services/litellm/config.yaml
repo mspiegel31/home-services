@@ -133,8 +133,6 @@ model_list:
       custom_llm_provider: hosted_vllm
     model_info:
       <<: *flash_next_model_info
-      # Served at 262,144 (KV pool measured at 294,690 tokens); the shared
-      # flash-next anchor would cap clients at 131K.
       context_window: 262144
       max_input_tokens: 262144
       # OMP derives a 32768 max-tokens clamp from LiteLLM's known-model DB
