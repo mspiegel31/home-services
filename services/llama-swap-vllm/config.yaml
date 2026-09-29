@@ -354,7 +354,7 @@ models:
 
   "qwen3.8-27b-bf16":
     name: Qwen3.8 27B BF16
-    description: Qwen3.8 27B BF16 with FlashInfer, FP8 KV, DFlash2, 262,144-token context, and RAM prefix cache
+    description: Qwen3.8 27B BF16 with FlashInfer, FP8 KV, DFlash2, auto-fit context, and 16 GiB RAM prefix cache
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -370,11 +370,15 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "Qwen/Qwen3.8-27B"
     proxy: http://vllm-qwen3-8-27b-bf16:8000
-    # Mirror Swift BF16's serving and cache settings. The vLLM recipe attaches
-    # incoai/Qwen3.8-27B-DFlash2 to the base checkpoint with seven draft tokens:
+    # The vLLM recipe attaches incoai/Qwen3.8-27B-DFlash2 with seven draft tokens:
     # https://recipes.vllm.ai/Qwen/Qwen3.8-27B#dflash2-opt-in
-    # GPU KV capacity and cached-prefix correctness with this drafter are
-    # unmeasured; the FP8 target previously showed DFlash2 prefix corruption.
+    # Keep max-model-len auto: DFlash2 leaves fewer GPU KV tokens than Swift's
+    # MTP head (186,224 served at 0.98 utilization in the first launch).
+    # A 24 GiB native CPU KV tier could not allocate 24,575 MiB in /dev/shm
+    # (17,373 MiB free at first launch). Use 16 GiB instead; offloading
+    # evicted prefixes does not extend the active GPU context window.
+    # Cached-prefix correctness with DFlash2 still needs runtime validation;
+    # the FP8 Qwen target previously showed prefix corruption.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b-bf16
@@ -391,7 +395,7 @@ models:
       --attention-backend FLASHINFER
       --kv-cache-dtype fp8
       --mamba-cache-mode align
-      --kv-offloading-size 24
+      --kv-offloading-size 16
       --kv-offloading-backend native
       --generation-config auto
       --max-cudagraph-capture-size 16
