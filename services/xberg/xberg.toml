@@ -1,0 +1,39 @@
+# Xberg config for cookbook → Mealie.
+# VLM OCR + structured extraction both use the existing swift-1.5-bf16 vLLM lane.
+# The vLLM OpenAI-compatible base is reached via the llama-swap router.
+
+[ocr]
+language = ["eng"]
+# Classical backend runs first; only pages scoring below the threshold go to the VLM.
+backend = "tesseract"
+vlm_fallback = "on_low_quality"
+quality_threshold = 0.5
+
+[ocr.vlm_config]
+model = "swiftvl/swift-1.5-bf16"
+base_url = "http://192.168.1.98:11437/v1"
+api_key = "none"
+timeout_secs = 300
+
+[[ocr.vlm_config.providers]]
+name = "swiftvl"
+base_url = "http://192.168.1.98:11437/v1"
+auth_header = "Authorization"
+model_prefixes = ["swiftvl/"]
+
+[structured_extraction]
+schema_name = "recipe"
+schema_description = "A single cookbook recipe. Return one recipe per document."
+strict = true
+
+[structured_extraction.llm]
+model = "swiftvl/swift-1.5-bf16"
+base_url = "http://192.168.1.98:11437/v1"
+api_key = "none"
+timeout_secs = 300
+
+[[structured_extraction.llm.providers]]
+name = "swiftvl"
+base_url = "http://192.168.1.98:11437/v1"
+auth_header = "Authorization"
+model_prefixes = ["swiftvl/"]

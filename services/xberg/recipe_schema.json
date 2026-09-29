@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "title":      { "type": "string", "description": "Recipe name, clean title case." },
+    "description":{ "type": ["string", "null"], "description": "Short intro/notes if present." },
+    "servings":   { "type": ["string", "null"], "description": "Yield, e.g. \"4 servings\"." },
+    "prep_time":  { "type": ["string", "null"] },
+    "cook_time":  { "type": ["string", "null"] },
+    "ingredients":{
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "quantity": { "type": ["number", "null"] },
+          "unit":     { "type": ["string", "null"] },
+          "name":     { "type": "string" },
+          "note":     { "type": ["string", "null"] }
+        },
+        "required": ["name"]
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" }
+        },
+        "required": ["text"]
+      }
+    },
+    "tags":       { "type": "array", "items": { "type": "string" } },
+    "categories": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["title", "ingredients", "steps"]
+}

@@ -1,0 +1,37 @@
+name: xberg
+
+services:
+  xberg:
+    image: ghcr.io/xberg-io/xberg:v1.3.0
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    command: ["xberg", "serve", "-H", "0.0.0.0", "-p", "8000", "--config", "/config/xberg.toml"]
+    environment:
+      XBERG_CACHE_DIR: /data/cache
+      XBERG_OCR_LANGUAGE: eng
+      TZ: "${TZ:?Set TZ in Portainer}"
+    volumes:
+      - ./xberg.toml:/config/xberg.toml:ro
+      - /mnt/tank/container-configs/xberg/cache:/data/cache
+      - /mnt/tank/container-configs/xberg/scan-inbox:/inbox:ro
+    ports:
+      - "127.0.0.1:8999:8000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - xberg
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "4.0"
+
+networks:
+  xberg:
+    name: xberg
