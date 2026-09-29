@@ -55,17 +55,33 @@ by this stack.
 
 ## Configuration
 
-Copy the template and fill it in:
+Create a `.env` next to `docker-compose.yml` (git-ignored) and fill in every
+required value:
+
+```dotenv
+# five independent secrets — openssl rand -hex 32 each
+PAPERCLIP_POSTGRES_PASSWORD=
+BETTER_AUTH_SECRET=
+PAPERCLIP_AGENT_JWT_SECRET=
+PAPERCLIP_TOOL_ACTION_SIGNING_SECRET=
+PAPERCLIP_SECRETS_MASTER_KEY=
+# nonsecret values
+PAPERCLIP_DATA_DIR=
+PAPERCLIP_BIND_IP=127.0.0.1
+PAPERCLIP_PORT=3100
+PAPERCLIP_PUBLIC_URL=http://localhost:3100
+PAPERCLIP_AUTH_DISABLE_SIGN_UP=true
+HEARTBEAT_SCHEDULER_ENABLED=false
+```
 
 ```sh
-cp .env.example .env
 chmod 600 .env
 ```
 
-The root `.gitignore` already protects `.env`; this file is a template and
-must never receive generated credentials. **Shell environment variables
-override `.env`** — when switching between installations on the same machine,
-unset exported variables that would shadow the intended values.
+The root `.gitignore` already protects `.env`; this file must never receive
+generated credentials. **Shell environment variables override `.env`** — when
+switching between installations on the same machine, unset exported variables
+that would shadow the intended values.
 
 ### Required secrets (five independent values)
 
