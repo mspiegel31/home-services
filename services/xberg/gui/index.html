@@ -59,6 +59,9 @@
   .badge.queued{background:rgba(139,150,168,.18);color:var(--mut)}
   .badge.text{background:rgba(251,191,36,.15);color:var(--warn)}
   .dur{color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums;min-width:48px;text-align:right}
+  .urlrow{display:flex;gap:8px;margin-top:12px}
+  .urlrow input[type=text]{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:13px}
+  .urlrow input[type=text]:focus{outline:none;border-color:var(--acc)}
   .card .hd .grow{flex:1}
   .iconbtn{border:1px solid var(--line);background:transparent;color:var(--mut);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
   .iconbtn:hover{color:var(--txt);border-color:var(--acc)}
@@ -117,19 +120,14 @@
       <input id="file" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" hidden />
     </div>
     <div id="chips" class="files"></div>
+    <div class="urlrow">
+      <input id="url" type="text" placeholder="…or paste a web page URL (one per line) — fetched server-side" />
+      <button id="urladd" class="btn">Add URL</button>
+    </div>
+    <div id="urchips" class="files"></div>
 
     <div class="optrow">
       <label class="opt"><input id="force_ocr" type="checkbox" checked /><span class="lab">Force OCR</span></label>
-      <label class="opt">
-        <input id="vlm_on" type="checkbox" />
-        <span class="lab">VLM fallback</span>
-        <select id="vlm_mode" disabled>
-          <option value="always">always</option>
-          <option value="on_low_quality">on_low_quality</option>
-          <option value="never">never</option>
-        </select>
-        <span class="small muted">(per-request override)</span>
-      </label>
       <label class="opt">
         <span class="lab">Output</span>
         <select id="out_fmt">
@@ -182,6 +180,7 @@ const el = (t, c, x) => { const n = document.createElement(t); if (c) n.classNam
 
 const SCAN = [".pdf", ".jpg", ".jpeg", ".png"];
 let files = [];
+let urls = [];
 
 /* ---------- tabs ---------- */
 document.querySelectorAll(".tab").forEach((b) =>
@@ -203,32 +202,46 @@ drop.addEventListener("drop", (ev) => addFiles(ev.dataTransfer.files));
 function addFiles(list) {
   for (const f of list) {
     const ext = "." + (f.name.split(".").pop() || "").toLowerCase();
-    if (SCAN.includes(ext)) files.push(f);
+    if (SCAN.includes(ext)) files.push({ kind: "file", name: f.name, file: f });
   }
   renderChips();
 }
+function parseUrls() {
+  return $("#url").value.split(/\r?\n/).map(s => s.trim()).filter(s => /^https?:\/\//i.test(s));
+}
+function addUrls() {
+  const list = parseUrls();
+  if (list.length) { list.forEach(u => urls.push({ kind: "url", name: u, url: u })); $("#url").value = ""; }
+  renderChips();
+}
+$("#urladd").addEventListener("click", addUrls);
+$("#url").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addUrls(); } });
 function renderChips() {
-  const box = $("#chips");
-  box.innerHTML = "";
+  const fbox = $("#chips"), ubox = $("#urchips");
+  fbox.innerHTML = ""; ubox.innerHTML = "";
   files.forEach((f, i) => {
     const c = el("span", "chip", f.name);
     const x = el("span", "x", "\u00d7");
     x.addEventListener("click", () => { files.splice(i, 1); renderChips(); });
-    c.appendChild(x);
-    box.appendChild(c);
+    c.appendChild(x); fbox.appendChild(c);
   });
-  $("#run").disabled = files.length === 0 || running;
+  urls.forEach((u, i) => {
+    const c = el("span", "chip");
+    c.appendChild(el("span", null, "\u2197 "));
+    c.append(u.name);
+    const x = el("span", "x", "\u00d7");
+    x.addEventListener("click", () => { urls.splice(i, 1); renderChips(); });
+    c.appendChild(x); ubox.appendChild(c);
+  });
+  const n = files.length + urls.length;
+  $("#run").disabled = n === 0 || running;
 }
 
-/* ---------- vlm override enable/disable ---------- */
-const vlmOn = $("#vlm_on"), vlmMode = $("#vlm_mode");
-vlmOn.addEventListener("change", () => { vlmMode.disabled = !vlmOn.checked; });
+
 
 /* ---------- config build (mirrors ingest_recipes.py) ---------- */
 function buildConfig() {
-  const cfg = { force_ocr: $("#force_ocr").checked, output_format: $("#out_fmt").value };
-  if (vlmOn.checked) cfg.ocr = { vlm_fallback: { mode: vlmMode.value } };
-  return JSON.stringify(cfg);
+  return JSON.stringify({ force_ocr: true, output_format: $("#out_fmt").value });
 }
 
 /* ---------- extraction: bounded parallel worker pool (sync /extract per job) ----------
@@ -241,8 +254,8 @@ let jobs = [];
 $("#run").addEventListener("click", runAll);
 $("#clear").addEventListener("click", () => {
   if (running) return;
-  files = []; jobs = [];
-  $("#results").innerHTML = ""; $("#chips").innerHTML = "";
+  files = []; urls = []; jobs = [];
+  $("#results").innerHTML = ""; $("#chips").innerHTML = ""; $("#urchips").innerHTML = "";
   $("#status").textContent = ""; $("#prog").style.width = "0%"; renderChips();
 });
 
@@ -257,17 +270,19 @@ function jobSummary() {
 }
 
 async function runAll() {
-  if (running || files.length === 0) return;
+  if (running || (files.length + urls.length) === 0) return;
   running = true; $("#run").disabled = true; $("#clear").disabled = true;
   const results = $("#results"); results.innerHTML = "";
   const cfg = buildConfig();
   const concurrency = Math.max(1, parseInt($("#concurrency").value, 10) || 2);
 
-  // Create a QUEUED card for every file up front so each job has a status row.
-  jobs = files.map((f) => {
-    const card = makeCard(f.name, "queued", "QUEUED");
+  // Create a QUEUED card for every job up front so each has a status row.
+  const all = files.concat(urls);
+  jobs = all.map((j) => {
+    const label = j.kind === "url" ? j.url : j.name;
+    const card = makeCard(label, "queued", "QUEUED");
     results.appendChild(card);
-    return { file: f, card, state: "queued" };
+    return { kind: j.kind, name: j.kind === "url" ? new URL(j.url).host : j.name, source: j.kind === "url" ? j.url : j.name, file: j.file, url: j.url, card, state: "queued" };
   });
   let cursor = 0;
 
@@ -288,14 +303,15 @@ async function runAll() {
       const started = performance.now();
       try {
         const fd = new FormData();
-        fd.append("files", job.file, job.file.name);
+        if (job.kind === "url") fd.append("urls", JSON.stringify([job.url]));
+        else fd.append("files", job.file, job.file.name);
         fd.append("config", cfg);
         const r = await fetch("/api/extract", { method: "POST", body: fd });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(httpErr(r, data));
-        job.state = finishCard(job.card, job.file.name, data);
+        job.state = finishCard(job.card, job.source, data);
       } catch (e) {
-        job.state = failCard(job.card, job.file.name, String(e.message || e));
+        job.state = failCard(job.card, job.source, String(e.message || e));
       }
       setDur(job.card, (performance.now() - started) / 1000);
       tick();
@@ -304,9 +320,10 @@ async function runAll() {
 
   tick();
   await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker));
-  $("#status").textContent = `Done: ${jobs.length} file(s). ` + jobSummary();
+  $("#status").textContent = `Done: ${jobs.length} job(s). ` + jobSummary();
   $("#prog").style.width = "100%";
-  running = false; $("#run").disabled = files.length === 0; $("#clear").disabled = false;
+  $("#url").value = "";
+  running = false; $("#run").disabled = (files.length + urls.length) === 0; $("#clear").disabled = false;
 }
 
 function httpErr(r, data) {
@@ -473,7 +490,7 @@ async function loadServer() {
     if (formats) {
       const list = Array.isArray(formats) ? formats : (formats.formats || formats.list || []);
       const c = infoCard("Formats (" + list.length + ")", el("div", "fmt"));
-      list.forEach((f) => c.querySelector(".fmt").appendChild(el("span", null, f)));
+      list.forEach((f) => c.querySelector(".fmt").appendChild(el("span", null, typeof f === "string" ? f : (f.extension || "?"))));
       grid.appendChild(c);
     }
     if (cache) grid.appendChild(infoCard("Cache stats", kv(Object.entries(cache))));
