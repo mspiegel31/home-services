@@ -3,6 +3,11 @@
 # Routed through the LiteLLM proxy (http://192.168.1.98:4000/v1), which owns
 # the llama-swap auth and model routing. The LiteLLM master key is supplied
 # via XBERG_LLM_API_KEY (Portainer env var, never committed).
+# Scan path settings live here, not in the request: a request-scope `config`
+# REPLACES this file wholesale (it does not merge), and callers may not supply
+# LLM credentials. Requests from the bridge send no `config` at all.
+force_ocr = true
+
 [ocr]
 language = ["eng"]
 # VLM (swift-1.5-bf16) runs first; tesseract is the quality-gated fallback.

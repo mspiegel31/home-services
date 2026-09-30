@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Bridge: cookbook scans (Xberg) -> Mealie.
 
-Reads scan files from SCAN_DIR, sends each to Xberg's /extract endpoint with
-the recipe schema for structured extraction, dedups against Mealie by name,
-and POSTs new recipes to Mealie.
+Reads scan files from SCAN_DIR, sends each to Xberg's /extract endpoint
+(structured extraction uses the recipe schema defined in the server's
+xberg.toml), dedups against Mealie by name, and POSTs new recipes to Mealie.
 
 Python 3 stdlib only. Run on the host that can reach both Xberg and Mealie.
 
@@ -52,8 +52,16 @@ def http_check_base(url, timeout=10):
         return False
 
 
-def multipart_extract(xberg_url, filename, file_bytes, cfg_json):
-    """POST a single file to Xberg /extract as multipart; return parsed JSON."""
+def multipart_extract(xberg_url, filename, file_bytes):
+    """POST a single file to Xberg /extract as multipart; return parsed JSON.
+
+    Sends no `config` field: a request-scope config *replaces* the server
+    config, it does not merge into it. Sending one would drop the server
+    config's structured_extraction block (and with it the LLM routing), and
+    the caller is not allowed to re-supply the credentials
+    ("Caller extraction config may not set structured_extraction.llm.api_key").
+    OCR forcing and output format therefore live in xberg.toml.
+    """
     boundary = uuid.uuid4().hex
     lines = [
         f"--{boundary}",
@@ -61,13 +69,8 @@ def multipart_extract(xberg_url, filename, file_bytes, cfg_json):
         "Content-Type: application/octet-stream",
     ]
     head = ("\r\n".join(lines) + "\r\n\r\n").encode("utf-8")
-    lines = [
-        f"--{boundary}",
-        'Content-Disposition: form-data; name="config"',
-    ]
-    config_head = ("\r\n".join(lines) + "\r\n\r\n").encode("utf-8")
     tail = f"\r\n--{boundary}--\r\n".encode("utf-8")
-    body = head + file_bytes + config_head + cfg_json.encode("utf-8") + tail
+    body = head + file_bytes + tail
 
     req = urllib.request.Request(
         xberg_url.rstrip("/") + "/extract",
@@ -185,14 +188,9 @@ def main():
         print(f"ERROR: mealie unreachable at {mealie_url}", file=sys.stderr)
         return 1
 
-    # Schema + LLM routing + API key live in the server's xberg.toml base config.
-    # The request only forces OCR and output format; structured_extraction is inherited.
-    cfg = {
-        "force_ocr": True,
-        "output_format": "markdown",
-    }
-    cfg_json = json.dumps(cfg)
-
+    # Schema, LLM routing, API key, force_ocr and output format all live in the
+    # server's xberg.toml. The request deliberately sends no `config` field —
+    # see multipart_extract().
     files = sorted(
         p
         for p in scan_dir.iterdir()
@@ -205,7 +203,7 @@ def main():
     for path in files:
         try:
             file_bytes = path.read_bytes()
-            resp = multipart_extract(xberg_url, path.name, file_bytes, cfg_json)
+            resp = multipart_extract(xberg_url, path.name, file_bytes)
             recipe = structured_output_from_response(resp)
             if recipe is None:
                 print(f"SKIP {path.name}: no structured output")
