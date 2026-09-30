@@ -1,0 +1,45 @@
+name: openhands
+
+services:
+  openhands:
+    image: ghcr.io/openhands/agent-canvas:1.24.0@sha256:ad0829a7082a71ddfd2d16c1fae5a2172e4ca5a34eba7f03b69bd5b9b1bc54d7
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - ${OPENHANDS_BIND_IP:-127.0.0.1}:${OPENHANDS_PORT:-3200}:8000
+    environment:
+      # Canvas/backend access key (sent as X-Session-API-Key on every API
+      # call). Empty => the upstream entrypoint generates one at first boot
+      # and persists it to state/agent-canvas/api-key.txt (mode 600).
+      LOCAL_BACKEND_API_KEY: ${OPENHANDS_BACKEND_API_KEY:-}
+      # Optional pass-through LLM bootstrap for the agent server (upstream
+      # Helm chart documents LLM_MODEL/LLM_API_KEY the same way). The
+      # documented, validated path is the Canvas UI: Settings > LLM.
+      LLM_BASE_URL: ${OPENHANDS_LITELLM_BASE_URL:-}
+      LLM_MODEL: ${OPENHANDS_LITELLM_MODEL:-}
+      LLM_API_KEY: ${OPENHANDS_LITELLM_API_KEY:-}
+      # Externally reachable URL for automation callbacks; empty keeps the
+      # upstream default (http://127.0.0.1:8000 inside the container).
+      AUTOMATION_BASE_URL: ${OPENHANDS_PUBLIC_URL:-}
+      # Disable the bundled PostHog client in all three services.
+      VITE_DO_NOT_TRACK: "1"
+    volumes:
+      - ${OPENHANDS_DATA_DIR:?Set an absolute OPENHANDS_DATA_DIR}/state:/home/openhands/.openhands
+      - ${OPENHANDS_DATA_DIR:?Set an absolute OPENHANDS_DATA_DIR}/projects:/projects
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/alive\", timeout=4)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+    networks:
+      - application
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2.0"
+
+networks:
+  application:
