@@ -27,17 +27,15 @@ editing them in git is enough — no tank copy, no rebuild.
 - **Server tab**: live `/health`, `/info`, `/formats`, `/cache/stats`.
 - Header health dot polls `/health` every 30s.
 
-The `config` sent per request is `{ "force_ocr": true, "output_format":
-... }`. The **recipe schema and LLM routing are inherited from
-`xberg.toml`** — this page does not send a schema. Structured output only
-appears when `structured_extraction` is enabled server-side (it is, in the
-current `xberg.toml`). A request `config` **replaces** the server TOML
-wholesale (no merge), so VLM settings (`vlm_fallback`, `vlm_config`) must
-be set in `xberg.toml`, not per-request.
+The GUI sends **no `config` field** — a request `config` **replaces**
+the server TOML wholesale (no merge), so sending one would drop
+`vlm_fallback`, `vlm_config`, and `structured_extraction`. All settings
+(VLM mode, schema, `force_ocr`) are inherited from `xberg.toml`. The
+only per-request knob is `output_format`, sent as a standalone
+multipart form field (not part of `config`).
 
 ## Options
 
-- **Force OCR** (default on) — `force_ocr: true`.
 - **Output** — `markdown` (default) / `plain` / `djot` / `html` / `json` /
   `doctags`.
 - **Concurrency** (default 2) — how many jobs run in parallel. `1` is fully

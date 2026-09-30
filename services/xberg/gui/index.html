@@ -127,7 +127,6 @@
     <div id="urchips" class="files"></div>
 
     <div class="optrow">
-      <label class="opt"><input id="force_ocr" type="checkbox" checked /><span class="lab">Force OCR</span></label>
       <label class="opt">
         <span class="lab">Output</span>
         <select id="out_fmt">
@@ -168,9 +167,11 @@
 </main>
 
 <footer>
-  xberg GUI (tier B) &mdash; static page + nginx reverse proxy. Schema &amp; LLM routing are inherited from the
-  server's <code>xberg.toml</code>; this page only sends the <code>force_ocr</code> / <code>output_format</code> override.
-  Structured output requires <code>structured_extraction</code> to be enabled server-side.
+  xberg GUI (tier B) &mdash; static page + nginx reverse proxy. Schema, VLM
+  routing, and <code>force_ocr</code> are inherited from the server's
+  <code>xberg.toml</code>; this page sends no <code>config</code> override
+  (a request config replaces the TOML wholesale). Only <code>output_format</code>
+  is sent, as a separate form field.
 </footer>
 
 <script>
@@ -239,10 +240,6 @@ function renderChips() {
 
 
 
-/* ---------- config build (mirrors ingest_recipes.py) ---------- */
-function buildConfig() {
-  return JSON.stringify({ force_ocr: true, output_format: $("#out_fmt").value });
-}
 
 /* ---------- extraction: bounded parallel worker pool (sync /extract per job) ----------
    concurrency=1 is sequential (safe default); >1 runs several jobs at once.
@@ -273,7 +270,7 @@ async function runAll() {
   if (running || (files.length + urls.length) === 0) return;
   running = true; $("#run").disabled = true; $("#clear").disabled = true;
   const results = $("#results"); results.innerHTML = "";
-  const cfg = buildConfig();
+  const outFmt = $("#out_fmt").value;
   const concurrency = Math.max(1, parseInt($("#concurrency").value, 10) || 2);
 
   // Create a QUEUED card for every job up front so each has a status row.
@@ -305,7 +302,7 @@ async function runAll() {
         const fd = new FormData();
         if (job.kind === "url") fd.append("urls", JSON.stringify([job.url]));
         else fd.append("files", job.file, job.file.name);
-        fd.append("config", cfg);
+        fd.append("output_format", outFmt);
         const r = await fetch("/api/extract", { method: "POST", body: fd });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(httpErr(r, data));
