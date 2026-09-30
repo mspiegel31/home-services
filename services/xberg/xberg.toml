@@ -5,17 +5,31 @@
 # via XBERG_LLM_API_KEY (Portainer env var, never committed).
 [ocr]
 language = ["eng"]
-# Classical backend runs first; only pages scoring below the threshold go to the VLM.
-backend = "tesseract"
-
-[ocr.vlm_fallback]
-mode = "on_low_quality"
-quality_threshold = 0.5
+# VLM (swift-1.5-bf16) runs first; tesseract is the quality-gated fallback.
+# An explicit `pipeline` overrides the top-level `backend` and `vlm_fallback`
+# knobs, so neither is set here — stage order below is the whole policy.
+# Stages run in priority order (highest first); a stage's result is accepted
+# when it scores >= pipeline_min_quality, otherwise the next stage runs.
 
 [ocr.vlm_config]
 model = "swift-1.5-bf16"
 base_url = "http://192.168.1.98:4000/v1"
 timeout_secs = 300
+
+[ocr.pipeline]
+[[ocr.pipeline.stages]]
+backend = "vlm"
+priority = 100
+language = ["eng"]
+vlm_config = { model = "swift-1.5-bf16", base_url = "http://192.168.1.98:4000/v1", timeout_secs = 300 }
+
+[[ocr.pipeline.stages]]
+backend = "tesseract"
+priority = 50
+language = ["eng"]
+
+[ocr.pipeline.quality_thresholds]
+pipeline_min_quality = 0.5
 
 [structured_extraction]
 schema_name = "recipe"
