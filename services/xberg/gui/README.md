@@ -49,10 +49,10 @@ page does not send a schema. Structured output only appears when
 
 ## Access
 
-nginx binds `127.0.0.1:8998` on the host. From the host:
-`http://127.0.0.1:8998`. From the LAN, tunnel in (e.g.
-`ssh -L 8998:127.0.0.1:8998 <host>`) — matching the existing `8999` pattern.
-To expose it directly on the LAN, change the port mapping to `"8998:80"`.
+nginx binds `0.0.0.0:8998` on the host (LAN-exposed). From the LAN:
+`http://<host-ip>:8998`. The xberg API behind it stays loopback-only
+(`127.0.0.1:8999`) — only the GUI port is open to the LAN, and nginx
+forwards `/api/*` to xberg on the internal `xberg` network.
 
 ## Why sync `/extract` per job, not `/extract-async`
 

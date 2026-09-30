@@ -115,7 +115,7 @@ services:
     volumes:
       - xberg-config:/config:ro
     ports:
-      - "127.0.0.1:8998:80"
+      - "8998:80"
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/index.html"]
       interval: 30s
