@@ -10,31 +10,22 @@ force_ocr = true
 
 [ocr]
 language = ["eng"]
-# VLM (swift-1.5-bf16) runs first; tesseract is the quality-gated fallback.
-# An explicit `pipeline` overrides the top-level `backend` and `vlm_fallback`
-# knobs, so neither is set here — stage order below is the whole policy.
-# Stages run in priority order (highest first); a stage's result is accepted
-# when it scores >= pipeline_min_quality, otherwise the next stage runs.
+# VLM (swift-1.5-bf16) is primary. The explicit `[ocr.pipeline]` form is
+# deliberately NOT used: a pipeline stage carries its own `vlm_config`, and that
+# per-stage value is never populated from XBERG_LLM_API_KEY — the request goes
+# out as `Authorization: Bearer ` with an empty key and every VLM OCR call 401s
+# (verified against a capture listener; also unaffected by load_env, by a
+# provider-standard env var, or by a custom provider block). `vlm_fallback`
+# instead synthesizes its stage from the `[ocr.vlm_config]` below, which the
+# env var does fill. `mode = "always"` = skip the classical backend; the
+# synthesized pipeline is [vlm] only, so tesseract is not a fallback here.
+[ocr.vlm_fallback]
+mode = "always"
 
 [ocr.vlm_config]
 model = "swift-1.5-bf16"
 base_url = "http://192.168.1.98:4000/v1"
 timeout_secs = 300
-
-[ocr.pipeline]
-[[ocr.pipeline.stages]]
-backend = "vlm"
-priority = 100
-language = ["eng"]
-vlm_config = { model = "swift-1.5-bf16", base_url = "http://192.168.1.98:4000/v1", timeout_secs = 300 }
-
-[[ocr.pipeline.stages]]
-backend = "tesseract"
-priority = 50
-language = ["eng"]
-
-[ocr.pipeline.quality_thresholds]
-pipeline_min_quality = 0.5
 
 [structured_extraction]
 schema_name = "recipe"
