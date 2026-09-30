@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>xberg</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121722; --panel2:#0f141d; --line:#1f2735;
+    --txt:#e6e9ef; --mut:#8b96a8; --acc:#5b8cff; --acc2:#3f6fe0;
+    --ok:#34d399; --bad:#f87171; --warn:#fbbf24; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--txt);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  header{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel2);position:sticky;top:0;z-index:5}
+  header .logo{font-weight:700;font-size:16px;letter-spacing:.3px}
+  header .logo span{color:var(--acc)}
+  header .sub{color:var(--mut);font-size:12px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--mut);display:inline-block}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)}
+  header .grow{flex:1}
+  main{max-width:1100px;margin:0 auto;padding:22px 20px 80px}
+  .tabs{display:flex;gap:6px;margin-bottom:18px}
+  .tab{padding:8px 16px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--mut);cursor:pointer;font-size:13px;font-weight:500}
+  .tab.active{color:var(--txt);border-color:var(--acc);background:#16203a}
+  .tabpane{display:none} .tabpane.active{display:block}
+  .drop{border:1.5px dashed var(--line);border-radius:12px;padding:44px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;background:var(--panel)}
+  .drop:hover,.drop.over{border-color:var(--acc);background:#101826}
+  .drop .big{font-size:34px;line-height:1;margin-bottom:10px}
+  .drop h3{margin:0 0 4px;font-size:15px}
+  .drop p{margin:0;color:var(--mut);font-size:13px}
+  .files{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:4px 6px 4px 12px;font-size:12.5px}
+  .chip .x{cursor:pointer;color:var(--mut);width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:14px;line-height:1}
+  .chip .x:hover{background:#1e2735;color:var(--txt)}
+  .optrow{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin:18px 0 14px;padding:14px 16px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  .opt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut)}
+  .opt input[type=checkbox]{width:16px;height:16px;accent-color:var(--acc);cursor:pointer}
+  .opt select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:12.5px}
+  .opt .lab{color:var(--txt);font-weight:500}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--txt);border-radius:8px;padding:9px 18px;font-size:13.5px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:var(--acc)}
+  .btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+  .btn.primary:hover{background:var(--acc2)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .actions{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .progress{flex:1;height:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .progress > i{display:block;height:100%;width:0;background:var(--acc);transition:width .2s}
+  .status{color:var(--mut);font-size:12.5px;min-height:18px;margin-bottom:6px}
+  .card{border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-top:14px;overflow:hidden}
+  .card .hd{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .card .hd .fn{font-weight:600;font-size:13.5px}
+  .badge{font-size:11px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:20px}
+  .badge.ok{background:rgba(52,211,153,.15);color:var(--ok)}
+  .badge.bad{background:rgba(248,113,113,.15);color:var(--bad)}
+  .badge.run{background:rgba(91,140,255,.15);color:var(--acc)}
+  .badge.queued{background:rgba(139,150,168,.18);color:var(--mut)}
+  .badge.text{background:rgba(251,191,36,.15);color:var(--warn)}
+  .dur{color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums;min-width:48px;text-align:right}
+  .card .hd .grow{flex:1}
+  .iconbtn{border:1px solid var(--line);background:transparent;color:var(--mut);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
+  .iconbtn:hover{color:var(--txt);border-color:var(--acc)}
+  .card .bd{padding:16px}
+  .rtitle{font-size:17px;font-weight:700;margin:0 0 6px}
+  .rmeta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .pill{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:2px 10px;font-size:12px;color:var(--mut)}
+  .pill b{color:var(--txt);font-weight:600}
+  .desc{color:var(--mut);margin:0 0 14px}
+  .cols{display:grid;grid-template-columns:260px 1fr;gap:20px}
+  @media(max-width:720px){.cols{grid-template-columns:1fr}}
+  .sect h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut)}
+  ul.ing{list-style:none;margin:0;padding:0}
+  ul.ing li{padding:5px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  ul.ing li:last-child{border-bottom:none}
+  ul.ing .qn{color:var(--acc);font-variant-numeric:tabular-nums}
+  ol.steps{margin:0;padding-left:20px}
+  ol.steps li{padding:5px 0;font-size:13.5px}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .tag{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:2px 9px;font-size:11.5px;color:var(--mut)}
+  pre.raw{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px;overflow:auto;max-height:420px;font-family:var(--mono);font-size:12px;color:#cdd6e5;white-space:pre-wrap;word-break:break-word}
+  pre.json{background:#0a0d13;border:1px solid var(--line);border-radius:8px;padding:14px;overflow:auto;max-height:420px;font-family:var(--mono);font-size:12px;color:#a9e2b8;white-space:pre-wrap;word-break:break-word}
+  .err{color:var(--bad);font-size:13px;padding:10px 12px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:8px;white-space:pre-wrap}
+  .kv{display:grid;grid-template-columns:160px 1fr;gap:6px 14px;font-size:13px}
+  .kv dt{color:var(--mut)} .kv dd{margin:0;word-break:break-word}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .info{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:16px}
+  .info h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
+  .fmt{display:flex;flex-wrap:wrap;gap:5px}
+  .fmt span{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:11px;color:var(--mut);font-family:var(--mono)}
+  .muted{color:var(--mut)} .small{font-size:12px}
+  footer{max-width:1100px;margin:0 auto;padding:0 20px 30px;color:var(--mut);font-size:11.5px}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">x<span>berg</span></span>
+  <span class="sub">document extraction</span>
+  <span id="hdr-dot" class="dot"></span>
+  <span class="grow"></span>
+  <span class="sub" id="hdr-ver"></span>
+</header>
+
+<main>
+  <div class="tabs">
+    <button class="tab active" data-tab="convert">Convert</button>
+    <button class="tab" data-tab="server">Server</button>
+  </div>
+
+  <!-- CONVERT -->
+  <section id="pane-convert" class="tabpane active">
+    <div id="drop" class="drop">
+      <div class="big">&#128203;</div>
+      <h3>Drop cookbook scans here</h3>
+      <p>or click to browse &mdash; PDF, JPG, JPEG, PNG &mdash; multiple files supported</p>
+      <input id="file" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" hidden />
+    </div>
+    <div id="chips" class="files"></div>
+
+    <div class="optrow">
+      <label class="opt"><input id="force_ocr" type="checkbox" checked /><span class="lab">Force OCR</span></label>
+      <label class="opt">
+        <input id="vlm_on" type="checkbox" />
+        <span class="lab">VLM fallback</span>
+        <select id="vlm_mode" disabled>
+          <option value="always">always</option>
+          <option value="on_low_quality">on_low_quality</option>
+          <option value="never">never</option>
+        </select>
+        <span class="small muted">(per-request override)</span>
+      </label>
+      <label class="opt">
+        <span class="lab">Output</span>
+        <select id="out_fmt">
+          <option value="markdown" selected>markdown</option>
+          <option value="plain">plain</option>
+          <option value="djot">djot</option>
+          <option value="html">html</option>
+          <option value="json">json</option>
+          <option value="doctags">doctags</option>
+        </select>
+      </label>
+      <label class="opt">
+        <span class="lab">Concurrency</span>
+        <select id="concurrency">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+        <span class="small muted">parallel</span>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button id="run" class="btn primary" disabled>Extract</button>
+      <button id="clear" class="btn">Clear</button>
+      <div class="progress"><i id="prog"></i></div>
+    </div>
+    <div id="status" class="status"></div>
+    <div id="results"></div>
+  </section>
+
+  <!-- SERVER -->
+  <section id="pane-server" class="tabpane">
+    <div id="server-loading" class="status">Loading server info&hellip;</div>
+    <div id="server-grid" class="grid2" style="display:none"></div>
+  </section>
+</main>
+
+<footer>
+  xberg GUI (tier B) &mdash; static page + nginx reverse proxy. Schema &amp; LLM routing are inherited from the
+  server's <code>xberg.toml</code>; this page only sends the <code>force_ocr</code> / <code>output_format</code> override.
+  Structured output requires <code>structured_extraction</code> to be enabled server-side.
+</footer>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x != null) n.textContent = x; return n; };
+
+const SCAN = [".pdf", ".jpg", ".jpeg", ".png"];
+let files = [];
+
+/* ---------- tabs ---------- */
+document.querySelectorAll(".tab").forEach((b) =>
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === b));
+    document.querySelectorAll(".tabpane").forEach((p) => p.classList.toggle("active", p.id === "pane-" + b.dataset.tab));
+    if (b.dataset.tab === "server") loadServer();
+  })
+);
+
+/* ---------- file intake ---------- */
+const drop = $("#drop"), fileInput = $("#file");
+drop.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => { addFiles(fileInput.files); fileInput.value = ""; });
+["dragover", "dragenter"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (ev) => addFiles(ev.dataTransfer.files));
+
+function addFiles(list) {
+  for (const f of list) {
+    const ext = "." + (f.name.split(".").pop() || "").toLowerCase();
+    if (SCAN.includes(ext)) files.push(f);
+  }
+  renderChips();
+}
+function renderChips() {
+  const box = $("#chips");
+  box.innerHTML = "";
+  files.forEach((f, i) => {
+    const c = el("span", "chip", f.name);
+    const x = el("span", "x", "\u00d7");
+    x.addEventListener("click", () => { files.splice(i, 1); renderChips(); });
+    c.appendChild(x);
+    box.appendChild(c);
+  });
+  $("#run").disabled = files.length === 0 || running;
+}
+
+/* ---------- vlm override enable/disable ---------- */
+const vlmOn = $("#vlm_on"), vlmMode = $("#vlm_mode");
+vlmOn.addEventListener("change", () => { vlmMode.disabled = !vlmOn.checked; });
+
+/* ---------- config build (mirrors ingest_recipes.py) ---------- */
+function buildConfig() {
+  const cfg = { force_ocr: $("#force_ocr").checked, output_format: $("#out_fmt").value };
+  if (vlmOn.checked) cfg.ocr = { vlm_fallback: { mode: vlmMode.value } };
+  return JSON.stringify(cfg);
+}
+
+/* ---------- extraction: bounded parallel worker pool (sync /extract per job) ----------
+   concurrency=1 is sequential (safe default); >1 runs several jobs at once.
+   We avoid /extract-async because its jobs expire after 5 min and a VLM page
+   can run ~300s — a queued job pending past the window returns 404. Sync
+   /extract per job never drops a job; the worker pool gives per-job status. */
+let running = false;
+let jobs = [];
+$("#run").addEventListener("click", runAll);
+$("#clear").addEventListener("click", () => {
+  if (running) return;
+  files = []; jobs = [];
+  $("#results").innerHTML = ""; $("#chips").innerHTML = "";
+  $("#status").textContent = ""; $("#prog").style.width = "0%"; renderChips();
+});
+
+function jobSummary() {
+  const total = jobs.length;
+  const done = jobs.filter(j => j.state === "ok" || j.state === "text" || j.state === "empty" || j.state === "error").length;
+  const runningN = jobs.filter(j => j.state === "running").length;
+  const queued = total - done - runningN;
+  const ok = jobs.filter(j => j.state === "ok" || j.state === "text").length;
+  const err = jobs.filter(j => j.state === "error").length;
+  return `done ${done}/${total} · ${runningN} running · ${queued} queued · ${ok} ok · ${err} error`;
+}
+
+async function runAll() {
+  if (running || files.length === 0) return;
+  running = true; $("#run").disabled = true; $("#clear").disabled = true;
+  const results = $("#results"); results.innerHTML = "";
+  const cfg = buildConfig();
+  const concurrency = Math.max(1, parseInt($("#concurrency").value, 10) || 2);
+
+  // Create a QUEUED card for every file up front so each job has a status row.
+  jobs = files.map((f) => {
+    const card = makeCard(f.name, "queued", "QUEUED");
+    results.appendChild(card);
+    return { file: f, card, state: "queued" };
+  });
+  let cursor = 0;
+
+  function tick() {
+    $("#status").textContent = jobSummary();
+    const done = jobs.filter(j => j.state !== "queued" && j.state !== "running").length;
+    $("#prog").style.width = Math.round((done / jobs.length) * 100) + "%";
+  }
+
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= jobs.length) break;
+      const job = jobs[i];
+      job.state = "running";
+      setBadge(job.card, "run", "RUNNING");
+      const bdStatus = job.card.querySelector(".bd .status"); if (bdStatus) bdStatus.textContent = "Extracting\u2026";
+      const started = performance.now();
+      try {
+        const fd = new FormData();
+        fd.append("files", job.file, job.file.name);
+        fd.append("config", cfg);
+        const r = await fetch("/api/extract", { method: "POST", body: fd });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(httpErr(r, data));
+        job.state = finishCard(job.card, job.file.name, data);
+      } catch (e) {
+        job.state = failCard(job.card, job.file.name, String(e.message || e));
+      }
+      setDur(job.card, (performance.now() - started) / 1000);
+      tick();
+    }
+  }
+
+  tick();
+  await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker));
+  $("#status").textContent = `Done: ${jobs.length} file(s). ` + jobSummary();
+  $("#prog").style.width = "100%";
+  running = false; $("#run").disabled = files.length === 0; $("#clear").disabled = false;
+}
+
+function httpErr(r, data) {
+  const msg = (data && (data.message || data.error)) || "";
+  return `HTTP ${r.status}` + (msg ? ` \u2014 ${msg}` : "");
+}
+
+/* ---------- card rendering ---------- */
+function makeCard(name, badgeCls, badgeTxt) {
+  badgeCls = badgeCls || "queued"; badgeTxt = badgeTxt || "QUEUED";
+  const card = el("div", "card");
+  const hd = el("div", "hd");
+  hd.appendChild(el("span", "badge " + badgeCls, badgeTxt));
+  hd.appendChild(el("span", "dur", ""));
+  hd.appendChild(el("span", "fn", name));
+  hd.appendChild(el("span", "grow"));
+  const bd = el("div", "bd");
+  bd.appendChild(el("div", "status", "Queued\u2026"));
+  card.appendChild(hd); card.appendChild(bd);
+  return card;
+}
+function setBadge(card, cls, txt) { const b = card.querySelector(".badge"); b.className = "badge " + cls; b.textContent = txt; }
+function setDur(card, secs) { const d = card.querySelector(".dur"); if (d) d.textContent = secs.toFixed(1) + "s"; }
+
+function failCard(card, name, msg) {
+  setBadge(card, "bad", "ERROR");
+  const bd = card.querySelector(".bd"); bd.innerHTML = "";
+  bd.appendChild(el("div", "err", msg));
+  return "error";
+}
+
+function finishCard(card, name, data) {
+  const bd = card.querySelector(".bd");
+  const results = data.results || [];
+  const first = results[0] || {};
+  const err = (data.errors && data.errors[0]) || first.error;
+  const structured = first.structured_output || null;
+  const content = first.content || "";
+
+  if (err) { setBadge(card, "bad", "ERROR"); bd.innerHTML = ""; bd.appendChild(el("div", "err", String(err))); return "error"; }
+  if (!structured && !content) { setBadge(card, "bad", "EMPTY"); bd.innerHTML = ""; bd.appendChild(el("div", "err", "No content returned.")); return "empty"; }
+
+  setBadge(card, structured ? "ok" : "text", structured ? "OK" : "TEXT");
+  bd.innerHTML = "";
+
+  const hd = card.querySelector(".hd");
+  const grow = hd.querySelector(".grow");
+  const rawBtn = el("button", "iconbtn", "Raw");
+  const jsonBtn = el("button", "iconbtn", "Copy JSON");
+  const mealieBtn = el("button", "iconbtn", "Copy Mealie JSON");
+
+  if (structured) renderRecipe(bd, structured);
+  const raw = el("details"); raw.style.marginTop = "12px";
+  const summary = el("summary"); summary.className = "small muted"; summary.textContent = "Raw " + (content ? "output" : "(none)");
+  raw.appendChild(summary);
+  const pre = el("pre", "raw", content || "(no raw content)"); raw.appendChild(pre);
+  bd.appendChild(raw);
+
+  rawBtn.addEventListener("click", () => raw.open = !raw.open);
+  jsonBtn.addEventListener("click", () => copyText(JSON.stringify(structured || { content }, null, 2), jsonBtn));
+  mealieBtn.addEventListener("click", () => copyText(JSON.stringify(toMealieBody(structured || {}, name), null, 2), mealieBtn));
+  grow.after(rawBtn, jsonBtn, mealieBtn);
+  return structured ? "ok" : "text";
+}
+
+function renderRecipe(bd, r) {
+  bd.appendChild(el("h2", "rtitle", r.title || "(untitled)"));
+  const meta = el("div", "rmeta");
+  if (r.servings) meta.appendChild(pill("Yield", r.servings));
+  if (r.prep_time) meta.appendChild(pill("Prep", r.prep_time));
+  if (r.cook_time) meta.appendChild(pill("Cook", r.cook_time));
+  if (meta.childNodes.length) bd.appendChild(meta);
+  if (r.description) bd.appendChild(el("p", "desc", r.description));
+
+  const cols = el("div", "cols");
+  const left = el("div", "sect");
+  left.appendChild(el("h4", null, "Ingredients"));
+  const ul = el("ul", "ing");
+  (r.ingredients || []).forEach((ing) => {
+    const li = el("li");
+    const qn = ing.quantity != null ? String(ing.quantity) + (ing.unit ? " " + ing.unit : "") : (ing.unit || "");
+    if (qn) li.appendChild(el("span", "qn", qn + " "));
+    li.append(ing.name || "");
+    if (ing.note) { const n = el("span", "muted", " \u2014 " + ing.note); li.appendChild(n); }
+    ul.appendChild(li);
+  });
+  if (!ul.childNodes.length) ul.appendChild(el("li", "muted", "(none)"));
+  left.appendChild(ul);
+
+  const right = el("div", "sect");
+  right.appendChild(el("h4", null, "Steps"));
+  const ol = el("ol", "steps");
+  (r.steps || []).forEach((s) => ol.appendChild(el("li", null, s.text || "")));
+  if (!ol.childNodes.length) ol.appendChild(el("li", "muted", "(none)"));
+  right.appendChild(ol);
+
+  cols.appendChild(left); cols.appendChild(right);
+  bd.appendChild(cols);
+
+  const tags = [...(r.tags || []), ...(r.categories || [])];
+  if (tags.length) {
+    const t = el("div", "tags");
+    tags.forEach((x) => t.appendChild(el("span", "tag", x)));
+    bd.appendChild(t);
+  }
+}
+function pill(k, v) { const p = el("span", "pill"); p.append(k + ": "); p.appendChild(el("b", null, String(v))); return p; }
+
+/* ---------- Mealie mapping (mirrors ingest_recipes.to_mealie_body) ---------- */
+function toMealieBody(recipe, filename) {
+  const ingredients = [];
+  for (const ing of recipe.ingredients || []) {
+    let quantity = ing.quantity, disable_amount = false;
+    if (quantity == null) { quantity = 1; disable_amount = true; }
+    ingredients.push({
+      quantity,
+      unit: ing.unit ? { name: ing.unit } : null,
+      food: { name: ing.name || "" },
+      note: ing.note || "",
+      disable_amount,
+    });
+  }
+  return {
+    name: recipe.title || "",
+    description: recipe.description || "",
+    recipeYield: recipe.servings || "",
+    prepTime: recipe.prep_time,
+    cookTime: recipe.cook_time,
+    recipe_ingredient: ingredients,
+    recipe_instructions: (recipe.steps || []).map((s) => ({ text: s.text || "" })),
+    tags: recipe.tags || [],
+    recipe_category: recipe.categories || [],
+    extras: { source_file: filename },
+  };
+}
+
+function copyText(text, btn) {
+  const done = () => { if (btn) { const o = btn.textContent; btn.textContent = "Copied \u2713"; setTimeout(() => (btn.textContent = o), 1200); } };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (_) {} ta.remove(); done();
+}
+
+/* ---------- server tab ---------- */
+let serverLoaded = false;
+async function loadServer() {
+  const grid = $("#server-grid");
+  try {
+    const [health, info, formats, cache] = await Promise.all([
+      api("/health"), api("/info"), api("/formats"), api("/cache/stats").catch(() => null),
+    ]);
+    grid.innerHTML = "";
+    grid.appendChild(infoCard("Health", kv([
+      ["status", health && health.status],
+      ["version", health && health.version],
+    ])));
+    grid.appendChild(infoCard("Server", kv([
+      ["version", info && info.version],
+      ["rust_backend", info && info.rust_backend],
+    ])));
+    if (formats) {
+      const list = Array.isArray(formats) ? formats : (formats.formats || formats.list || []);
+      const c = infoCard("Formats (" + list.length + ")", el("div", "fmt"));
+      list.forEach((f) => c.querySelector(".fmt").appendChild(el("span", null, f)));
+      grid.appendChild(c);
+    }
+    if (cache) grid.appendChild(infoCard("Cache stats", kv(Object.entries(cache))));
+    grid.style.display = "grid";
+    $("#server-loading").style.display = "none";
+    serverLoaded = true;
+  } catch (e) {
+    $("#server-loading").textContent = "Failed to load server info: " + e.message;
+  }
+}
+function infoCard(title, body) { const c = el("div", "info"); c.appendChild(el("h4", null, title)); c.appendChild(body); return c; }
+function kv(pairs) {
+  const d = document.createElement("dl"); d.className = "kv";
+  pairs.forEach(([k, v]) => { d.appendChild(el("dt", null, k)); d.appendChild(el("dd", null, v == null ? "\u2014" : (typeof v === "object" ? JSON.stringify(v) : String(v)))); });
+  return d;
+}
+
+/* ---------- header health poll ---------- */
+async function api(path) {
+  const r = await fetch("/api" + path);
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json().catch(() => ({}));
+}
+async function pollHealth() {
+  const dot = $("#hdr-dot"), ver = $("#hdr-ver");
+  try {
+    const h = await api("/health");
+    dot.className = "dot ok"; ver.textContent = h.version ? "v" + h.version : "";
+  } catch (_) {
+    dot.className = "dot bad"; ver.textContent = "offline";
+  }
+}
+pollHealth();
+setInterval(pollHealth, 30000);
+</script>
+</body>
+</html>

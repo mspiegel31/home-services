@@ -89,6 +89,47 @@ services:
           memory: 4G
           cpus: "4.0"
 
+  xberg-gui:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      git-sync:
+        condition: service_healthy
+    # Static GUI + reverse proxy in front of xberg. Serves the single-file app
+    # at / and proxies /api/* -> xberg:8000 (same-origin, no CORS). Assets are
+    # git-synced into the same xberg-config volume as xberg.toml (sparse checkout
+    # of services/xberg/ includes gui/). You can't bind individual files OUT of a
+    # named volume (compose treats the left side as a host path), so the
+    # start command stages the two files into nginx's locations, then execs
+    # nginx. Activation is a restart/redeploy, same as xberg.toml.
+    command:
+      - sh
+      - -c
+      - |
+        cp /config/current/services/xberg/gui/index.html /usr/share/nginx/html/index.html
+        cp /config/current/services/xberg/gui/nginx.conf /etc/nginx/conf.d/default.conf
+        exec nginx -g "daemon off;"
+    volumes:
+      - xberg-config:/config:ro
+    ports:
+      - "127.0.0.1:8998:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/index.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - xberg
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+
 networks:
   xberg:
     name: xberg
