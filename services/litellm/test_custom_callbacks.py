@@ -113,6 +113,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "swift-1.5-bf16",
             "swift-1.5-flash-nvfp4",
             "swift-1.5-awq",
+            "swift-1.5-fp8",
         ):
             with self.subTest(model=model):
                 result = call_hook(chat({"model": model}))
@@ -150,6 +151,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "swift-1.5-nvfp4",
             "swift-1.5-bf16",
             "swift-1.5-awq",
+            "swift-1.5-fp8",
         ):
             with self.subTest(model=model):
                 result = call_hook(chat({"model": model, "reasoning_effort": "low"}))

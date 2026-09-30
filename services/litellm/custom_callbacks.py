@@ -48,6 +48,7 @@ class LocalReasoningModel(str, Enum):
     SWIFT_1_5_NVFP4 = "swift-1.5-nvfp4"
     SWIFT_1_5_BF16 = "swift-1.5-bf16"
     SWIFT_1_5_AWQ = "swift-1.5-awq"
+    SWIFT_1_5_FP8 = "swift-1.5-fp8"
 
 
 class TemplateEffort(str, Enum):
@@ -277,6 +278,7 @@ class LocalReasoningRequestAdapter(CustomLogger):
             LocalReasoningModel.SWIFT_1_5_BF16,
             LocalReasoningModel.SWIFT_1_5_FLASH_NVFP4,
             LocalReasoningModel.SWIFT_1_5_AWQ,
+            LocalReasoningModel.SWIFT_1_5_FP8,
         )
         if not uses_froggeric_xhigh_default:
             return transformed

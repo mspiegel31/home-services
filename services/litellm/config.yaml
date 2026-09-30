@@ -36,6 +36,7 @@ include:
   - models/swift-1.5-nvfp4.yaml
   - models/swift-1.5-bf16.yaml
   - models/swift-1.5-awq.yaml
+  - models/swift-1.5-fp8.yaml
 
 model_list:
   - model_name: nomic-embed-text-v2-moe
