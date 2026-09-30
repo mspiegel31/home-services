@@ -55,20 +55,19 @@ def http_check_base(url, timeout=10):
 def multipart_extract(xberg_url, filename, file_bytes, cfg_json):
     """POST a single file to Xberg /extract as multipart; return parsed JSON."""
     boundary = uuid.uuid4().hex
-    lines = []
-    lines.append(f"--{boundary}")
-    lines.append(
-        f'Content-Disposition: form-data; name="files"; filename="{filename}"'
-    )
-    lines.append("Content-Type: application/octet-stream")
-    lines.append("")
-    head = "\r\n".join(lines).encode("utf-8")
-    lines = [f"--{boundary}"]
-    lines.append('Content-Disposition: form-data; name="config"')
-    lines.append("")
-    config_head = "\r\n".join(lines).encode("utf-8")
+    lines = [
+        f"--{boundary}",
+        f'Content-Disposition: form-data; name="files"; filename="{filename}"',
+        "Content-Type: application/octet-stream",
+    ]
+    head = ("\r\n".join(lines) + "\r\n\r\n").encode("utf-8")
+    lines = [
+        f"--{boundary}",
+        'Content-Disposition: form-data; name="config"',
+    ]
+    config_head = ("\r\n".join(lines) + "\r\n\r\n").encode("utf-8")
     tail = f"\r\n--{boundary}--\r\n".encode("utf-8")
-    body = head + file_bytes + b"\r\n" + config_head + cfg_json.encode("utf-8") + tail
+    body = head + file_bytes + config_head + cfg_json.encode("utf-8") + tail
 
     req = urllib.request.Request(
         xberg_url.rstrip("/") + "/extract",
@@ -186,16 +185,11 @@ def main():
         print(f"ERROR: mealie unreachable at {mealie_url}", file=sys.stderr)
         return 1
 
-    schema_path = Path(__file__).resolve().parent.parent / "recipe_schema.json"
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    # Schema + LLM routing + API key live in the server's xberg.toml base config.
+    # The request only forces OCR and output format; structured_extraction is inherited.
     cfg = {
         "force_ocr": True,
         "output_format": "markdown",
-        "structured_extraction": {
-            "schema": schema,
-            "schema_name": "recipe",
-            "strict": True,
-        },
     }
     cfg_json = json.dumps(cfg)
 

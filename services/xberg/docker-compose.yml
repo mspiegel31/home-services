@@ -7,10 +7,13 @@ services:
     init: true
     security_opt:
       - no-new-privileges:true
-    command: ["xberg", "serve", "-H", "0.0.0.0", "-p", "8000", "--config", "/config/xberg.toml"]
+    command: ["serve", "-H", "0.0.0.0", "-p", "8000", "--config", "/config/xberg.toml"]
     environment:
-      XBERG_CACHE_DIR: /data/cache
       XBERG_OCR_LANGUAGE: eng
+      # LiteLLM master key — xberg forwards it onto ocr.vlm_config.api_key and
+      # structured_extraction.llm.api_key at load time. base_url/model stay in
+      # xberg.toml (git-synced, version-stable).
+      XBERG_LLM_API_KEY: "${XBERG_LLM_API_KEY:?Set XBERG_LLM_API_KEY in Portainer}"
       TZ: "${TZ:?Set TZ in Portainer}"
     volumes:
       # Portainer CE edge git deploys ship only the compose file, so the TOML
@@ -22,7 +25,7 @@ services:
     ports:
       - "127.0.0.1:8999:8000"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/health"]
+      test: ["CMD", "xberg", "--version"]
       interval: 30s
       timeout: 5s
       retries: 10
