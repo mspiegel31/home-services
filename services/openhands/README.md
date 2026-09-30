@@ -97,6 +97,34 @@ The **documented, validated path** is the Canvas UI:
    against the gateway before persisting, and stores it encrypted with the
    auto-generated `OH_SECRET_KEY` (`state/agent-canvas/secret-key.txt`).
 
+**Provider connections — what "N model(s)" means.** The count on a
+connection row is the number of **LLM profiles linked to it**, not a live
+model discovery result, and the check icon only means a key is stored
+(upstream `provider-connection-row.tsx`). No gateway model listing happens
+anywhere in this flow: create the profile with an explicit
+`litellm_proxy/<model-id>` (Advanced tab), select the connection for
+credentials, and save — profile save validation performs the real call
+against the gateway. The count updates as profiles link to the connection.
+
+For `litellm_proxy/` models the backend also fetches per-model capability
+metadata from `{base_url}/v1/model/info` (context window, token limits).
+This repo's gateway requires client keys to carry the discovery routes in
+`allowed_routes` (see `services/litellm/AGENTS.md`); without them the
+model still runs but its metadata lookup silently returns nothing. Grant
+them (master key required):
+
+```sh
+curl -X POST http://192.168.1.98:4000/key/update \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"key": "<openhands-key>", "allowed_routes": ["llm_api_routes",
+       "/v2/model/info", "/v1/models", "/model/info", "/v1/model/info",
+       "/model_group/info"]}'
+```
+
+Keep the connection's base URL bare (`http://192.168.1.98:4000`, no
+`/v1` suffix): OpenHands appends `/v1/model/info` itself.
+
 The `OPENHANDS_LITELLM_*` stack variables are an optional pass-through
 bootstrap (the upstream Helm chart documents `LLM_MODEL`/`LLM_API_KEY` the
 same way). If both are set, check `Settings > LLM` to see which
