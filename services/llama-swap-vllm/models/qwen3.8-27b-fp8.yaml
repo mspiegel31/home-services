@@ -4,8 +4,8 @@
 
 models:
   "qwen3.8-27b-fp8":
-    name: Qwen3.8 27B FP8 DSpark
-    description: Qwen3.8 27B FP8 weights with Red Hat DSpark7, BF16 KV, auto-fit context, and prefix caching enabled
+    name: Qwen3.8 27B FP8 MTP3 (A/B)
+    description: TEMPORARY - MTP3 instead of DSpark7, for the spec-decode A/B on BENCHMARKS.md; revert after measuring
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -47,6 +47,6 @@ models:
       --attention-backend FLASHINFER
       --kv-cache-dtype bfloat16
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"dspark","model":"RedHatAI/Qwen3.8-27B-speculator.dspark","num_speculative_tokens":7}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-fp8
