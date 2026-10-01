@@ -84,15 +84,15 @@ receive an explicit xhigh default; base Qwen3.8 routes leave the Froggeric
 medium default intact.
 
 The RedHat NVFP4 lane runs DSpark7 with prefix caching disabled. The
-base-weights FP8 lane runs the checkpoint's native MTP3 with prefix caching on,
-after DSpark7 measured level with it on prose and agent traffic
-(services/llama-swap-vllm/BENCHMARKS.md), and keeps the v0.30.0 build's #50729
-copy-race fix; the Mamba checkpoint reuse path (#57128) is still open and
-speculation-gated, so FP8 prefix reuse is canary-checked, not assumed correct,
-and disabling it is one flag away. The Unsloth lane also uses native MTP3 with
-prefix caching and Mamba `align` mode. All share the hybrid GDN architecture
-involved in the prior reused-prefix corruption; a drafter or weight-precision
-change does not prove cache correctness.
+base-weights FP8 lane runs DSpark7 with prefix caching on, back from the
+native MTP3 A/B (services/llama-swap-vllm/BENCHMARKS.md), and keeps the
+v0.30.0 build's #50729 copy-race fix; the Mamba checkpoint reuse path
+(#57128) is still open and speculation-gated, so FP8 prefix reuse is
+canary-checked, not assumed correct, and disabling it is one flag away.
+The Unsloth lane also uses native MTP3 with prefix caching and Mamba `align` mode.
+All share the hybrid GDN architecture involved in the prior
+reused-prefix corruption; a drafter or weight-precision change does not prove
+cache correctness.
 When evaluating prefix reuse, check the installed vLLM build against
 [vllm#53912](https://github.com/vllm-project/vllm/issues/53912) and compare
 cold versus reused-prefix outputs with confirmed cache hits. A successful
