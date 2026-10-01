@@ -3,11 +3,9 @@
 # ../config.yaml. This file defines exactly one top-level key: models.
 
 models:
-  # Use built-in MTP3 instead of DFlash2 after cached-prefix corruption.
-  # Prefix caching stays enabled; cached-repeat correctness needs runtime validation.
   "qwen3.8-27b-fp8":
-    name: Qwen3.8 27B FP8
-    description: Qwen3.8 27B FP8 weights with BF16 KV and auto-fit context (native 262,144 when served alone)
+    name: Qwen3.8 27B FP8 DSpark
+    description: Qwen3.8 27B FP8 weights with Red Hat DSpark7, BF16 KV, auto-fit context, and prefix caching disabled
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -24,21 +22,27 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "Qwen/Qwen3.8-27B-FP8"
     proxy: http://vllm-qwen3-8-27b-fp8:8000
-    # Match the other quantized dense 27B lanes' BF16 KV; the resulting KV
-    # pool has not been measured. The BF16 Swift and Flash Next lanes retain
-    # FP8 KV to preserve their measured long-context memory budgets.
+    # DSpark7 speculative head for the Qwen3.8-27B base weights:
+    # https://huggingface.co/RedHatAI/Qwen3.8-27B-speculator.dspark
+    # Both DFlash2 and DSpark corrupted reasoning on reused prefixes in this
+    # hybrid GDN architecture, at zero draft acceptance (vllm#53912); swapping
+    # drafter or weight quant did not fix the recurrent-state bookkeeping. The
+    # negative flag below overrides VLLM_COMMON's prefix-cache default.
+    # BF16 KV matches the other quantized dense 27B lanes; the KV pool with the
+    # external drafter has not been measured.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-qwen3-8-27b-fp8
       --env VLLM_ENABLE_STARTUP_PLAN=1
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
+      --no-enable-prefix-caching
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.90
       --attention-backend FLASHINFER
       --kv-cache-dtype bfloat16
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      --speculative-config '{"method":"dspark","model":"RedHatAI/Qwen3.8-27B-speculator.dspark","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-fp8

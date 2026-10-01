@@ -83,10 +83,11 @@ llama-swap git-sync volume. Swift 1.5 requests without thinking controls
 receive an explicit xhigh default; base Qwen3.8 routes leave the Froggeric
 medium default intact.
 
-The RedHat NVFP4 lane retains DSpark7 with prefix caching disabled. The
-Unsloth lane uses native MTP3 with prefix caching and Mamba `align` mode.
-Both share the hybrid GDN architecture involved in the prior reused-prefix
-corruption; a drafter or weight-precision change does not prove cache correctness.
+The RedHat NVFP4 lane and the base-weights FP8 lane both run DSpark7 with
+prefix caching disabled. The Unsloth lane uses native MTP3 with prefix caching
+and Mamba `align` mode. All three share the hybrid GDN architecture involved
+in the prior reused-prefix corruption; a drafter or weight-precision change
+does not prove cache correctness.
 When evaluating prefix reuse, check the installed vLLM build against
 [vllm#53912](https://github.com/vllm-project/vllm/issues/53912) and compare
 cold versus reused-prefix outputs with confirmed cache hits. A successful
