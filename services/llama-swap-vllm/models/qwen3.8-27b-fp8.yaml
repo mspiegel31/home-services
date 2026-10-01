@@ -30,9 +30,9 @@ models:
     # token-count race (#53919), the overlapping conv-state copy (#50729,
     # shipped in v0.28.1), and Mamba checkpoint reuse of decode-written state
     # (#57128). This image is v0.30.0; the last is still open and
-    # speculation-gated, so prefix reuse is canary-checked rather than assumed
-    # correct, and a checked-in workaround is a one-line
-    # --no-enable-prefix-caching away.
+    # speculation-gated, so prefix reuse is canary-checked
+    # (../canary_prefix_cache.py) rather than assumed correct, and a revert is
+    # a one-line --no-enable-prefix-caching away.
     # BF16 KV matches the other quantized dense 27B lanes; the KV pool with the
     # external drafter has not been measured.
     cmd: >-
