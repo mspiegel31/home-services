@@ -4,8 +4,8 @@
 
 models:
   "qwen3.8-27b-fp8":
-    name: Qwen3.8 27B FP8 DSpark
-    description: Qwen3.8 27B FP8 weights with Red Hat DSpark7, BF16 KV, auto-fit context, and prefix caching enabled
+    name: Qwen3.8 27B FP8
+    description: Qwen3.8 27B FP8 weights with native MTP3, BF16 KV, auto-fit context, and prefix caching enabled
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -22,8 +22,11 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "Qwen/Qwen3.8-27B-FP8"
     proxy: http://vllm-qwen3-8-27b-fp8:8000
-    # DSpark7 speculative head for the Qwen3.8-27B base weights:
-    # https://huggingface.co/RedHatAI/Qwen3.8-27B-speculator.dspark
+    # Native MTP3 head from the checkpoint. DSpark7 measured level with it on
+    # prose and agent traffic while accepting only 20-29% of its deeper drafts
+    # and costing 3.7 GiB of draft weights (BENCHMARKS.md section 3); the lane
+    # is a general research model, so it runs the head it already carries.
+    # The RedHat speculator stays on disk for a coding-workload retest.
     # Reused prefixes corrupted reasoning under DFlash2 and DSpark on this
     # hybrid GDN architecture at zero draft acceptance (vllm#53912). Three
     # distinct mechanisms sat behind that symptom: the async-scheduling
@@ -47,6 +50,6 @@ models:
       --attention-backend FLASHINFER
       --kv-cache-dtype bfloat16
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"dspark","model":"RedHatAI/Qwen3.8-27B-speculator.dspark","num_speculative_tokens":7}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-qwen3-8-27b-fp8

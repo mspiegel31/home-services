@@ -67,9 +67,11 @@ and RAG; free-form prose and agent chatter do not reproduce it. MTP3 costs no
 draft VRAM (the head ships in the checkpoint) and leaves the ~3.7 GiB the
 speculator occupies for KV.
 
-Untested follow-ups, in rough value order: DSpark with `num_speculative_tokens`
-3–4 (drops the dead positions), and the same comparison on a coding task rather
-than prose.
+**Decision (2026-10-01):** the lane runs MTP3. It is the general research model,
+where the two are level, and MTP3 gives back the 3.7 GiB of draft weights. The
+speculator stays on disk: rerun this bench on a coding task before considering
+it again, and if it does come back, cut `num_speculative_tokens` to 3–4 first —
+positions 5–7 accept 0.01–0.14 and are not paying for themselves.
 
 ## Correctness checks
 
