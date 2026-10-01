@@ -1,0 +1,151 @@
+  litellm:
+    baseUrl: http://192.168.1.98:4000/v1
+    api: openai-completions
+    authHeader: true
+    discovery:
+      type: litellm
+    # Uniform Froggeric effort contract for every Qwen3.8-derived lane: the
+    # template tiers are exactly low | medium | xhigh, and thinking-off stays
+    # available as a state (enable_thinking=false) outside this list. The
+    # LiteLLM callback (custom_callbacks.py) aliases minimal->low and
+    # high->xhigh for these same ids, so both layers agree.
+    # supportsTools + compat.supportsToolChoice keep tool calls on vLLM's
+    # native qwen3_xml parser instead of OMP's in-band text dialect.
+    # Keys must match the ids LiteLLM serves (services/litellm/models/*.yaml).
+    modelOverrides:
+      qwen3.8-27b-bf16:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+      qwen3.8-27b-bf16-sglang:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+      qwen3.8-27b-fp8:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+      qwen3.8-27b-nvfp4:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+      qwen3.8-27b-nvfp4-redhat:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+      qwen3.8-27b-nvfp4-unsloth:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+      qwen3.8-flash-next-nvfp4:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+          replayReasoningContent: true
+          qwenPreserveThinking: true
+      swift-1.5-awq:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+      swift-1.5-bf16:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+      swift-1.5-flash-nvfp4:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+          replayReasoningContent: true
+          qwenPreserveThinking: true
+      swift-1.5-fp8:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true
+      swift-1.5-nvfp4:
+        reasoning: true
+        supportsTools: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, xhigh]
+          requiresEffort: false
+        compat:
+          supportsToolChoice: true
+          thinkingFormat: qwen-chat-template
+          qwenTemplateReasoningEffort: true

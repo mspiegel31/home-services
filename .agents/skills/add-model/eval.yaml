@@ -1,0 +1,173 @@
+version: "1"
+
+# Run with `skillgrade-omp --smoke` (or plain `skillgrade`); requires
+# SKILLGRADE_OMP_PROFILE in the env. The fixture is a self-consistent slice of
+# the home-services inference stack (two existing models) — see evals/fixture/.
+
+defaults:
+  agent: command
+  command: skillgrade-omp-agent
+  provider: local
+  trials: 5
+  timeout: 600
+  threshold: 0.8
+
+tasks:
+  - name: add-qwen38-nvfp4-hy3-lane
+    instruction: |
+      I downloaded a new Qwen3.8 27B NVFP4 quant (Hugging Face repo
+      HuggingFaceTB/Qwen3.8-27B-Hy3-NVFP4, the Hy3 mixed-precision export) to
+      the inference box. Wire it into the stacks under ./services as the
+      served model id `qwen3.8-27b-nvfp4-hy3`, following the add-model skill.
+
+      Notes for this checkpoint:
+      - Hybrid GDN + full attention, so keep the SSM state in FP32.
+      - No MTP head in this export, so no speculative decoding.
+      - It is a reasoning model on the Froggeric template (low | medium |
+        xhigh) and must be usable for tool calls from OMP.
+
+      Make every change the add-model skill calls for, in ./services and
+      ./dotfiles. There is no live cluster in this workspace — verify with the
+      stdlib test suite and by re-reading your files, and say clearly at the
+      end which live verifications still need the inference box.
+    workspace:
+      - src: evals/fixture/services/llama-swap-vllm/config.yaml
+        dest: services/llama-swap-vllm/config.yaml
+      - src: evals/fixture/services/llama-swap-vllm/AGENTS.md
+        dest: services/llama-swap-vllm/AGENTS.md
+      - src: evals/fixture/services/llama-swap-vllm/models/qwen3.8-27b-nvfp4.yaml
+        dest: services/llama-swap-vllm/models/qwen3.8-27b-nvfp4.yaml
+      - src: evals/fixture/services/llama-swap-vllm/models/swift-1.5-fp8.yaml
+        dest: services/llama-swap-vllm/models/swift-1.5-fp8.yaml
+      - src: evals/fixture/services/litellm/config.yaml
+        dest: services/litellm/config.yaml
+      - src: evals/fixture/services/litellm/AGENTS.md
+        dest: services/litellm/AGENTS.md
+      - src: evals/fixture/services/litellm/custom_callbacks.py
+        dest: services/litellm/custom_callbacks.py
+      - src: evals/fixture/services/litellm/test_custom_callbacks.py
+        dest: services/litellm/test_custom_callbacks.py
+      - src: evals/fixture/services/litellm/models/qwen3.8-27b-nvfp4.yaml
+        dest: services/litellm/models/qwen3.8-27b-nvfp4.yaml
+      - src: evals/fixture/services/litellm/models/swift-1.5-fp8.yaml
+        dest: services/litellm/models/swift-1.5-fp8.yaml
+      - src: evals/fixture/dotfiles/litellm-provider.yml.tmpl
+        dest: dotfiles/litellm-provider.yml.tmpl
+    graders:
+      - type: deterministic
+        run: bash evals/graders/check-qwen-lane.sh
+        weight: 0.6
+      - type: deterministic
+        run: bash evals/graders/judge.sh
+        weight: 0.4
+    expected:
+      artifacts:
+        - "services/llama-swap-vllm/models/qwen3.8-27b-nvfp4-hy3.yaml"
+        - "services/llama-swap-vllm/config.yaml"
+        - "services/litellm/models/qwen3.8-27b-nvfp4-hy3.yaml"
+        - "services/litellm/config.yaml"
+        - "services/litellm/custom_callbacks.py"
+        - "services/litellm/test_custom_callbacks.py"
+        - "dotfiles/litellm-provider.yml.tmpl"
+      rubric: |
+        The task is to wire one new model (served id qwen3.8-27b-nvfp4-hy3,
+        checkpoint HuggingFaceTB/Qwen3.8-27B-Hy3-NVFP4) through every layer of
+        the local inference stack, following the add-model skill's conventions
+        as evidenced by the two existing models.
+
+        Score 1.0 if all of the following hold, reading the artifacts together:
+        a new llama-swap models/ file whose model id, checkpoint macro,
+        container name (--name and proxy) and cmdStop are mutually consistent
+        and whose vLLM flags match the stated traits (FP32 SSM state, no
+        speculative decoding, Froggeric chat template, Qwen38 tool macro
+        present); the id present in the llama-swap routing co-resident set in
+        the llama-swap config; a new litellm models/ file with the same
+        model_name, llama-swap api_base with /v1, custom_llm_provider
+        hosted_vllm, tool-supporting model_info, and the file listed in the
+        litellm include; a new LocalReasoningModel enum member in
+        custom_callbacks.py with a test exercising the new id; and an OMP
+        model override under the exact same id in the dotfiles
+        litellm-provider template with the qwen-chat-template compat shape.
+
+
+        Score 0.5 if most layers are present and internally consistent but one
+        layer is missing, an id is inconsistent across layers, or the
+        callback/test edits would break the suite.
+
+        Score 0 if the wiring is largely absent, a shared macro or existing
+        model was damaged, or secrets were committed.
+
+  - name: add-lfm25-text-lane
+    instruction: |
+      I pulled an LFM2.5 8B text checkpoint (HF repo LiquidAI/LFM2.5-8B-Text)
+      to the inference box. Serve it as `lfm2.5-8b-text` across the stacks
+      under ./services, following the add-model skill.
+
+      Notes for this checkpoint:
+      - Plain decoder, text-only, no vision.
+      - Not a reasoning model and no thinking controls.
+      - Tool calling must work (the model supports native function calling).
+      - No speculative decoding configured for this export.
+
+      Make every change the add-model skill calls for under ./services. There
+      is no live cluster and no dotfiles copy in this workspace — verify by
+      re-reading your files and say which live checks still need the box.
+    workspace:
+      - src: evals/fixture/services/llama-swap-vllm/config.yaml
+        dest: services/llama-swap-vllm/config.yaml
+      - src: evals/fixture/services/llama-swap-vllm/AGENTS.md
+        dest: services/llama-swap-vllm/AGENTS.md
+      - src: evals/fixture/services/llama-swap-vllm/models/qwen3.8-27b-nvfp4.yaml
+        dest: services/llama-swap-vllm/models/qwen3.8-27b-nvfp4.yaml
+      - src: evals/fixture/services/llama-swap-vllm/models/swift-1.5-fp8.yaml
+        dest: services/llama-swap-vllm/models/swift-1.5-fp8.yaml
+      - src: evals/fixture/services/litellm/config.yaml
+        dest: services/litellm/config.yaml
+      - src: evals/fixture/services/litellm/AGENTS.md
+        dest: services/litellm/AGENTS.md
+      - src: evals/fixture/services/litellm/custom_callbacks.py
+        dest: services/litellm/custom_callbacks.py
+      - src: evals/fixture/services/litellm/test_custom_callbacks.py
+        dest: services/litellm/test_custom_callbacks.py
+      - src: evals/fixture/services/litellm/models/qwen3.8-27b-nvfp4.yaml
+        dest: services/litellm/models/qwen3.8-27b-nvfp4.yaml
+      - src: evals/fixture/services/litellm/models/swift-1.5-fp8.yaml
+        dest: services/litellm/models/swift-1.5-fp8.yaml
+    graders:
+      - type: deterministic
+        run: bash evals/graders/check-text-lane.sh
+        weight: 0.7
+      - type: deterministic
+        run: bash evals/graders/judge.sh
+        weight: 0.3
+    expected:
+      artifacts:
+        - "services/llama-swap-vllm/models/lfm2.5-8b-text.yaml"
+        - "services/llama-swap-vllm/config.yaml"
+        - "services/litellm/models/lfm2.5-8b-text.yaml"
+        - "services/litellm/config.yaml"
+        - "services/litellm/custom_callbacks.py"
+        - "services/litellm/test_custom_callbacks.py"
+      rubric: |
+        The task is to wire one new non-Qwen model (served id lfm2.5-8b-text,
+        checkpoint LiquidAI/LFM2.5-8B-Text) into llama-swap and litellm only.
+
+        Score 1.0 if, reading the artifacts together: a new llama-swap
+        models/ file is internally consistent (id, checkpoint macro, container
+        name, proxy, cmdStop) and reflects the stated traits (text-only
+        in/out, tools true, no vision, no speculative decoding, no Qwen38-only
+        macros such as the reasoning parser or froggeric chat template); the
+        id is present in the llama-swap routing co-resident set in the
+        llama-swap config; a new litellm models/ file carries the same
+        model_name, llama-swap api_base with /v1, hosted_vllm provider,
+        tool-supporting model_info without reasoning/thinking metadata, and is
+        listed in the litellm include; and custom_callbacks.py and the test
+        file carry no trace of the new model (it is not a local reasoning
+        model).
+
+        Score 0.5 if both stacks are wired but a trait is wrong (e.g. vision
+        claimed, Qwen38 tool macro leaked into the cmd, reasoning metadata in
+        model_info) or a layer is missing, or an existing file was damaged.
+
+        Score 0 if the wiring is largely absent or a callback entry / test was
+        added for a model that has no thinking contract.

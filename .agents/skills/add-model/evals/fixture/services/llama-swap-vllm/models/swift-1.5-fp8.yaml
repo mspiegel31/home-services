@@ -1,0 +1,69 @@
+# swift-1.5-fp8 — one model in the llama-swap config-dir split.
+# Shared macros (DOCKER_PREFIX, VLLM_COMMON, QWEN38_COMMON, ...) live in
+# ../config.yaml. This file defines exactly one top-level key: models.
+
+models:
+  "swift-1.5-fp8":
+    name: Swift 1.5 Qwen3.8 27B FP8
+    description: UkisAI Swift-1.5-Qwen3.8-27b AMD Quark FP8 W8A8 (per-channel weights, per-token dynamic activations) with bf16 KV, no spec decode, and 262,144 context
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "ukisai/Swift-1.5-Qwen3.8-27b-Quark-FP8-dynamic-AMD"
+    proxy: http://vllm-swift-1-5-fp8:8000
+    # Quark FP8 E4M3 W8A8: static per-output-channel weight scales, dynamic
+    # per-token activation scales; lm_head, embeddings, vision, MTP, GDN a/b
+    # and conv1d stay bf16. ~31.2 GB weights, ~27 GB read per decoded token
+    # (AWQ: ~15 GB), so expect slower decode than the AWQ lane in exchange for
+    # the closest-to-bf16 quality of the Swift exports (weight SNR ~31.5 dB vs
+    # ~18-21 dB for AWQ/NVFP4 MLP).
+    #
+    # vLLM auto-detects quant_method=quark from config.json and routes it to
+    # QuarkW8A8Fp8 (sm89+); do not pass --quantization. The bundled
+    # load_quark.py / quark_compat.py are for eager PyTorch, not vLLM.
+    #
+    # No speculative decoding: the checkpoint's Quark exclude list names the
+    # MTP tensors with ".weight" suffixes plus a bare "mtp.*" glob, but vLLM's
+    # Quark matcher only does exact module names or "re:" regexes. MTP would be
+    # built FP8 and reject the bf16 tensors. Fix would be patching the cached
+    # config.json exclude to "re:^mtp.*" (as done for the AWQ lane), untested.
+    #
+    # Same SM120 FP8 linear-kernel exclusion as the NVFP4/AWQ lanes
+    # (vllm#52540 sustained-load wedge); it matters most here since every
+    # projection is FP8, and leaves vLLM on CUTLASS cutlass_scaled_mm_sm120_fp8.
+    #
+    # kv_cache_quant_config is empty, so fp8 KV would run at unit scales;
+    # bf16 KV is ~64 KiB/token (~16 GiB at 262,144).
+    #
+    # Runtime not yet validated. If load fails on a "visual." layer (111
+    # vision excludes are remapped model.visual.* -> visual.*), add
+    # --limit-mm-per-prompt '{"image":0,"video":0}'.
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-swift-1-5-fp8
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --long-prefill-token-threshold 2048
+      --max-model-len auto
+      --gpu-memory-utilization 0.96
+      --attention-backend FLASHINFER
+      --kv-cache-dtype bfloat16
+      --mamba-ssm-cache-dtype float32
+      --mamba-cache-mode align
+      --generation-config auto
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-swift-1-5-fp8
