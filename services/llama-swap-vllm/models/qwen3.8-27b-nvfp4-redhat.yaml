@@ -1,0 +1,45 @@
+models:
+  "qwen3.8-27b-nvfp4-redhat":
+    name: Qwen3.8 27B RedHat NVFP4 DSpark
+    description: RedHatAI Qwen3.8 27B NVFP4 v2 with DSpark7, BF16 KV, auto-fit context, and prefix caching disabled for the initial experiment
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "RedHatAI/Qwen3.8-27B-NVFP4"
+    proxy: http://vllm-qwen3-8-27b-nvfp4-redhat:8000
+    # Prior Qwen3.8 DSpark/DFlash runs corrupted reused prefixes; a different
+    # weight quant does not fix recurrent-state bookkeeping (vllm#53912).
+    # The negative flag below overrides VLLM_COMMON's prefix-cache default.
+    # BF16 KV/FP32 SSM and the FP8-kernel exclusion match the Swift NVFP4 lane.
+    # No CPU offload: it provides no prefix-reuse benefit with caching disabled.
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-qwen3-8-27b-nvfp4-redhat
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --no-enable-prefix-caching
+      --long-prefill-token-threshold 2048
+      --max-model-len auto
+      --gpu-memory-utilization 0.96
+      --attention-backend FLASHINFER
+      --kv-cache-dtype bfloat16
+      --mamba-ssm-cache-dtype float32
+      --mamba-cache-mode none
+      --generation-config auto
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      --speculative-config '{"method":"dspark","model":"RedHatAI/Qwen3.8-27B-speculator.dspark","num_speculative_tokens":7}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4-redhat
