@@ -5,7 +5,7 @@
 models:
   "qwen3.8-27b-fp8":
     name: Qwen3.8 27B FP8 DSpark
-    description: Qwen3.8 27B FP8 weights with Red Hat DSpark7, BF16 KV, auto-fit context, and prefix caching disabled
+    description: Qwen3.8 27B FP8 weights with Red Hat DSpark7, BF16 KV, auto-fit context, and prefix caching enabled
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -24,10 +24,15 @@ models:
     proxy: http://vllm-qwen3-8-27b-fp8:8000
     # DSpark7 speculative head for the Qwen3.8-27B base weights:
     # https://huggingface.co/RedHatAI/Qwen3.8-27B-speculator.dspark
-    # Both DFlash2 and DSpark corrupted reasoning on reused prefixes in this
-    # hybrid GDN architecture, at zero draft acceptance (vllm#53912); swapping
-    # drafter or weight quant did not fix the recurrent-state bookkeeping. The
-    # negative flag below overrides VLLM_COMMON's prefix-cache default.
+    # Reused prefixes corrupted reasoning under DFlash2 and DSpark on this
+    # hybrid GDN architecture at zero draft acceptance (vllm#53912). Three
+    # distinct mechanisms sat behind that symptom: the async-scheduling
+    # token-count race (#53919), the overlapping conv-state copy (#50729,
+    # shipped in v0.28.1), and Mamba checkpoint reuse of decode-written state
+    # (#57128). This image is v0.30.0; the last is still open and
+    # speculation-gated, so prefix reuse is canary-checked rather than assumed
+    # correct, and a checked-in workaround is a one-line
+    # --no-enable-prefix-caching away.
     # BF16 KV matches the other quantized dense 27B lanes; the KV pool with the
     # external drafter has not been measured.
     cmd: >-
@@ -36,7 +41,6 @@ models:
       --env VLLM_ENABLE_STARTUP_PLAN=1
       ${VLLM_IMAGE}
       ${VLLM_COMMON}
-      --no-enable-prefix-caching
       --long-prefill-token-threshold 2048
       --max-model-len auto
       --gpu-memory-utilization 0.90
