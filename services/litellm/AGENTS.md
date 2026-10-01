@@ -76,20 +76,24 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 
 `custom_callbacks.py` translates public thinking controls before LiteLLM
 forwards Chat Completions requests. It handles the registered Qwen3.8 and
-Swift 1.5 routes, including `qwen3.8-27b-nvfp4-redhat`, with nested three-tier
-effort.
+Swift 1.5 routes, including the RedHat and Unsloth NVFP4 DSpark lanes, with
+nested three-tier effort.
 Both Flash Next backends mount the repo's Froggeric template from the
 llama-swap git-sync volume. Swift 1.5 requests without thinking controls
 receive an explicit xhigh default; base Qwen3.8 routes leave the Froggeric
 medium default intact.
 
-The RedHat NVFP4 lane starts with DSpark7 and prefix caching disabled.
-It shares the hybrid GDN architecture involved in the prior reused-prefix
+The RedHat and Unsloth NVFP4 lanes start with DSpark7 and prefix caching
+disabled. They share the hybrid GDN architecture involved in the prior reused-prefix
 corruption; changing weight precision does not establish cache correctness.
 Before enabling prefix reuse, check the installed vLLM build against
 [vllm#53912](https://github.com/vllm-project/vllm/issues/53912) and compare
 cold versus reused-prefix outputs with confirmed cache hits. A successful
 no-prefix-cache smoke run does not validate automatic prefix caching.
+
+OMP overrides for both DSpark lanes explicitly set `supportsTools: true` and
+`compat.supportsToolChoice: true`. With `tools.format: auto`, this preserves
+native tool calls for vLLM's `qwen3_xml` parser instead of an in-band dialect.
 
 Swift Flash Next disables the LIL profile's default MTP3: its draft loader
 exhausts the 72 GB GPU during online NVFP4 weight processing. Base Qwen Flash

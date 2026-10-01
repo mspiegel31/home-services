@@ -125,6 +125,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
     def test_thinking_off_does_not_rearm_from_effort(self):
         for model in (
             "qwen3.8-27b-nvfp4-redhat",
+            "qwen3.8-27b-nvfp4-unsloth",
             "qwen3.8-flash-next-nvfp4",
             "swift-1.5-flash-nvfp4",
         ):
@@ -148,6 +149,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-bf16-sglang",
             "qwen3.8-27b-nvfp4",
             "qwen3.8-27b-nvfp4-redhat",
+            "qwen3.8-27b-nvfp4-unsloth",
             "qwen3.8-flash-next-nvfp4",
             "swift-1.5-flash-nvfp4",
             "swift-1.5-nvfp4",
