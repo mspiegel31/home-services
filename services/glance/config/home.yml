@@ -123,6 +123,10 @@
               show-thumbnails: true
 
             - type: reddit
+              subreddit: softwarefactories
+              show-thumbnails: true
+
+            - type: reddit
               subreddit: selfhosted
               show-thumbnails: true
 
