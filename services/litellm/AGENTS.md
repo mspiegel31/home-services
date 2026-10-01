@@ -76,22 +76,23 @@ For home-services consistency, git-sync is used here. Switch to S3 bucket config
 
 `custom_callbacks.py` translates public thinking controls before LiteLLM
 forwards Chat Completions requests. It handles the registered Qwen3.8 and
-Swift 1.5 routes, including the RedHat and Unsloth NVFP4 DSpark lanes, with
+Swift 1.5 routes, including the RedHat and Unsloth NVFP4 lanes, with
 nested three-tier effort.
 Both Flash Next backends mount the repo's Froggeric template from the
 llama-swap git-sync volume. Swift 1.5 requests without thinking controls
 receive an explicit xhigh default; base Qwen3.8 routes leave the Froggeric
 medium default intact.
 
-The RedHat and Unsloth NVFP4 lanes start with DSpark7 and prefix caching
-disabled. They share the hybrid GDN architecture involved in the prior reused-prefix
-corruption; changing weight precision does not establish cache correctness.
-Before enabling prefix reuse, check the installed vLLM build against
+The RedHat NVFP4 lane retains DSpark7 with prefix caching disabled. The
+Unsloth lane uses native MTP3 with prefix caching and Mamba `align` mode.
+Both share the hybrid GDN architecture involved in the prior reused-prefix
+corruption; a drafter or weight-precision change does not prove cache correctness.
+When evaluating prefix reuse, check the installed vLLM build against
 [vllm#53912](https://github.com/vllm-project/vllm/issues/53912) and compare
 cold versus reused-prefix outputs with confirmed cache hits. A successful
 no-prefix-cache smoke run does not validate automatic prefix caching.
 
-OMP overrides for both DSpark lanes explicitly set `supportsTools: true` and
+OMP overrides for both lanes explicitly set `supportsTools: true` and
 `compat.supportsToolChoice: true`. With `tools.format: auto`, this preserves
 native tool calls for vLLM's `qwen3_xml` parser instead of an in-band dialect.
 
