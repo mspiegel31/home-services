@@ -5,7 +5,7 @@
 models:
   "swift-1.5-bf16":
     name: Swift 1.5 Qwen3.8 27B BF16
-    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 with FlashInfer, FP8 KV, native MTP3, auto-fit context, and 16 GiB RAM prefix cache
+    description: UkisAI Swift-1.5-Qwen3.8-27b BF16 with FlashInfer, FP8 KV, RedHat DSpark7, auto-fit context, and 16 GiB RAM prefix cache
     capabilities:
       in: ["text", "image"]
       out: ["text"]
@@ -33,6 +33,10 @@ models:
     # whole tier fits free space on /dev/shm, a 25 GiB host tmpfs shared with
     # llama-server and any co-resident lane. Cold-prefix cache only; does not
     # extend active context, and dies with this --rm container.
+    # The cache capacity above was measured with MTP3; DSpark adds draft
+    # weights and KV, so auto-fit must recalculate capacity at startup.
+    # Reused hybrid prefixes have corrupted external drafting (vllm#53912);
+    # the retained prefix cache needs a live correctness canary.
     cmd: >-
       ${DOCKER_PREFIX}
       --name vllm-swift-1-5-bf16
@@ -54,6 +58,6 @@ models:
       --generation-config auto
       --max-cudagraph-capture-size 16
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
-      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      --speculative-config '{"method":"dspark","model":"RedHatAI/Qwen3.8-27B-speculator.dspark","num_speculative_tokens":7}'
       ${QWEN38_COMMON}
     cmdStop: docker stop --time 90 vllm-swift-1-5-bf16

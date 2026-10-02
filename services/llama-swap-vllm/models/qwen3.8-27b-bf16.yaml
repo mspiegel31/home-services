@@ -21,8 +21,7 @@ models:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
       checkpoint: "Qwen/Qwen3.8-27B"
     proxy: http://vllm-qwen3-8-27b-bf16:8000
-    # Use the checkpoint's built-in MTP head, matching the FP8 dense and
-    # Swift BF16 lanes. Both external drafters corrupted reasoning on reused
+    # Both external drafters corrupted reasoning on reused
     # prefixes: repeated "!ductduct..." coincided with prefix hits and zero
     # draft acceptance, while a fresh cache_salt on the same prompt produced
     # a coherent tool call. Swapping DFlash2 for DSpark did not fix it, so
