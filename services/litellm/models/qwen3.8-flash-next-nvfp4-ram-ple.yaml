@@ -1,6 +1,5 @@
 # qwen3.8-flash-next-nvfp4-ram-ple — one deployment in the litellm config split.
-# A/B lane against qwen3.8-flash-next-nvfp4: same checkpoint/engine, PLE table
-# pinned in host RAM. Global settings live in ../config.yaml.
+# Engine versions differ from the disk lane; comparisons do not isolate PLE placement.
 # This file defines exactly one top-level key: model_list, with one entry.
 
 model_list:
