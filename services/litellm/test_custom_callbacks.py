@@ -127,6 +127,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-nvfp4-redhat",
             "qwen3.8-27b-nvfp4-unsloth",
             "qwen3.8-flash-next-nvfp4",
+            "qwen3.8-flash-next-nvfp4-ram-ple",
             "swift-1.5-flash-nvfp4",
         ):
             with self.subTest(model=model):
@@ -151,6 +152,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-nvfp4-redhat",
             "qwen3.8-27b-nvfp4-unsloth",
             "qwen3.8-flash-next-nvfp4",
+            "qwen3.8-flash-next-nvfp4-ram-ple",
             "swift-1.5-flash-nvfp4",
             "swift-1.5-nvfp4",
             "swift-1.5-bf16",

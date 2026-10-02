@@ -34,6 +34,7 @@ include:
   - models/qwen3.8-27b-nvfp4-redhat.yaml
   - models/qwen3.8-27b-nvfp4-unsloth.yaml
   - models/qwen3.8-flash-next-nvfp4.yaml
+  - models/qwen3.8-flash-next-nvfp4-ram-ple.yaml
   - models/swift-1.5-flash-nvfp4.yaml
   - models/swift-1.5-nvfp4.yaml
   - models/swift-1.5-bf16.yaml
