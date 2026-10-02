@@ -1,0 +1,81 @@
+# qwen3.8-flash-next-nvfp4-ram-ple — one model in the llama-swap config-dir split.
+# A/B lane against qwen3.8-flash-next-nvfp4: identical checkpoint and engine,
+# PLE table pinned in host RAM instead of io_uring disk staging.
+# Shared macros (DOCKER_PREFIX, VLLM_COMMON, QWEN38_COMMON, ...) live in
+# ../config.yaml. This file defines exactly one top-level key: models.
+
+models:
+  "qwen3.8-flash-next-nvfp4-ram-ple":
+    name: Qwen3.8 Flash Next NVFP4 (RAM PLE)
+    description: Qwen3.8 Flash Next QAD NVFP4 with 262,144-token context, PLE table pinned in host RAM (mapped_host), native RAM prefix cache, and MTP3
+    concurrencyLimit: 4
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      VLLM_IMAGE: "ghcr.io/local-inference-lab/vllm:karmic-kraken-beta-20260922-3221ccacf71002ea@sha256:bf2c8f5da6f1de82b345367102b528692231a23eadc1b49c180c82c397c77522"
+      checkpoint: "/models/huggingface/models/local-inference-lab/Qwen3.8-Flash-Next-NVFP4"
+    proxy: http://vllm-qwen3-8-flash-next-ram-ple:8000
+    # https://github.com/local-inference-lab/rtx6kpro/blob/master/models/qwen38-flash-next.md
+    # The LIL profile owns its launcher flags and JIT cache paths; stock
+    # VLLM_COMMON/DOCKER_PREFIX overrides are not compatible with that contract.
+    #
+    # VLLM_PLE_TABLE_MEMORY=ram resolves (b12x_ple._resolve_ple_table_memory)
+    # to b12x mapped_host: NVFP4 PLE rows + row scales in CUDA-mapped pinned
+    # host RAM, read by the GPU over PCIe via UVA. This is the placement the
+    # LIL profile itself ships for this checkpoint ("CPU PLE tables"); the
+    # sibling disk lane is the local io_uring variant.
+    #
+    # Pinned-RAM budget (this is what makes the lane size-gated):
+    #   PLE table (NVFP4, 320M n-gram rows — independent of MAX_MODEL_LEN):
+    #     26.88 GiB, cudaHostAlloc'd, NEVER swappable
+    #   expert offload (--cpu-offload-gb 15): 15.28 GiB pinned
+    #   native KV tier: 4 GiB
+    #   engine/API-server anon: ~8.7 GiB (measured on the disk lane)
+    #   => ~55 GiB committed anon. The inference VM's MemTotal MUST exceed
+    #      ~58 GiB before this lane is routed (measured 2026-10-02: 49.9 GiB).
+    #      An undersized host fails the pinned allocation at startup with a
+    #      loud container error; the disk lane is unaffected.
+    # NATIVE_KV_OFFLOADING_SIZE_GB cannot be 0: the LIL launcher requires a
+    # positive cache-native-gib when CACHE_MODE=native. 4 GiB keeps restart
+    # prefix survival at half the disk lane's footprint.
+    # seccomp=unconfined existed only for the io_uring DiskTable; in ram mode
+    # the DiskTable is never constructed, so this lane drops the exemption.
+    #
+    # NOT YET VALIDATED on this host: blocked on the VM memory resize. The
+    # two acceptance scenarios inherited from qwen3.8-flash-next-nvfp4.yaml
+    # (uncached 261,632-token prompt; 4x65,536 concurrent) plus a decode
+    # tok/s comparison against its ~25.7 / 36-39 baselines close the gate.
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --network llama-swap-vllm-backend
+      --name vllm-qwen3-8-flash-next-ram-ple
+      --env HF_TOKEN --env HF_HOME=/models/huggingface
+      --env PROFILE=qwen38-flash-next --env TP=1 --env DCP=1 --env PORT=8000
+      --env MAX_MODEL_LEN=262144 --env MAX_NUM_SEQS=4
+      --env MAX_NUM_BATCHED_TOKENS=4096 --env GPU_MEMORY_UTILIZATION=0.96
+      --env VLLM_PLE_TABLE_MEMORY=ram
+      --env CACHE_MODE=native --env NATIVE_KV_OFFLOADING_SIZE_GB=4
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --volume /mnt/models:/models
+      --volume llama-swap_llama-swap-config:/config:ro
+      --volume /mnt/models/qwen3.8-flash-next-runtime:/cache
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      ${VLLM_IMAGE}
+      --model ${checkpoint} --served-model-name ${MODEL_ID}
+      --load-format safetensors
+      --mode mtp --draft-tokens 3
+      --cpu-offload-gb 15 --cpu-offload-params experts
+      --max-cudagraph-capture-size 16
+      --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
+    cmdStop: docker stop --time 90 vllm-qwen3-8-flash-next-ram-ple
