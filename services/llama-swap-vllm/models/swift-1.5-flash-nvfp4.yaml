@@ -4,8 +4,8 @@
 
 models:
   "swift-1.5-flash-nvfp4":
-    name: Swift 1.5 Qwen3.8 Flash Next NVFP4
-    description: Swift 1.5 Flash Next NVFP4 with FP8 host PLE, 262,144-token context, BF16 KV, and MTP3
+    name: Swift 1.5 Qwen3.8 Flash Next W4A16
+    description: Swift 1.5 Flash Next AutoRound W4A16 with FP8 host PLE, 262,144-token context, BF16 KV, and compact INT4 MTP3
     concurrencyLimit: 4
     capabilities:
       in: ["text", "image"]
@@ -19,25 +19,29 @@ models:
       reasoning_effort: [low, medium, xhigh]
     macros:
       VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens@sha256:b298ea1c97bcdc4ff6755a7616b4c4fbb98d0e9a9b335b78468f13fff0fa3c47"
-      checkpoint: "/models/huggingface/models/d0xin/Swift-1.5-Qwen3.8-Flash-Next-NVFP4-FP8PLE"
+      checkpoint: "/models/huggingface/models/auggie246/Swift-1.5-Qwen3.8-Flash-Next-W4A16-FP8PLE"
       USE_FASTOKENS: "1"
       MAX_NUM_SEQS: "4"
     proxy: http://vllm-swift-1-5-flash-nvfp4:8000
-    # Stock vLLM uses pinned-host FP8 PLE; LIL's table-memory flags do not apply.
-    # QSA in this image supports BF16 KV, not the LIL lane's FP8 KV.
-    # Preserve MTP3 and budget expert offload separately from the 47.68 GiB PLE.
+    # Keep the existing client model ID; the checkpoint now uses AutoRound W4A16.
+    # vLLM 0.30 accepts the target and separate compressed-tensors MTP config.
+    # Configuration smoke passed; full weight loading and generation are unverified.
+    # Limit host memory so a failed load cannot exhaust the entire inference VM.
+    # Budget expert offload separately from the 47.68 GiB pinned FP8 PLE table.
     cmd: >-
       ${DOCKER_PREFIX}
+      --memory 96g --memory-swap 104g
       --env VLLM_PLE_CPU_OFFLOAD=1
       --name vllm-swift-1-5-flash-nvfp4
       ${VLLM_IMAGE}
       ${VLLM_COMMON} ${QWEN38_COMMON}
       --load-format safetensors
+      --safetensors-load-strategy lazy
       --dtype bfloat16 --kv-cache-dtype bfloat16
       --max-model-len 262144 --max-num-batched-tokens 4096
       --gpu-memory-utilization 0.96
-      --cpu-offload-gb 25 --cpu-offload-params experts
-      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      --cpu-offload-gb 14 --cpu-offload-params experts
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3,"model":"/models/huggingface/models/auggie246/Swift-1.5-Qwen3.8-Flash-Next-W4A16-FP8PLE/runtime/mtp-int4-g32"}'
       --mamba-cache-mode align
       --max-cudagraph-capture-size 16
       --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja

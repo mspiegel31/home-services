@@ -102,9 +102,10 @@ OMP overrides for both lanes explicitly set `supportsTools: true` and
 `compat.supportsToolChoice: true`. With `tools.format: auto`, this preserves
 native tool calls for vLLM's `qwen3_xml` parser instead of an in-band dialect.
 
-Swift Flash Next disables the LIL profile's default MTP3: its draft loader
-exhausts the 72 GB GPU during online NVFP4 weight processing. Base Qwen Flash
-Next retains MTP3. Swift GPU fit without the drafter remains unverified.
+Swift Flash Next keeps its existing `swift-1.5-flash-nvfp4` client ID but now
+targets auggie246's AutoRound W4A16/FP8-PLE checkpoint on vLLM 0.30 with a
+separate compact INT4 MTP3 draft. Configuration smoke passed at 262,144
+tokens; full weight loading, GPU fit and generation remain unverified.
 
 `LocalReasoningRequestAdapter` dispatches to `ChatTemplateThinkingPolicy`.
 Recognized models are listed in `LocalReasoningModel`; client controls are
