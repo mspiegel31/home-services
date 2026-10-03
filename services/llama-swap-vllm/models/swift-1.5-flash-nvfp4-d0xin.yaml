@@ -1,0 +1,86 @@
+# swift-1.5-flash-nvfp4-d0xin — one model in the llama-swap config-dir split.
+# Shared macros (DOCKER_PREFIX, VLLM_COMMON, QWEN38_COMMON, ...) live in
+# ../config.yaml. This file defines exactly one top-level key: models.
+
+models:
+  "swift-1.5-flash-nvfp4-d0xin":
+    name: Swift 1.5 Qwen3.8 Flash Next NVFP4 (d0xin, FP8 PLE)
+    description: d0xin Swift-1.5-Qwen3.8-Flash-Next NVFP4 W4A4 (ModelOpt) with FP8 E4M3 host PLE, 262,144-token context, BF16 KV, and the auggie246 INT4 MTP3 drafter
+    concurrencyLimit: 4
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      VLLM_IMAGE: "ghcr.io/local-inference-lab/vllm:karmic-kraken-beta-20261002-7b398c9e420c91eb@sha256:2230db60afb4fd06dc2ef2b7f7f27dc7f78d7a50be70a08461b4df9fa5e90732"
+      checkpoint: "/models/huggingface/models/d0xin/Swift-1.5-Qwen3.8-Flash-Next-NVFP4-FP8PLE"
+      MAX_NUM_SEQS: "4"
+    proxy: http://vllm-swift-1-5-flash-nvfp4-d0xin:8000
+    # d0xin/Swift-1.5-Qwen3.8-Flash-Next-NVFP4-FP8PLE is the same Flash-Next
+    # backbone as the sibling swift-1.5-flash-nvfp4 lane, quantized the upstream
+    # way: ModelOpt NVFP4 (W4A4, group 16) on Linear targets instead of
+    # AutoRound W4A16, PLE table FP8 E4M3 + shared BF16 scale (PLE_FP8_CONVERSION
+    # .json: shape [2500012,160], global_amax 0.0894, sample SNR 31.5 dB).
+    # Non-expert BF16 survivors (linear_attn, self_attn, mlp.gate, shared_expert,
+    # hyper_connection, ple, visual, embed/lm_head) come from the checkpoint's
+    # ignore list; vLLM auto-detects quant_method=modelopt from config.json, so
+    # no --quantization flag.
+    #
+    # Structure mirrors the sibling AutoRound lane (proven on this host for the
+    # FP8-PLE layout); the LIL NVFP4 profile launcher is NOT used — it assumes
+    # the LIL checkpoint's own online-quant + draft setup.
+    #
+    # PLE: same FP8 table size as the sibling (47.68 GiB), so the RAM table,
+    # exact-size pinned allocations (pinned_max_round_threshold_mb:16; PyTorch
+    # otherwise rounds the ~47.7 GiB pinned alloc to 64 GiB) and the 96 GiB
+    # cgroup limits carry over 1:1 from the sibling's validated smoke.
+    #
+    # MTP3: d0xin ships no MTP tensors (index has 0 "mtp" keys; config declares
+    # mtp_num_hidden_layers=1). The drafter is auggie246's runtime/mtp-int4-g32
+    # compressed-tensors INT4 head, exported from ukisai/Swift-1.5-Qwen3.8-
+    # Flash-Next-NVFP4 — d0xin's declared base model — so hidden_size 2560 /
+    # vocab 248320 / 512 experts match. Acceptance rates are unmeasured against
+    # the W4A4 target; drop the --speculative-config line if load or acceptance
+    # misbehaves.
+    #
+    # 14 GiB expert offload is the sibling's measured fit: routed experts are
+    # ~63 GiB at 4 bits, so experts MUST leave VRAM for KV on the 72 GB card.
+    # Untested on this checkpoint; re-measure GPU KV tokens at first load.
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --network llama-swap-vllm-backend
+      --env HF_TOKEN --env HF_HOME=/models/huggingface
+      --env VLLM_PLE_TABLE_MEMORY=ram --env VLLM_PLE_CPU_OFFLOAD=1
+      --env VLLM_ENABLE_STARTUP_PLAN=1 --env MAX_JOBS=4
+      --env VLLM_CACHE_ROOT=/cache/vllm
+      --env PYTORCH_ALLOC_CONF=pinned_max_round_threshold_mb:16
+      --volume /mnt/models:/models
+      --volume llama-swap_llama-swap-config:/config:ro
+      --volume /mnt/models/swift-1.5-flash-runtime:/cache
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      --memory 96g --memory-swap 104g
+      --name vllm-swift-1-5-flash-nvfp4-d0xin
+      --entrypoint /opt/venv/bin/vllm
+      ${VLLM_IMAGE}
+      serve ${checkpoint} --served-model-name ${MODEL_ID}
+      --enable-prefix-caching --max-num-seqs ${MAX_NUM_SEQS}
+      ${QWEN38_COMMON}
+      --load-format safetensors
+      --safetensors-load-strategy lazy
+      --dtype bfloat16 --kv-cache-dtype bfloat16
+      --max-model-len 262144 --max-num-batched-tokens 4096
+      --gpu-memory-utilization 0.96
+      --cpu-offload-gb 14 --cpu-offload-params experts
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3,"model":"/models/huggingface/models/auggie246/Swift-1.5-Qwen3.8-Flash-Next-W4A16-FP8PLE/runtime/mtp-int4-g32"}'
+      --mamba-cache-mode align
+      --max-cudagraph-capture-size 16
+      --chat-template /config/current/images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja
+    cmdStop: docker stop --time 90 vllm-swift-1-5-flash-nvfp4-d0xin

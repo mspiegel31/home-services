@@ -112,6 +112,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "swift-1.5-nvfp4",
             "swift-1.5-bf16",
             "swift-1.5-flash-nvfp4",
+            "swift-1.5-flash-nvfp4-d0xin",
             "swift-1.5-awq",
             "swift-1.5-fp8",
         ):
@@ -129,6 +130,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-flash-next-nvfp4",
             "qwen3.8-flash-next-nvfp4-ram-ple",
             "swift-1.5-flash-nvfp4",
+            "swift-1.5-flash-nvfp4-d0xin",
         ):
             with self.subTest(model=model):
                 result = call_deployment_hook(chat({
@@ -154,6 +156,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-flash-next-nvfp4",
             "qwen3.8-flash-next-nvfp4-ram-ple",
             "swift-1.5-flash-nvfp4",
+            "swift-1.5-flash-nvfp4-d0xin",
             "swift-1.5-nvfp4",
             "swift-1.5-bf16",
             "swift-1.5-awq",
