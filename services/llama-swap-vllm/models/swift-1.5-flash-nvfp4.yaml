@@ -25,6 +25,8 @@ models:
     # Keep the existing client model ID; the checkpoint now uses AutoRound W4A16.
     # Bypass LIL's NVFP4 preset: this backbone is AutoRound INT4 with FP8 PLE.
     # The separate compressed-tensors MTP must retain its own quantization.
+    # This AutoRound lane selects standard QSA, which rejects FP8 main KV;
+    # the fork's FP8-capable b12x QSA is selected by b12x linear/MoE backends.
     # The 96 GiB cgroup limit leaves headroom for the VM's other services.
     # PyTorch otherwise rounds the 47.68 GiB pinned PLE allocation to 64 GiB.
     # Exact-size large pinned blocks also avoid rounding each offloaded expert.
