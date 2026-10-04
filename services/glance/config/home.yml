@@ -20,6 +20,22 @@
                 icon: auto-invert si:huggingface
                 url: http://192.168.1.98:11436/
 
+          - title: Observability
+            color: 180 70 50 # Teal
+            links:
+              - title: Inference Dashboard
+                icon: auto-invert sh:grafana
+                url: ${GRAFANA_URL}/d/inference/inference
+              - title: Explore (logs/traces)
+                icon: auto-invert si:grafana
+                url: ${GRAFANA_URL}/explore
+              - title: VictoriaMetrics
+                icon: auto-invert sh:victoriametrics
+                url: http://192.168.1.39:8428/vmui
+              - title: Grafana Admin
+                icon: auto-invert sh:grafana
+                url: ${GRAFANA_URL}
+
 
           - title: Work - Infrastructure Apps
             color: 210 70 50 # Blue
