@@ -49,6 +49,7 @@ class LocalReasoningModel(str, Enum):
     QWEN38_FLASH_NEXT_NVFP4_RAM_PLE = "qwen3.8-flash-next-nvfp4-ram-ple"
     SWIFT_1_5_FLASH_NVFP4 = "swift-1.5-flash-nvfp4"
     SWIFT_1_5_FLASH_NVFP4_D0XIN = "swift-1.5-flash-nvfp4-d0xin"
+    SWIFT_1_5_FLASH_STRATA = "swift-1.5-flash-strata"
     SWIFT_1_5_NVFP4 = "swift-1.5-nvfp4"
     SWIFT_1_5_BF16 = "swift-1.5-bf16"
     SWIFT_1_5_AWQ = "swift-1.5-awq"
@@ -282,6 +283,7 @@ class LocalReasoningRequestAdapter(CustomLogger):
             LocalReasoningModel.SWIFT_1_5_BF16,
             LocalReasoningModel.SWIFT_1_5_FLASH_NVFP4,
             LocalReasoningModel.SWIFT_1_5_FLASH_NVFP4_D0XIN,
+            LocalReasoningModel.SWIFT_1_5_FLASH_STRATA,
             LocalReasoningModel.SWIFT_1_5_AWQ,
             LocalReasoningModel.SWIFT_1_5_FP8,
         )

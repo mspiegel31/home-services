@@ -1,0 +1,51 @@
+# swift-1.5-flash-strata — one model in the llama-swap config-dir split.
+# Shared macros live in ../config.yaml. This file defines exactly one top-level
+# key: models.
+#
+# Strata (https://github.com/Niko1221/Strata) runs the GGUF quants of Swift 1.5
+# with its own tiered-expert engine, not vLLM, so it takes no ${DOCKER_PREFIX}:
+# that macro injects vLLM/HF env and the /mnt/models:/models bind, and the image
+# carries its own entry point and env contract (see images/strata/Dockerfile).
+
+models:
+  "swift-1.5-flash-strata":
+    name: Swift 1.5 Qwen3.8 Flash Next IQ3_XXS (Strata)
+    description: Swift 1.5 Flash Next GSQ-RCO IQ3_XXS GGUF on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, PLE table in RAM
+    concurrencyLimit: 4
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0"
+    proxy: http://strata-swift-1-5-flash:8080
+    # No --memory cap: Strata sizes its RAM plan from /proc/meminfo, which in a
+    # container is the host's total, so a cap would make the plan wrong rather
+    # than smaller. LOW_RAM=off pins all experts in RAM (the host has the room).
+    # STRATA_ALLOWED_HOSTS is the engine's DNS-rebinding check: without an API
+    # key it 403s any Host that is not an IP, and llama-swap connects by
+    # container name. /data holds the GGUF, MTP layer, mmproj and the config
+    # setup writes; the first start downloads ~83 GB there. Setup picks
+    # --ple-io ram by itself, because /mnt/models is on a rotational disk and
+    # the RAM test passes. concurrencyLimit only stops the router from 429ing:
+    # Strata queues, and decodes one request at a time ("parallel" unset).
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --network llama-swap-vllm-backend
+      --env FAMILY=swift --env MODEL=IQ3_XXS --env CONTEXT=262144
+      --env VISION=yes --env GPU=0 --env LOW_RAM=off
+      --env HOST=0.0.0.0 --env PORT=8080
+      --env STRATA_ALLOWED_HOSTS=strata-swift-1-5-flash
+      --volume /mnt/models/strata:/data
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      --name strata-swift-1-5-flash
+      ${STRATA_IMAGE}
+    cmdStop: docker stop --time 90 strata-swift-1-5-flash

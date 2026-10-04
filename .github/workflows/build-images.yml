@@ -47,6 +47,8 @@ jobs:
               'llama-swap-vllm': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
               // PyPI wheels are manylinux x86_64 only.
               'freetoken': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
+              // CUDA devel base is tens of GB and the engine targets x86-64 AVX2.
+              'strata': { platforms: 'linux/amd64', cacheTo: '' },
               // The official signal-cli native release asset is x86_64 only.
               'signal-cli': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
             };
