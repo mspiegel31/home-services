@@ -66,13 +66,19 @@ prometheus.scrape "litellm" {
   forward_to = [prometheus.remote_write.truenas.receiver]
 }
 
-// llama-swap /metrics is a root gin route (unauthenticated); GPU/system
-// metrics ship from the router container's nvidia-smi.
+// llama-swap /metrics is behind CreateAuthMiddleware: with apiKeys set in
+// config.yaml the route 401s without a key (ExtractAPIKey accepts Basic,
+// Bearer, x-api-key). Bearer master key here; GPU/system metrics ship from
+// the router container's nvidia-smi.
 prometheus.scrape "llama_swap" {
   targets         = [{ "__address__" = "192.168.1.98:11437", "job" = "llama-swap" }]
   scheme          = "http"
   scrape_interval = "15s"
-  forward_to      = [prometheus.remote_write.truenas.receiver]
+  authorization {
+    type        = "Bearer"
+    credentials = sys.env("LLAMA_SWAP_API_KEY")
+  }
+  forward_to = [prometheus.remote_write.truenas.receiver]
 }
 
 prometheus.scrape "vllm_backends" {
