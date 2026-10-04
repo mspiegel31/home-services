@@ -1,0 +1,111 @@
+# Grafana Alloy collector for the inference box (192.168.1.98).
+#
+# Runs beside services/litellm and services/llama-swap-vllm on the inference
+# box Portainer environment. Scrapes/receives telemetry locally (vLLM backends
+# are only reachable on the llama-swap-vllm-backend docker network) and ships
+# metrics/logs/traces over LAN to the observability stack (services/observability/)
+# on TrueNAS.
+#
+# Config comes from git via a git-sync sidecar (this stack's directory,
+# sparse checkout, named volume); activation is a deliberate restart/redeploy.
+#
+# Portainer CE stack: environment = the inference-box env (same as
+# services/litellm), repo https://github.com/mspiegel31/home-services.git,
+# ref main, path services/inference-telemetry/docker-compose.yml, poll 5 min.
+#
+# Secrets via Portainer UI (never commit):
+#   LITELLM_MASTER_KEY, LLAMA_SWAP_API_KEY
+# Environment:
+#   SHIP_ENDPOINT = http://192.168.1.39  (observability host, no trailing slash)
+
+name: inference-telemetry
+
+configs:
+  git_sync_sparse_checkout:
+    content: |
+      /*
+      !/*/
+      /services/
+      !/services/*/
+      /services/inference-telemetry/
+
+volumes:
+  inference-telemetry-config:
+  alloy-data:
+
+networks:
+  telemetry:
+    name: inference-telemetry
+  # Existing router<->backend network; lets Alloy resolve vllm-* container
+  # names via docker DNS for /metrics scraping.
+  backend:
+    name: llama-swap-vllm-backend
+    external: true
+
+services:
+  git-sync:
+    container_name: inference-telemetry-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
+    restart: unless-stopped
+    user: "0:0"
+    command:
+      - git-sync
+      - --repo=https://github.com/mspiegel31/home-services.git
+      - --ref=main
+      - --root=/git
+      - --link=current
+      - --depth=1
+      - --submodules=off
+      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
+      - --period=30s
+      - --http-bind=:1234
+    configs:
+      - source: git_sync_sparse_checkout
+        target: /etc/git-sync/sparse-checkout
+    volumes:
+      - inference-telemetry-config:/git
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/inference-telemetry/config.alloy && curl -fsS http://127.0.0.1:1234/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  alloy:
+    container_name: inference-telemetry-alloy
+    image: grafana/alloy:v1.14.1
+    restart: unless-stopped
+    init: true
+    command:
+      - run
+      - /config/current/services/inference-telemetry/config.alloy
+      - --storage.path=/var/lib/alloy/data
+    ports:
+      # LiteLLM OTLP relay target (OTEL_EXPORTER_OTLP_ENDPOINT).
+      - "4318:4318"
+    networks:
+      - telemetry
+      - backend
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in Portainer}
+      LLAMA_SWAP_API_KEY: ${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
+      SHIP_ENDPOINT: ${SHIP_ENDPOINT:?Set SHIP_ENDPOINT in Portainer, e.g. http://192.168.1.39}
+    volumes:
+      - inference-telemetry-config:/config:ro
+      - alloy-data:/var/lib/alloy/data
+      # Read-only: docker_sd target discovery + loki.source.docker log tailing
+      # only issue GETs against the Engine API.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      # Image ships bash but no wget/curl; probe Alloy's /-/healthy over
+      # bash's /dev/tcp.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/12345 && printf 'GET /-/healthy HTTP/1.0\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q '200'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      git-sync:
+        condition: service_healthy

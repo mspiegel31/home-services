@@ -162,6 +162,15 @@ services:
       STORE_MODEL_IN_DB: "True"
       LLAMA_SWAP_API_KEY: ${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
       REDIS_URL: redis://valkey:6379
+      # OTLP traces -> Alloy relay on the inference box -> Tempo
+      # (services/inference-telemetry/). Consumed by the `otel` callback in
+      # config.yaml; USE_OTEL_LITELLM_REQUEST_SPAN restores the nested
+      # litellm_request span. SPAN_ONLY keeps prompts on spans (LAN-only).
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://192.168.1.98:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: litellm-proxy
+      USE_OTEL_LITELLM_REQUEST_SPAN: "true"
+      OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: SPAN_ONLY
     command: >
       --config /config/current/services/litellm/config.yaml
     volumes:
