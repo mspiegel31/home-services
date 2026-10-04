@@ -75,6 +75,11 @@ litellm_settings:
   # git-synced custom_callbacks.py sits beside this file.
   callbacks:
     - custom_callbacks.local_thinking_policy
+    # Prometheus: /metrics for the inference-telemetry Alloy collector.
+    # otel: OTLP traces -> Alloy :4318 relay -> Tempo (env in docker-compose).
+    - prometheus
+    - otel
+  prometheus_emit_stream_label: true
   cache: true
   cache_params:
     type: redis
