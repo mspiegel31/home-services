@@ -20,10 +20,17 @@ macros:
 # Otherwise vLLM crashes at startup (ImportError in apply_fastokens_patch).
   USE_FASTOKENS: "0"
   checkpoint: "${MODEL_ID}"
+  # /models is host-backed in every model launcher, including custom profiles.
+  # Per-model namespaces avoid sharing mutable compiler caches across lanes.
+  # These paths must survive --rm; engine startup plans do not contain binaries.
+  COMPILER_CACHE: >-
+    --env B12X_COMPILE_CACHE_DIR=/models/compiler-cache/${MODEL_ID}/b12x/compile
+    --env TRITON_CACHE_DIR=/models/compiler-cache/${MODEL_ID}/triton
   DOCKER_PREFIX: >-
     docker run --init --rm --gpus all --ipc host
     --shm-size=16g --ulimit memlock=-1 --ulimit stack=67108864
     --network llama-swap-vllm-backend
+    ${COMPILER_CACHE}
     --env HF_TOKEN --env HF_HOME=/models/huggingface
     --env SAFETENSORS_FAST_GPU=1
     --env VLLM_CACHE_ROOT=/models/vllm --env VLLM_USE_FASTOKENS=${USE_FASTOKENS}

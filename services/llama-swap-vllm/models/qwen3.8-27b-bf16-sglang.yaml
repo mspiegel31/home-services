@@ -40,6 +40,7 @@ models:
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
+      ${COMPILER_CACHE}
       --name sglang-qwen3-8-27b-bf16
       --env HF_TOKEN --env HF_HOME=/models/huggingface
       --env SGLANG_CACHE_DIR=/models/sglang

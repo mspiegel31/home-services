@@ -59,6 +59,7 @@ models:
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
+      ${COMPILER_CACHE}
       --env HF_TOKEN --env HF_HOME=/models/huggingface
       --env VLLM_PLE_TABLE_MEMORY=ram --env VLLM_PLE_CPU_OFFLOAD=1
       --env VLLM_SSM_CONV_STATE_LAYOUT=DS
