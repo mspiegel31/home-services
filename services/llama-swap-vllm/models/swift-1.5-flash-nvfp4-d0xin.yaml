@@ -49,11 +49,12 @@ models:
     # the W4A4 target; drop the --speculative-config line if load or acceptance
     # misbehaves.
     #
-    # At 14 GiB expert offload, startup reported 3.89 GiB available KV against
-    # 7.57 GiB required for 262K context. Try 20 GiB to recover VRAM headroom.
-    # Runtime fit is unverified; check host/cgroup RAM and GPU KV capacity.
+    # With FP8 KV and 20 GiB offload, startup measured 8.72 GiB of cache
+    # (~473K tokens); its final .97-budget recommendation was 8.50 GiB.
+    # 17 GiB offload is estimated to leave ~5.5 GiB versus ~4.8 GiB for 262K.
+    # Whole-parameter offload granularity makes this fit pending runtime validation.
     # This image's default QSA rejects FP8 KV; explicit b12x linear selection
-    # also selects its FP8-capable QSA path. Runtime fit/quality need validation.
+    # also selects its FP8-capable QSA path. Long-context quality is unverified.
     # b12x PLE rejects the default convolution-state layout; it requires DS.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
@@ -84,7 +85,7 @@ models:
       --linear-backend b12x
       --max-model-len 262144 --max-num-batched-tokens 4096
       --gpu-memory-utilization 0.97
-      --cpu-offload-gb 20 --cpu-offload-params experts
+      --cpu-offload-gb 17 --cpu-offload-params experts
       --speculative-config '{"method":"mtp","num_speculative_tokens":3,"model":"/models/huggingface/models/auggie246/Swift-1.5-Qwen3.8-Flash-Next-W4A16-FP8PLE/runtime/mtp-int4-g32"}'
       --mamba-cache-mode align
       --max-cudagraph-capture-size 16
