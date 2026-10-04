@@ -14,7 +14,8 @@
 # ref main, path services/inference-telemetry/docker-compose.yml, poll 5 min.
 #
 # Secrets via Portainer UI (never commit):
-#   LITELLM_MASTER_KEY, LLAMA_SWAP_API_KEY
+#   LITELLM_SCRAPE_KEY (mint on litellm UI: alias metrics-scrape,
+#     allowed_routes ["/metrics"], models []), LLAMA_SWAP_API_KEY
 # Environment:
 #   SHIP_ENDPOINT = http://192.168.1.39  (observability host, no trailing slash)
 
@@ -89,7 +90,7 @@ services:
       - telemetry
       - backend
     environment:
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in Portainer}
+      LITELLM_SCRAPE_KEY: ${LITELLM_SCRAPE_KEY:?Set LITELLM_SCRAPE_KEY in Portainer}
       LLAMA_SWAP_API_KEY: ${LLAMA_SWAP_API_KEY:?Set LLAMA_SWAP_API_KEY in Portainer}
       SHIP_ENDPOINT: ${SHIP_ENDPOINT:?Set SHIP_ENDPOINT in Portainer, e.g. http://192.168.1.39}
     volumes:

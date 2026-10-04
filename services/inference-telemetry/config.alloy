@@ -59,17 +59,20 @@ prometheus.scrape "litellm" {
   targets         = [{ "__address__" = "192.168.1.98:4000", "job" = "litellm" }]
   scheme          = "http"
   scrape_interval = "15s"
+  // Dedicated scrape key: /key/generate with allowed_routes=["/metrics"],
+  // models=[] -> can read counters, nothing else. Rotatable independently
+  // of the master key; master key never lives in this stack.
   authorization {
     type        = "Bearer"
-    credentials = sys.env("LITELLM_MASTER_KEY")
+    credentials = sys.env("LITELLM_SCRAPE_KEY")
   }
   forward_to = [prometheus.remote_write.truenas.receiver]
 }
 
 // llama-swap /metrics is behind CreateAuthMiddleware: with apiKeys set in
 // config.yaml the route 401s without a key (ExtractAPIKey accepts Basic,
-// Bearer, x-api-key). Bearer master key here; GPU/system metrics ship from
-// the router container's nvidia-smi.
+// Bearer, x-api-key). GPU/system metrics ship from the router container's
+// nvidia-smi.
 prometheus.scrape "llama_swap" {
   targets         = [{ "__address__" = "192.168.1.98:11437", "job" = "llama-swap" }]
   scheme          = "http"
