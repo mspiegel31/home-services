@@ -18,8 +18,10 @@
 # Before first deploy, create the bind dirs on the TrueNAS host:
 #   /mnt/tank/container-configs/observability/{grafana,victoriametrics,loki,tempo}
 #
-# TrueNAS port sanity: 3000/3100/3200/4317/4318/8428 are not used by other
-# repo TrueNAS stacks (9000/9001/9119); k3s uses 6443/10250/8472 — no overlap.
+# TrueNAS port sanity: 3000/8428/4317/4318/3101/3201 free at deploy time.
+# 3100 is Paperclip and 3200 is OpenHands on this host -> Loki publishes
+# 3101, Tempo's HTTP API 3201 (container ports unchanged; Grafana/Alloy
+# reach them via docker DNS on the observability network).
 
 name: observability
 
@@ -119,7 +121,7 @@ services:
       - "-config.file=/grafana/current/services/observability/loki/config.yaml"
       - "-config.expand-env=true"
     ports:
-      - "192.168.1.39:3100:3100"
+      - "192.168.1.39:3101:3100"
     networks:
       - observability
     volumes:
@@ -140,7 +142,7 @@ services:
     ports:
       - "192.168.1.39:4317:4317"
       - "192.168.1.39:4318:4318"
-      - "192.168.1.39:3200:3200"
+      - "192.168.1.39:3201:3200"
     networks:
       - observability
     volumes:

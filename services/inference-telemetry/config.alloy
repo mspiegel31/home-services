@@ -172,7 +172,7 @@ loki.source.docker "applogs" {
 
 loki.write "truenas" {
   endpoint {
-    url = sys.env("SHIP_ENDPOINT") + ":3100/loki/api/v1/push"
+    url = sys.env("SHIP_ENDPOINT") + ":3101/loki/api/v1/push"
   }
 }
 
