@@ -9,8 +9,8 @@
 
 models:
   "swift-1.5-flash-strata":
-    name: Swift 1.5 Qwen3.8 Flash Next IQ2_XS (Strata)
-    description: Swift 1.5 Flash Next GSQ-RCO IQ2_XS GGUF on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, PLE table in RAM
+    name: Swift 1.5 Qwen3.8 Flash Next IQ3_XXS (Strata)
+    description: Swift 1.5 Flash Next GSQ-RCO IQ3_XXS GGUF on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, PLE table in RAM
     concurrencyLimit: 4
     capabilities:
       in: ["text", "image"]
@@ -31,7 +31,7 @@ models:
     # STRATA_ALLOWED_HOSTS is the engine's DNS-rebinding check: without an API
     # key it 403s any Host that is not an IP, and llama-swap connects by
     # container name. /data holds the GGUF, MTP layer, mmproj and the config
-    # setup writes; the first start downloads ~75 GB there. Setup picks
+    # setup writes; the first start downloads ~83 GB there. Setup picks
     # --ple-io ram by itself, because /mnt/models is on a rotational disk and
     # the RAM test passes. concurrencyLimit only stops the router from 429ing:
     # Strata queues, and decodes one request at a time ("parallel" unset).
@@ -39,7 +39,7 @@ models:
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
-      --env FAMILY=swift --env MODEL=IQ2_XS --env CONTEXT=262144
+      --env FAMILY=swift --env MODEL=IQ3_XXS --env CONTEXT=262144
       --env VISION=yes --env GPU=0 --env LOW_RAM=off
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-swift-1-5-flash
