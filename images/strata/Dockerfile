@@ -4,21 +4,26 @@
 # engine and image-encoder build steps below are byte-for-byte upstream's, so a
 # revision bump means re-copying them from the same file at the new SHA.
 #
-# The engine is compiled during docker build, so the first container start only
-# downloads the model (~70 GB) into the /data volume. build-images.yml pins this
-# image to amd64 and exports no GHA cache: the CUDA devel base is tens of GB and
-# upstream targets x86-64 AVX2.
+# Two stages: the devel flavor compiles the engine, the runtime flavor ships it.
+# A locally built engine has BUILD.json source=local, so setup.py has it load the
+# toolkit's libcudart/libcublas rather than pip wheels, and the runtime flavor
+# carries exactly those. find_nvcc and get_llama_cpp (the zip unpack) are only
+# reached when setup.py has to compile, which the pinned sources make impossible:
+# a source change needs a new image, not --build (no nvcc and no git here).
+#
+# build-images.yml pins this image to amd64 and exports no GHA cache: the CUDA
+# base is GBs and upstream targets x86-64 AVX2.
 #
 # llama-swap spawns this with the upstream env contract (FAMILY, MODEL, CONTEXT,
 # VISION, GPU/GPUS, LOW_RAM, HOST, PORT, API_KEY). :8080 is the engine, :8000 is
 # metrics_exporter.py, which Alloy's vllm_backends scrape reads because the
 # engine's own /metrics is JSON.
 ARG CUDA_TAG=13.0.1-devel-ubuntu24.04@sha256:7d2f6a8c2071d911524f95061a0db363e24d27aa51ec831fcccf9e76eb72bc92
-FROM nvidia/cuda:${CUDA_TAG}
+ARG CUDA_RUNTIME_TAG=13.0.1-runtime-ubuntu24.04@sha256:c3fde347d52d578c84fd644bc177bc7ec333feaf11550d990da4084d7612e4c7
 
-# STRATA_EXECV=1: setup.py replaces itself with the server, so the server is PID 1
-# and docker stop's SIGTERM reaches it (see setup.start).
-ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 LANG=C.UTF-8 STRATA_EXECV=1
+FROM nvidia/cuda:${CUDA_TAG} AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 LANG=C.UTF-8
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential ca-certificates curl git libatomic1 libgomp1 \
@@ -83,6 +88,19 @@ PYEOF
 
 # the cmake trees are build-time only; the engine itself is what the container needs
 RUN rm -rf build build-vision
+
+FROM nvidia/cuda:${CUDA_RUNTIME_TAG}
+
+# STRATA_EXECV=1: setup.py replaces itself with the server, so the server is PID 1
+# and docker stop's SIGTERM reaches it (see setup.start).
+ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 LANG=C.UTF-8 STRATA_EXECV=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl libatomic1 libgomp1 python3 python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/strata
+COPY --from=builder /opt/strata /opt/strata
 
 COPY metrics_exporter.py /opt/strata-exporter/metrics_exporter.py
 COPY entrypoint.sh /opt/strata-exporter/entrypoint.sh
