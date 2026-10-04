@@ -1,0 +1,151 @@
+# Observability backend for the inference stack (Grafana + VictoriaMetrics + Loki + Tempo).
+#
+# Metrics/traces/logs are pushed here from the inference box by the Grafana
+# Alloy collector (services/inference-telemetry/): remote_write to
+# VictoriaMetrics, Loki push, OTLP to Tempo.
+#
+# Config comes from git via a git-sync sidecar (this stack's directory,
+# sparse checkout, named volume). Grafana provisioning, Loki and Tempo read
+# their config from that volume at /grafana/current; config activation is a
+# deliberate restart/redeploy. Container data lives on the tank.
+#
+# Portainer CE stack: environment = TrueNAS (the one hosting
+# mealie/babybuddy/hermes), repo https://github.com/mspiegel31/home-services.git,
+# ref main, path services/observability/docker-compose.yml, poll 5 min.
+#
+# Secrets via Portainer UI (never commit): GRAFANA_ADMIN_PASSWORD
+#
+# Before first deploy, create the bind dirs on the TrueNAS host:
+#   /mnt/tank/container-configs/observability/{grafana,victoriametrics,loki,tempo}
+#
+# TrueNAS port sanity: 3000/3100/3200/4317/4318/8428 are not used by other
+# repo TrueNAS stacks (9000/9001/9119); k3s uses 6443/10250/8472 — no overlap.
+
+name: observability
+
+configs:
+  git_sync_sparse_checkout:
+    content: |
+      /*
+      !/*/
+      /services/
+      !/services/*/
+      /services/observability/
+
+volumes:
+  observability-config:
+
+networks:
+  observability:
+    name: observability
+
+services:
+  git-sync:
+    container_name: observability-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
+    restart: unless-stopped
+    user: "0:0"
+    command:
+      - git-sync
+      - --repo=https://github.com/mspiegel31/home-services.git
+      - --ref=main
+      - --root=/git
+      - --link=current
+      - --depth=1
+      - --submodules=off
+      - --sparse-checkout-file=/etc/git-sync/sparse-checkout
+      - --period=30s
+      - --http-bind=:1234
+    configs:
+      - source: git_sync_sparse_checkout
+        target: /etc/git-sync/sparse-checkout
+    volumes:
+      - observability-config:/git
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /git/current/services/observability/loki/config.yaml && curl -fsS http://127.0.0.1:1234/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  grafana:
+    container_name: observability-grafana
+    image: grafana/grafana:12.3.1
+    restart: unless-stopped
+    init: true
+    user: "0:0"
+    ports:
+      - "192.168.1.39:3000:3000"
+    networks:
+      - observability
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in Portainer}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_NEWSFEEDS_ENABLED: "false"
+      GF_PATHS_PROVISIONING: /grafana/current/services/observability/grafana/provisioning
+    volumes:
+      - observability-config:/grafana:ro
+      - /mnt/tank/container-configs/observability/grafana:/var/lib/grafana
+    depends_on:
+      git-sync:
+        condition: service_healthy
+
+  victoriametrics:
+    container_name: observability-victoriametrics
+    image: victoriametrics/victoria-metrics:v1.115.0
+    restart: unless-stopped
+    init: true
+    user: "0:0"
+    command:
+      - "-storageDataPath=/victoria-metrics-data"
+      - "-retentionPeriod=90d"
+      - "-httpListenAddr=:8428"
+    ports:
+      - "192.168.1.39:8428:8428"
+    networks:
+      - observability
+    volumes:
+      - /mnt/tank/container-configs/observability/victoriametrics:/victoria-metrics-data
+
+  loki:
+    container_name: observability-loki
+    image: grafana/loki:3.4.2
+    restart: unless-stopped
+    init: true
+    user: "0:0"
+    command:
+      - "-config.file=/grafana/current/services/observability/loki/config.yaml"
+      - "-config.expand-env=true"
+    ports:
+      - "192.168.1.39:3100:3100"
+    networks:
+      - observability
+    volumes:
+      - observability-config:/grafana:ro
+      - /mnt/tank/container-configs/observability/loki:/loki
+    depends_on:
+      git-sync:
+        condition: service_healthy
+
+  tempo:
+    container_name: observability-tempo
+    image: grafana/tempo:2.9.0
+    restart: unless-stopped
+    init: true
+    user: "0:0"
+    command:
+      - "-config.file=/grafana/current/services/observability/tempo/config.yaml"
+    ports:
+      - "192.168.1.39:4317:4317"
+      - "192.168.1.39:4318:4318"
+      - "192.168.1.39:3200:3200"
+    networks:
+      - observability
+    volumes:
+      - observability-config:/grafana:ro
+      - /mnt/tank/container-configs/observability/tempo:/var/tempo
+    depends_on:
+      git-sync:
+        condition: service_healthy

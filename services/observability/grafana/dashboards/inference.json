@@ -1,0 +1,338 @@
+{
+  "uid": "inference",
+  "title": "Inference",
+  "tags": ["inference", "litellm", "llama-swap", "vllm"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "vm" },
+        "query": "label_values(vllm:generation_tokens_total, model)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Gateway (LiteLLM)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100
+    },
+    {
+      "type": "timeseries",
+      "title": "Gateway output tok/s per model",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "id": 1,
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (requested_model) (rate(litellm_output_tokens_metric_total[$__rate_interval]))",
+          "legendFormat": "{{requested_model}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Gateway total tok/s per model (in+out)",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "id": 2,
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (requested_model) (rate(litellm_total_tokens_metric_total[$__rate_interval]))",
+          "legendFormat": "{{requested_model}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Gateway p95 end-to-end latency",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 9 },
+      "id": 11,
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(litellm_request_total_latency_metric_bucket[$__rate_interval])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Gateway request rate",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 9 },
+      "id": 12,
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (requested_model) (rate(litellm_proxy_total_requests_metric_total[$__rate_interval]))",
+          "legendFormat": "{{requested_model}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Gateway failures",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 9 },
+      "id": 13,
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (requested_model, exception_class) (rate(litellm_proxy_failed_requests_metric_total[$__rate_interval]))",
+          "legendFormat": "{{requested_model}} / {{exception_class}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Engine (vLLM)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "id": 101
+    },
+    {
+      "type": "timeseries",
+      "title": "Engine decode tok/s per model",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "id": 3,
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (model) (rate(vllm:generation_tokens_total{model=~\"$model\"}[$__rate_interval]))",
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Engine prefill tok/s per model",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "id": 4,
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (model) (rate(vllm:prompt_tokens_total{model=~\"$model\"}[$__rate_interval]))",
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "TTFT p95 (s)",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 26 },
+      "id": 5,
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:time_to_first_token_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Inter-token latency p95 (s)",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 26 },
+      "id": 6,
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:inter_token_latency_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Spec-decode draft acceptance",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 26 },
+      "id": 7,
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg by (model) (vllm:spec_decode_draft_acceptance_rate{model=~\"$model\"})",
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "KV cache usage",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 34 },
+      "id": 8,
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (model) (vllm:kv_cache_usage_perc{model=~\"$model\"})",
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests running / waiting",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 34 },
+      "id": 9,
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (model) (vllm:num_requests_running{model=~\"$model\"})",
+          "legendFormat": "{{model}} running"
+        },
+        {
+          "refId": "B",
+          "expr": "max by (model) (vllm:num_requests_waiting{model=~\"$model\"})",
+          "legendFormat": "{{model}} waiting"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "GPU (llama-swap router nvidia-smi)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "id": 102
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU utilization %",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 43 },
+      "id": 10,
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "llamaswap_gpu_util_percent",
+          "legendFormat": "{{gpu}} util"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU memory used",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 43 },
+      "id": 14,
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "llamaswap_gpu_memory_used_bytes",
+          "legendFormat": "{{gpu}} used"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU power draw",
+      "datasource": { "type": "prometheus", "uid": "vm" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 43 },
+      "id": 15,
+      "fieldConfig": {
+        "defaults": { "unit": "watt", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "llamaswap_gpu_power_draw_watts",
+          "legendFormat": "{{gpu}} watts"
+        }
+      ]
+    }
+  ]
+}
