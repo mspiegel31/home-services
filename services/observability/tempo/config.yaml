@@ -26,19 +26,18 @@ metrics_generator:
   storage:
     path: /var/tempo/generator/wal
     remote_write:
-      url: "http://victoriametrics:8428/api/v1/write"
-      send_exemplars: false
-  processors: [service_graphs, span_metrics]
+      - url: "http://victoriametrics:8428/api/v1/write"
+        send_exemplars: false
 
+# tempo 2.9: processors live in overrides, flat key (generator.Config has no
+# processors field); dashed names, the plan's underscore form is invalid.
 overrides:
-  metrics_generator:
-    processors: [service_graphs, span_metrics]
+  metrics_generator_processors: [service-graphs, span-metrics]
 
 storage:
   trace:
     backend: local
     local:
       path: /var/tempo/traces
-      max_compaction_objects: 1000000
     wal:
       path: /var/tempo/wal

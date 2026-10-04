@@ -37,6 +37,9 @@ limits_config:
   retention_stream:
     - selector: '{job="vllm"}'
       priority: 1
+      # Omitted period parses as 0s and loki 3.4 fails validation at boot
+      # (each stream's retention must be >= 24h); pin it to the global 30d.
+      period: 720h
 
 ruler:
   storage:
