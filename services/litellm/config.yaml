@@ -37,6 +37,7 @@ include:
   - models/qwen3.8-flash-next-nvfp4-ram-ple.yaml
   - models/swift-1.5-flash-nvfp4.yaml
   - models/swift-1.5-flash-nvfp4-d0xin.yaml
+  - models/swift-1.5-flash-strata.yaml
   - models/swift-1.5-nvfp4.yaml
   - models/swift-1.5-bf16.yaml
   - models/swift-1.5-awq.yaml

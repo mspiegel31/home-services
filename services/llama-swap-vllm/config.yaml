@@ -75,8 +75,9 @@ routing:
       matrix:
         sets:
           qwen-flash-next: "qwen3.8-flash-next-nvfp4 | qwen3.8-flash-next-nvfp4-ram-ple"
-          # Two Swift Flash Next variants of the same backbone: AutoRound W4A16
-          # (auggie246) vs ModelOpt NVFP4 W4A4 (d0xin). Both need ~96% of the
-          # 72 GB card, so they are an A/B pair — llama-swap swaps between them.
-          swift-flash-next: "swift-1.5-flash-nvfp4 | swift-1.5-flash-nvfp4-d0xin"
+          # Three Swift Flash Next variants of the same backbone: AutoRound
+          # W4A16 (auggie246), ModelOpt NVFP4 W4A4 (d0xin) and Strata's GGUF
+          # IQ2_XS on its own engine. All fill most of the 72 GB card, so they
+          # are an A/B/C set — llama-swap swaps between them.
+          swift-flash-next: "swift-1.5-flash-nvfp4 | swift-1.5-flash-nvfp4-d0xin | swift-1.5-flash-strata"
           co-resident: "qwen3.8-27b-bf16-sglang | qwen3.8-27b-bf16 | qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | qwen3.8-27b-nvfp4-redhat | qwen3.8-27b-nvfp4-unsloth | swift-1.5-nvfp4 | swift-1.5-bf16 | swift-1.5-awq | swift-1.5-fp8"
