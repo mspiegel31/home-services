@@ -1,0 +1,194 @@
+// Grafana Alloy collector for the inference box.
+//
+// Ships three signals to the observability stack on TrueNAS (SHIP_ENDPOINT,
+// e.g. http://192.168.1.39 — no trailing slash):
+//   metrics: scrapes litellm /metrics, llama-swap /metrics and the managed
+//            vLLM backends (docker discovery on io.mspiegel.llama-swap.*
+//            labels) -> remote_write -> VictoriaMetrics :8428
+//   logs:    tails litellm/llama-swap/vLLM containers -> Loki :3100
+//   traces:  LiteLLM OTLP (:4318 relay) -> batched -> Tempo :4318
+
+logging {
+  level = "info"
+}
+
+// Alloy has no top-level constants block on v1.x; SHIP_ENDPOINT is read at
+// each ship URL with string concatenation (validated against v1.14.1).
+
+discovery.docker "all" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// ---------------------------------------------------------------- metrics --
+
+// Managed vLLM backends, addressed by container name on
+// llama-swap-vllm-backend (Alloy joins that network); model label from the
+// io.mspiegel.llama-swap.model label is the join key across jobs.
+discovery.relabel "vllm" {
+  targets = discovery.docker.all.targets
+
+  rule {
+    action        = "keep"
+    source_labels = ["__meta_docker_container_label_io_mspiegel_llama_swap_managed"]
+    regex         = "true"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "__address__"
+    replacement   = "$1:8000"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["__meta_docker_container_label_io_mspiegel_llama_swap_model"]
+    target_label  = "model"
+  }
+  rule {
+    action       = "replace"
+    replacement  = "vllm"
+    target_label = "job"
+  }
+  rule {
+    action = "labeldrop"
+    regex  = "__meta.*"
+  }
+}
+
+prometheus.scrape "litellm" {
+  targets         = [{ "__address__" = "192.168.1.98:4000", "job" = "litellm" }]
+  scheme          = "http"
+  scrape_interval = "15s"
+  authorization {
+    type        = "Bearer"
+    credentials = sys.env("LITELLM_MASTER_KEY")
+  }
+  forward_to = [prometheus.remote_write.truenas.receiver]
+}
+
+// llama-swap /metrics is a root gin route (unauthenticated); GPU/system
+// metrics ship from the router container's nvidia-smi.
+prometheus.scrape "llama_swap" {
+  targets         = [{ "__address__" = "192.168.1.98:11437", "job" = "llama-swap" }]
+  scheme          = "http"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.truenas.receiver]
+}
+
+prometheus.scrape "vllm_backends" {
+  targets         = discovery.relabel.vllm.output
+  scheme          = "http"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.truenas.receiver]
+}
+
+prometheus.remote_write "truenas" {
+  endpoint {
+    url = sys.env("SHIP_ENDPOINT") + ":8428/api/v1/write"
+  }
+}
+
+// ------------------------------------------------------------------- logs --
+
+// Tail containers from the litellm / llama-swap-vllm compose projects, plus
+// every managed vLLM backend (no compose project label; model label set).
+// Joined keepme key ANDs "project is ours" with "model is set" so the two
+// container families are accepted with OR semantics.
+discovery.relabel "logs" {
+  targets = discovery.docker.all.targets
+
+  rule {
+    action        = "replace"
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "app"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["__meta_docker_container_label_io_mspiegel_llama_swap_model"]
+    target_label  = "model"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["app", "model"]
+    separator     = ";"
+    target_label  = "keepme"
+  }
+  rule {
+    action        = "keep"
+    source_labels = ["keepme"]
+    regex         = "(litellm|llama-swap-vllm);.*|;.+"
+  }
+  // job = app for compose containers...
+  rule {
+    action        = "replace"
+    source_labels = ["app"]
+    regex         = "(.+)"
+    target_label  = "job"
+  }
+  // ...and vllm for the raw docker-run backends (empty app).
+  rule {
+    action        = "replace"
+    source_labels = ["app"]
+    regex         = "^$"
+    replacement   = "vllm"
+    target_label  = "job"
+  }
+  // Keep the container id: loki.source.docker keys tailers on it.
+  rule {
+    action = "labelkeep"
+    regex  = "__meta_docker_container_id|container|app|model|job"
+  }
+}
+
+// Entry-side relabeling: drop the docker __meta labels kept on targets
+// (container id is needed target-side for the tailer key only).
+discovery.relabel "log_entries" {
+  targets = []
+
+  rule {
+    action = "labeldrop"
+    regex  = "__meta.*"
+  }
+}
+
+loki.source.docker "applogs" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.relabel.logs.output
+  forward_to    = [loki.write.truenas.receiver]
+  relabel_rules = discovery.relabel.log_entries.rules
+}
+
+loki.write "truenas" {
+  endpoint {
+    url = sys.env("SHIP_ENDPOINT") + ":3100/loki/api/v1/push"
+  }
+}
+
+// ----------------------------------------------------------------- traces --
+
+otelcol.receiver.otlp "in" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  output {
+    traces = [otelcol.processor.batch.truenas.input]
+  }
+}
+
+otelcol.processor.batch "truenas" {
+  output {
+    traces = [otelcol.exporter.otlphttp.truenas.input]
+  }
+}
+
+otelcol.exporter.otlphttp "truenas" {
+  client {
+    endpoint = sys.env("SHIP_ENDPOINT") + ":4318"
+  }
+}

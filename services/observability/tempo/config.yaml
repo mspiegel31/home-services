@@ -1,0 +1,44 @@
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 9095
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+ingester:
+  trace_idle_period: 10s
+  max_block_duration: 1h
+
+compactor:
+  compaction:
+    block_retention: 168h
+    compacted_block_retention: 1h
+
+metrics_generator:
+  registry:
+    collection_interval: 15s
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      url: "http://victoriametrics:8428/api/v1/write"
+      send_exemplars: false
+  processors: [service_graphs, span_metrics]
+
+overrides:
+  metrics_generator:
+    processors: [service_graphs, span_metrics]
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+      max_compaction_objects: 1000000
+    wal:
+      path: /var/tempo/wal
