@@ -54,12 +54,14 @@ models:
     # Runtime fit is unverified; check host/cgroup RAM and GPU KV capacity.
     # This image's default QSA rejects FP8 KV; explicit b12x linear selection
     # also selects its FP8-capable QSA path. Runtime fit/quality need validation.
+    # b12x PLE rejects the default convolution-state layout; it requires DS.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
       --env HF_TOKEN --env HF_HOME=/models/huggingface
       --env VLLM_PLE_TABLE_MEMORY=ram --env VLLM_PLE_CPU_OFFLOAD=1
+      --env VLLM_SSM_CONV_STATE_LAYOUT=DS
       --env VLLM_ENABLE_STARTUP_PLAN=1 --env MAX_JOBS=4
       --env VLLM_CACHE_ROOT=/cache/vllm
       --env PYTORCH_ALLOC_CONF=pinned_max_round_threshold_mb:16
