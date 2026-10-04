@@ -56,10 +56,13 @@ models:
     # also selects its FP8-capable QSA path. Long-context quality is unverified.
     # b12x PLE rejects the default convolution-state layout; it requires DS.
     # 2026-10-04 startup: 0.97 left KV at 5.27 GiB / 285,809 tokens (1.09x at
-    # 262K) with 1.55 GiB activation slack; vLLM recommends 6.75 GiB KV
-    # (0.9723 with CUDA-graph profiling) to fully use the card. 4096 batched
-    # tokens was clamped by MTP3 draft slots (4 seqs x 3); 4112 removes the
-    # vLLM scheduling warning without changing prefill chunking.
+    # 262K); 0.9723 is the CUDA-graph-profiling-surcharge equivalent (measured
+    # 5.32 GiB / 288,954). Full-card KV (6.64 GiB) needs ~0.992, which risks
+    # startup OOM: FlashInfer MoE autotune already hit a transient allocation
+    # failure at 0.9723. Do NOT set max-num-batched-tokens above 4096: the
+    # 4112 experiment invalidated the FlashInfer autotune cache key and left
+    # (4112, 1280) MoE shapes on an untuned fallback (tuner buckets cap at
+    # 4096). The MTP3 scheduled-token clamp warning is cosmetic.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
@@ -87,7 +90,7 @@ models:
       --safetensors-load-strategy lazy
       --dtype bfloat16 --kv-cache-dtype fp8_e4m3
       --linear-backend b12x
-      --max-model-len 262144 --max-num-batched-tokens 4112
+      --max-model-len 262144 --max-num-batched-tokens 4096
       --gpu-memory-utilization 0.9723
       --cpu-offload-gb 17 --cpu-offload-params experts
       --speculative-config '{"method":"mtp","num_speculative_tokens":3,"model":"/models/huggingface/models/auggie246/Swift-1.5-Qwen3.8-Flash-Next-W4A16-FP8PLE/runtime/mtp-int4-g32"}'
