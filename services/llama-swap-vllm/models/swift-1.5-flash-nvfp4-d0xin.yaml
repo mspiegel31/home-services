@@ -5,7 +5,7 @@
 models:
   "swift-1.5-flash-nvfp4-d0xin":
     name: Swift 1.5 Qwen3.8 Flash Next NVFP4 (d0xin, FP8 PLE)
-    description: d0xin Swift-1.5-Qwen3.8-Flash-Next NVFP4 W4A4 (ModelOpt) with FP8 E4M3 host PLE, 262,144-token context, BF16 KV, and the auggie246 INT4 MTP3 drafter
+    description: d0xin Swift-1.5-Qwen3.8-Flash-Next NVFP4 W4A4 (ModelOpt) with FP8 E4M3 host PLE, 262,144-token context, FP8 E4M3 KV via b12x, and the auggie246 INT4 MTP3 drafter
     concurrencyLimit: 4
     capabilities:
       in: ["text", "image"]
@@ -52,6 +52,8 @@ models:
     # At 14 GiB expert offload, startup reported 3.89 GiB available KV against
     # 7.57 GiB required for 262K context. Try 20 GiB to recover VRAM headroom.
     # Runtime fit is unverified; check host/cgroup RAM and GPU KV capacity.
+    # This image's default QSA rejects FP8 KV; explicit b12x linear selection
+    # also selects its FP8-capable QSA path. Runtime fit/quality need validation.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
@@ -75,9 +77,10 @@ models:
       ${QWEN38_COMMON}
       --load-format safetensors
       --safetensors-load-strategy lazy
-      --dtype bfloat16 --kv-cache-dtype bfloat16
+      --dtype bfloat16 --kv-cache-dtype fp8_e4m3
+      --linear-backend b12x
       --max-model-len 262144 --max-num-batched-tokens 4096
-      --gpu-memory-utilization 0.96
+      --gpu-memory-utilization 0.97
       --cpu-offload-gb 20 --cpu-offload-params experts
       --speculative-config '{"method":"mtp","num_speculative_tokens":3,"model":"/models/huggingface/models/auggie246/Swift-1.5-Qwen3.8-Flash-Next-W4A16-FP8PLE/runtime/mtp-int4-g32"}'
       --mamba-cache-mode align
