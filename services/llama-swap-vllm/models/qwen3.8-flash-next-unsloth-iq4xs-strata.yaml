@@ -56,6 +56,13 @@ models:
     # streaming keeping the rest in RAM) plus its whole KV cache in pinned RAM
     # (3.3 GB at 262144), and batch slots carry no MTP drafts and no
     # repetition/presence penalties.
+    # PLE (the 28.8 GB n-gram table): hand-set --ple-io ram in
+    # /mnt/more-models/strata/config/strata-unsloth-ud-iq4_xs.json after setup,
+    # same reason as the IQ3_S lane - setup only adds it for a rotational disk.
+    # Budget is the tightest of the three lanes: 59.5 GB of experts (55 GiB
+    # resident budget) + 28.8 GB table + 3.6 GB int8 KV against 107 GB, so
+    # watch the strata process RSS; if the box runs out of headroom, drop the
+    # flag and let the table stream from sdc.
     # Chat template: same as the IQ3_S lane - a read-only single-file bind
     # mounts the repo's Froggeric v22.5 template over the tokenizer dir's
     # chat_template.jinja, which setup writes from the GGUF's embedded template.

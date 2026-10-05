@@ -57,6 +57,14 @@ models:
     # Each slot costs 0.56 GiB of VRAM (its session, KV streaming keeping the
     # rest in RAM) plus its whole KV cache in pinned RAM (3.3 GB at 262144), and
     # batch slots carry no MTP drafts and no repetition/presence penalties.
+    # PLE (the 28.8 GB n-gram table): hand-set --ple-io ram in
+    # /mnt/more-models/strata/config/strata-iq3_s.json after setup. Setup adds
+    # the flag only for a rotational model disk (#605) and sdc reports
+    # rotational = 0, so its own config leaves the table on the engine's
+    # default, --ple-io direct. Measured on the Swift lane: ram charges the
+    # table to the process (strata RSS 52.3 GB vs 36.9 GB direct) and buys a
+    # few percent on single-stream decode plus no cold-start stall. Budget
+    # here: 50.3 GB experts + 28.8 GB table + 3.6 GB int8 KV against 107 GB.
     # Chat template: Strata renders the tokenizer dir's chat_template.jinja
     # (serve/server.py:4014, the config's "tokenizer" key). Setup writes the
     # GGUF's embedded template there - 8,952 bytes, reasoning_effort defaulting

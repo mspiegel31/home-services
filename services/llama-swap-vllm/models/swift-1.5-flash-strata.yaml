@@ -36,21 +36,26 @@ models:
     # key it 403s any Host that is not an IP, and llama-swap connects by
     # container name. /data holds the GGUF, MTP layer, mmproj, the pack
     # (experts.bin included) and the config setup writes; the first start
-    # downloads ~83 GB there. Setup picks --ple-io ram by itself when it reads
-    # the model disk as rotational; the Proxmox disks are now ssd=1
-    # (/sys/block/sd*/queue/rotational = 0), so a REINSTALL leaves the n-gram
-    # table mmap'd from disk. The running config has --ple-io ram removed by
-    # hand, measured A/B below.
+    # downloads ~83 GB there.
     # /data is /mnt/more-models/strata on the 1.75 TB more-vm-data disk (sdc).
-    # --ple-io A/B (900-token decode, three runs per mode, alternating):
-    # direct 130.7/131.5/136.8 tok/s client-side, engine 132-142; ram
-    # 131.2/140.1/140.5, engine 140-141. Steady state is identical, and the
-    # strata process RSS is identical (34.5 GiB direct, 34.9 GiB ram) - the
-    # 28.8 GB n-gram table is not charged to the process in either mode, so
-    # removing --ple-io ram frees no RAM. It does remove a cold-start penalty:
-    # the first ram run after load measured 24-53 tok/s while the table was
-    # being read in. Direct is the engine's own default ("made for SSDs",
-    # docs/DETAILS.md), which is what the disk now is.
+    # PLE (the 28.8 GB n-gram table, per_layer_token_embd.weight) is kept in RAM
+    # by --ple-io ram, hand-set in
+    # /mnt/more-models/strata/config/strata-swift-iq3_xxs.json. Setup adds the
+    # flag only when it reads the model disk as rotational (#605); sdc reports
+    # /sys/block/sdc/queue/rotational = 0, an SSD, so a REINSTALL drops the
+    # flag and the table falls back to the engine's default, --ple-io direct.
+    # Re-add it after any REINSTALL.
+    # The engine's own words: direct = "unbuffered SSD reads, the table never
+    # enters RAM or the file cache"; ram = "mmap with the whole table locked in
+    # RAM at start". Measured on the live lane (strata process RSS): direct
+    # 36.9 GB, ram 52.3 GB - the table is charged to the process in ram mode.
+    # Decode, 900 tokens at xhigh: direct 198.7/211.2/211.0 tok/s, ram
+    # 212.9/212.9/214.4. 8 concurrent slots (the "parallel": 8 ceiling):
+    # direct 222.3 tok/s aggregate, ram 223.7 - 28 tok/s per slot either way.
+    # ram costs 15.4 GB of RAM for a few percent on single-stream and removes
+    # the cold-start penalty (the first decode after a load measured 24-53
+    # tok/s while the table was read in). The box has 107 GB and 41 GB
+    # available with the lane loaded, so the table stays resident.
     # Two different limits: past concurrencyLimit llama-swap 429s the caller,
     # while Strata queues. The engine's own knob is "parallel": N in
     # /mnt/more-models/strata/config/strata-swift-iq3_xxs.json (--batch N at start),
