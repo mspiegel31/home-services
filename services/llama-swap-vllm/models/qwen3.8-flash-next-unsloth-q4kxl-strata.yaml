@@ -29,7 +29,14 @@
 #
 # Vision: MODELS["UD-Q4_K_XL"] has no "vision": True (the family default is
 # False) — docs/UNSLOTH_Q4.md: "No images (the vision encoder is not wired to
-# this file yet)". VISION=no; the IQ4_XS lane keeps serving images.
+# this file yet)". setup.py therefore drops --vision yes with a warning and
+# leaves the config's vision block null. We force it on anyway via
+# --env STRATA_VISION_MMPROJ (below): merge_args.py writes both halves the
+# engine needs (--vision in args + the vision block), because the mmproj is the
+# same BF16 encoder every quant of this base model shares and the pack layout
+# (--compat-bf16) matches the IQ4_XS lane that already serves images. Verified
+# end-to-end: an image_url request round-trips in ~6 s and transcribes text.
+# Cost: --vram-reserve-mib 700 for the encoder, taken from the expert cache.
 #
 # STRATA_VERIFY_ALL_RESIDENT=0: the 0.1.39 engine bug workaround
 # (github.com/Niko1221/Strata/issues/776, fix in PR #792, unmerged). Its
@@ -76,20 +83,20 @@
 models:
   "qwen3.8-flash-next-unsloth-q4kxl-strata":
     name: Qwen3.8 Flash Next UD-Q4_K_XL (Strata, Unsloth)
-    description: Unsloth UD-Q4_K_XL GGUF of Qwen3.8 Flash Next on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, full 71 GiB expert RAM budget, ~10% of experts CPU-routed
+    description: Unsloth UD-Q4_K_XL GGUF of Qwen3.8 Flash Next on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, full 71 GiB expert RAM budget, ~10% of experts CPU-routed, images via the shared BF16 mmproj (forced past setup.py's gate)
     concurrencyLimit: 12
     capabilities:
-      in: ["text"]
+      in: ["text", "image"]
       out: ["text"]
       tools: true
       context: 262144
     metadata:
       reasoning: true
       thinking: true
-      vision: false
+      vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.3"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.4"
     proxy: http://strata-qwen3-8-flash-next-unsloth-q4kxl:8080
     cmd: >-
       docker run --init --rm --gpus all --ipc host
@@ -98,6 +105,7 @@ models:
       --env FAMILY=unsloth --env MODEL=UD-Q4_K_XL --env CONTEXT=262144
       --env VISION=no --env GPU=0 --env LOW_RAM=auto --env PARALLEL=6
       --env HOST=0.0.0.0 --env PORT=8080
+      --env STRATA_VISION_MMPROJ=/data/models/mmproj-Qwen3.8-Flash-Next-BF16.gguf
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth-q4kxl
       --env STRATA_VERIFY_ALL_RESIDENT=0
       --volume /mnt/more-models/strata:/data

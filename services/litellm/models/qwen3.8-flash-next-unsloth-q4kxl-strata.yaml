@@ -14,8 +14,8 @@ model_list:
       max_input_tokens: 262144
       reasoning: true
       supports_reasoning: true
-      vision: false # the vision encoder is not wired to the UD-Q4_K_XL file
-      supports_vision: false
+      vision: true # encoder forced on past setup.py's gate; see the llama-swap lane yaml
+      supports_vision: true
       reasoning_effort: [low, medium, xhigh] # Strata maps these to none/low/medium/xhigh
       # Explicit native-tool discovery keeps omp on structured tool calls;
       # Strata parses Qwen tool calls server-side.
