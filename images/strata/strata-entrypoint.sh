@@ -58,11 +58,12 @@ else
   [ -e "/opt/strata/strata-$tag.json" ] || ln -s "$cfg" "/opt/strata/strata-$tag.json"
 fi
 
-# The one local change: fold the standard serve args (and the PARALLEL env's
-# batch-slot count) into the config now that it exists (post-setup) and before
-# setup.py execs the server. Idempotent; a flag a lane already set is untouched.
+# The one local change: fold the standard serve args and the lane's env
+# (PARALLEL, STRATA_VRAM_RESERVE_MIB, STRATA_PLE_IO, STRATA_VISION_MMPROJ)
+# into the config now that it exists (post-setup) and before setup.py execs
+# the server. Idempotent; env wins for the values it declares.
 if [ -f "$cfg" ]; then
-  .venv/bin/python /opt/strata-exporter/merge_args.py "$cfg" "$PARALLEL" "$STRATA_VISION_MMPROJ"
+  .venv/bin/python /opt/strata-exporter/merge_args.py "$cfg"
 fi
 
 # Later starts skip straight here: setup.py finds the installed config and
