@@ -50,6 +50,14 @@ models:
     # Each slot costs 0.56 GiB of VRAM (its session, KV streaming keeping the
     # rest in RAM) plus its whole KV cache in pinned RAM (3.3 GB at 262144), and
     # batch slots carry no MTP drafts and no repetition/presence penalties.
+    # STRATA_VERIFY_ALL_RESIDENT=0 works around a 0.1.39 engine bug
+    # (github.com/Niko1221/Strata/issues/776, fix in PR #792, unmerged): with
+    # every expert in VRAM the verify window is captured as the zero-doorbell
+    # graph, which rings no layer, yet batch windows still wait on layer 0's
+    # ring. The second concurrent chat then hits "verify batch: timed out at
+    # layer 0", the engine exits 1 and restarts, in a loop. Cost per the issue:
+    # solo decode ~6% slower (130 -> 122 tok/s). Drop it once STRATA_IMAGE
+    # carries #792.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
@@ -58,6 +66,7 @@ models:
       --env VISION=yes --env GPU=0 --env LOW_RAM=on
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-swift-1-5-flash
+      --env STRATA_VERIFY_ALL_RESIDENT=0
       --volume /mnt/models/strata:/data
       --label io.mspiegel.llama-swap.managed=true
       --label io.mspiegel.llama-swap.model=${MODEL_ID}
