@@ -1,0 +1,87 @@
+# qwen3.8-flash-next-unsloth-iq4xs-strata — one model in the llama-swap
+# config-dir split. Shared macros live in ../config.yaml. This file defines
+# exactly one top-level key: models.
+#
+# Unsloth's UD-IQ4_XS of the ORIGINAL Qwen3.8-Flash-Next: ~4-bit i-quants
+# (IQ3_S gate/up experts, IQ4_NL downs on 43 layers and Q8_0 on 5), quality
+# between IQ3_S and UD-Q4_K_XL. setup.py's MODELS table marks it a regular
+# choice from engine 0.1.38 with "budget": True, which means the engine keeps a
+# RAM budget of its 59.5 GB of experts (--resident-budget-gib) and reads the
+# remainder through the file cache. On this box setup's own clamp
+# resident_budget_gib() = 107 - 24 - ceil(3.59 KV) = 79, capped at
+# int(59.5 / 1.0737) = 55 GiB, so the budget covers every expert and nothing is
+# read from disk per token.
+
+models:
+  "qwen3.8-flash-next-unsloth-iq4xs-strata":
+    name: Qwen3.8 Flash Next UD-IQ4_XS (Strata, Unsloth)
+    description: Unsloth UD-IQ4_XS GGUF of Qwen3.8 Flash Next on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, full 55 GiB expert RAM budget
+    concurrencyLimit: 12
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0"
+    proxy: http://strata-qwen3-8-flash-next-unsloth:8080
+    # LOW_RAM=auto: setup.py warns that --low-ram does not apply to a budget
+    # model (it always reads part of its experts through the file cache), so the
+    # entrypoint's mandatory --low-ram flag is inert here; the RAM plan comes
+    # from --resident-budget-gib instead.
+    # The 93.7 GB download lands under /data/models/unsloth-ud-iq4_xs/ on the
+    # 1.5 TB free of /mnt/more-models; the pack step then writes its own
+    # experts.bin. The family's pack_args (--compat-bf16) and its three-shard
+    # layout are setup.py's, not lane settings.
+    # Vision: MODELS["UD-IQ4_XS"] carries "vision": True, so VISION=yes is
+    # valid; the encoder is the ISTA mmproj-Qwen3.8-Flash-Next-BF16.gguf that
+    # the qwen family entry names, shared with the IQ3_S lane.
+    # STRATA_VERIFY_ALL_RESIDENT=0 works around the 0.1.39 engine bug
+    # (github.com/Niko1221/Strata/issues/776, fix in PR #792, unmerged): with
+    # every expert in VRAM the verify window is captured as the zero-doorbell
+    # graph, which rings no layer, yet batch windows still wait on layer 0's
+    # ring, so the second concurrent chat hits "verify batch: timed out at layer
+    # 0", the engine exits 1 and restarts, in a loop. Cost per the issue: solo
+    # decode ~6% slower. Drop it once STRATA_IMAGE carries #792.
+    # "parallel": 8 is hand-set in
+    # /mnt/more-models/strata/config/strata-unsloth-ud-iq4_xs.json after setup
+    # writes it: docker-entrypoint.sh builds setup.py's arguments itself and
+    # drops "$@", so --parallel is never passed and setup omits the key.
+    # Absent = one at a time. Each slot costs 0.56 GiB of VRAM (its session, KV
+    # streaming keeping the rest in RAM) plus its whole KV cache in pinned RAM
+    # (3.3 GB at 262144), and batch slots carry no MTP drafts and no
+    # repetition/presence penalties.
+    # PLE (the 28.8 GB n-gram table): hand-set --ple-io ram in
+    # /mnt/more-models/strata/config/strata-unsloth-ud-iq4_xs.json after setup,
+    # same reason as the IQ3_S lane - setup only adds it for a rotational disk.
+    # Budget is the tightest of the three lanes: 59.5 GB of experts (55 GiB
+    # resident budget) + 28.8 GB table + 3.6 GB int8 KV against 107 GB, so
+    # watch the strata process RSS; if the box runs out of headroom, drop the
+    # flag and let the table stream from sdc.
+    # Chat template: same as the IQ3_S lane - a read-only single-file bind
+    # mounts the repo's Froggeric v22.5 template over the tokenizer dir's
+    # chat_template.jinja, which setup writes from the GGUF's embedded template.
+    # FIRST START ONLY: run the cmd with the bind line removed - setup's
+    # tokenizer writer (tools/strata_tokenizer.py:297) opens that exact path for
+    # writing and dies with EROFS against the bind. Restore it after setup.
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --network llama-swap-vllm-backend
+      --env FAMILY=unsloth --env MODEL=UD-IQ4_XS --env CONTEXT=262144
+      --env VISION=yes --env GPU=0 --env LOW_RAM=auto
+      --env HOST=0.0.0.0 --env PORT=8080
+      --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth
+      --env STRATA_VERIFY_ALL_RESIDENT=0
+      --volume /mnt/more-models/strata:/data
+      --volume /mnt/more-models/strata/chat-templates/qwen3.8-froggeric-v22.5.jinja:/data/packs/unsloth-ud-iq4_xs/tokenizer/chat_template.jinja:ro
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      --name strata-qwen3-8-flash-next-unsloth
+      ${STRATA_IMAGE}
+    cmdStop: docker stop --time 90 strata-qwen3-8-flash-next-unsloth

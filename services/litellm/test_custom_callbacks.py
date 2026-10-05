@@ -103,7 +103,9 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
                 self.assertNotIn("reasoning_effort", result)
 
     def test_no_controls_leaves_qwen_template_default(self):
-        for model in ("qwen3.8-27b-fp8", "qwen3.8-27b-bf16", "qwen3.8-27b-bf16-sglang"):
+        for model in ("qwen3.8-27b-fp8", "qwen3.8-27b-bf16", "qwen3.8-27b-bf16-sglang",
+                      "qwen3.8-flash-next-iq3s-strata",
+                      "qwen3.8-flash-next-unsloth-iq4xs-strata"):
             with self.subTest(model=model):
                 self.assertIsNone(call_hook(chat({"model": model, "max_tokens": 16})))
 
@@ -130,6 +132,8 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-nvfp4-unsloth",
             "qwen3.8-flash-next-nvfp4",
             "qwen3.8-flash-next-nvfp4-ram-ple",
+            "qwen3.8-flash-next-iq3s-strata",
+            "qwen3.8-flash-next-unsloth-iq4xs-strata",
             "swift-1.5-flash-nvfp4",
             "swift-1.5-flash-nvfp4-d0xin",
             "swift-1.5-flash-strata",
@@ -157,6 +161,8 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-nvfp4-unsloth",
             "qwen3.8-flash-next-nvfp4",
             "qwen3.8-flash-next-nvfp4-ram-ple",
+            "qwen3.8-flash-next-iq3s-strata",
+            "qwen3.8-flash-next-unsloth-iq4xs-strata",
             "swift-1.5-flash-nvfp4",
             "swift-1.5-flash-nvfp4-d0xin",
             "swift-1.5-flash-strata",

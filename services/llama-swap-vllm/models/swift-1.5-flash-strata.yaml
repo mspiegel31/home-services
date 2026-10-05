@@ -10,7 +10,7 @@
 models:
   "swift-1.5-flash-strata":
     name: Swift 1.5 Qwen3.8 Flash Next IQ3_XXS (Strata)
-    description: Swift 1.5 Flash Next GSQ-RCO IQ3_XXS GGUF on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, PLE table in RAM
+    description: Swift 1.5 Flash Next GSQ-RCO IQ3_XXS GGUF on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, n-gram table read from disk
     concurrencyLimit: 12
     capabilities:
       in: ["text", "image"]
@@ -36,10 +36,26 @@ models:
     # key it 403s any Host that is not an IP, and llama-swap connects by
     # container name. /data holds the GGUF, MTP layer, mmproj, the pack
     # (experts.bin included) and the config setup writes; the first start
-    # downloads ~83 GB there. Setup picks --ple-io ram by itself, because
-    # /mnt/more-models is on a rotational disk and the RAM test passes.
-    # /data is /mnt/more-models/strata on the 1.75 TB more-vm-data disk (sdc):
-    # /mnt/models (sdb) sits at 96% full, so strata's ~120 GB was copied there.
+    # downloads ~83 GB there.
+    # /data is /mnt/more-models/strata on the 1.75 TB more-vm-data disk (sdc).
+    # PLE (the 28.8 GB n-gram table, per_layer_token_embd.weight) is kept in RAM
+    # by --ple-io ram, hand-set in
+    # /mnt/more-models/strata/config/strata-swift-iq3_xxs.json. Setup adds the
+    # flag only when it reads the model disk as rotational (#605); sdc reports
+    # /sys/block/sdc/queue/rotational = 0, an SSD, so a REINSTALL drops the
+    # flag and the table falls back to the engine's default, --ple-io direct.
+    # Re-add it after any REINSTALL.
+    # The engine's own words: direct = "unbuffered SSD reads, the table never
+    # enters RAM or the file cache"; ram = "mmap with the whole table locked in
+    # RAM at start". Measured on the live lane (strata process RSS): direct
+    # 36.9 GB, ram 52.3 GB - the table is charged to the process in ram mode.
+    # Decode, 900 tokens at xhigh: direct 198.7/211.2/211.0 tok/s, ram
+    # 212.9/212.9/214.4. 8 concurrent slots (the "parallel": 8 ceiling):
+    # direct 222.3 tok/s aggregate, ram 223.7 - 28 tok/s per slot either way.
+    # ram costs 15.4 GB of RAM for a few percent on single-stream and removes
+    # the cold-start penalty (the first decode after a load measured 24-53
+    # tok/s while the table was read in). The box has 107 GB and 41 GB
+    # available with the lane loaded, so the table stays resident.
     # Two different limits: past concurrencyLimit llama-swap 429s the caller,
     # while Strata queues. The engine's own knob is "parallel": N in
     # /mnt/more-models/strata/config/strata-swift-iq3_xxs.json (--batch N at start),
@@ -52,6 +68,22 @@ models:
     # Each slot costs 0.56 GiB of VRAM (its session, KV streaming keeping the
     # rest in RAM) plus its whole KV cache in pinned RAM (3.3 GB at 262144), and
     # batch slots carry no MTP drafts and no repetition/presence penalties.
+    # Chat template: Strata renders the tokenizer dir's chat_template.jinja
+    # (serve/server.py:4014, the config's "tokenizer" key). Setup writes the
+    # GGUF's embedded template there - 8,952 bytes, reasoning_effort defaulting
+    # to xhigh, accepting only low/medium/xhigh. A read-only single-file bind
+    # mounts the repo's Froggeric v22.5 template
+    # (images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja, 28,250 bytes,
+    # default medium) over it, so this lane renders the same template as the
+    # vLLM Swift lanes: per-message think_on/think_off state, tool-argument
+    # truncation, preserve_thinking. The bind survives a re-pack, which would
+    # overwrite a copied file. After a volume wipe, run the cmd with the bind
+    # line removed for setup's first pass: tools/strata_tokenizer.py:297 opens
+    # that exact path for writing and dies with EROFS against the bind.
+    # Verified live with the bind in place: low/medium/xhigh each change the
+    # reasoning block, chat_template_kwargs.enable_thinking=false yields an
+    # empty think block, native tool calls emit structured tool_calls, and an
+    # unknown effort is a 400 from the engine, not a crash.
     # STRATA_VERIFY_ALL_RESIDENT=0 works around a 0.1.39 engine bug
     # (github.com/Niko1221/Strata/issues/776, fix in PR #792, unmerged): with
     # every expert in VRAM the verify window is captured as the zero-doorbell
@@ -70,6 +102,7 @@ models:
       --env STRATA_ALLOWED_HOSTS=strata-swift-1-5-flash
       --env STRATA_VERIFY_ALL_RESIDENT=0
       --volume /mnt/more-models/strata:/data
+      --volume /mnt/more-models/strata/chat-templates/qwen3.8-froggeric-v22.5.jinja:/data/packs/swift-iq3_xxs/tokenizer/chat_template.jinja:ro
       --label io.mspiegel.llama-swap.managed=true
       --label io.mspiegel.llama-swap.model=${MODEL_ID}
       --name strata-swift-1-5-flash

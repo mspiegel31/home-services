@@ -1,0 +1,101 @@
+# qwen3.8-flash-next-iq3s-strata — one model in the llama-swap config-dir split.
+# Shared macros live in ../config.yaml. This file defines exactly one top-level
+# key: models.
+#
+# IQ3_S is the ORIGINAL Qwen3.8-Flash-Next (ISTA-DASLab GSQ-RCO), not Swift 1.5:
+# setup.py's MODELS table tags it "families": ("qwen",) with the note "the
+# original model only (Swift 1.5 has no IQ3_S)". Routing to it therefore trades
+# away Swift's 63% shorter thinking for the strongest published operating point
+# on this backbone (task avg 93.26 vs BF16's 93.12, GPQA-Diamond 92.93 above the
+# base model's 91.92). It is a quality ceiling for hard problems, not a daily
+# driver: per-task wall clock favours the Swift IQ3_XXS lane.
+
+models:
+  "qwen3.8-flash-next-iq3s-strata":
+    name: Qwen3.8 Flash Next IQ3_S (Strata)
+    description: Original Qwen3.8 Flash Next GSQ-RCO IQ3_S GGUF on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, n-gram table read from disk
+    concurrencyLimit: 12
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0"
+    proxy: http://strata-qwen3-8-flash-next-iq3s:8080
+    # LOW_RAM=auto, not the Swift lane's "on": setup.py's low_ram_needed() is
+    # ram < arena_gb + 10, i.e. 107 < 60.3, so it picks the RAM-resident mode by
+    # itself and pins all 50.3 GB of experts. "on" would force the mapped path
+    # and read experts through the file cache for no reason.
+    # No --memory cap: setup.py sizes RAM from /proc/meminfo, which in a
+    # container is the host's total, and 107 GB is what the engine actually has.
+    # ctx_ram_need() at 262144 = 50.3 + 3.59 (int8 KV) + 24 = 77.9 GB, inside
+    # the box, so setup accepts the full native context without --rope-scaling.
+    # STRATA_VERIFY_ALL_RESIDENT=0 works around the 0.1.39 engine bug
+    # (github.com/Niko1221/Strata/issues/776, fix in PR #792, unmerged): with
+    # every expert in VRAM the verify window is captured as the zero-doorbell
+    # graph, which rings no layer, yet batch windows still wait on layer 0's
+    # ring, so the second concurrent chat hits "verify batch: timed out at layer
+    # 0", the engine exits 1 and restarts, in a loop. 50.3 GB of experts against
+    # ~65 GB of usable VRAM means this lane lands in that all-resident case.
+    # Cost per the issue: solo decode ~6% slower. Drop it once STRATA_IMAGE
+    # carries #792.
+    # /data is shared with the Swift Strata lane: the mtp/rt draft layer and the
+    # expert profile are the base model's, so they are reused, not rebuilt. The
+    # qwen family's vision encoder is mmproj-Qwen3.8-Flash-Next-BF16.gguf, which
+    # is a different file from the Swift mmproj already on the volume; setup
+    # downloads it on the first start.
+    # "parallel": 8 is hand-set in
+    # /mnt/more-models/strata/config/strata-iq3_s.json after setup writes it:
+    # docker-entrypoint.sh builds setup.py's arguments itself and drops "$@", so
+    # --parallel is never passed and setup omits the key. Absent = one at a time.
+    # Each slot costs 0.56 GiB of VRAM (its session, KV streaming keeping the
+    # rest in RAM) plus its whole KV cache in pinned RAM (3.3 GB at 262144), and
+    # batch slots carry no MTP drafts and no repetition/presence penalties.
+    # PLE (the 28.8 GB n-gram table): hand-set --ple-io ram in
+    # /mnt/more-models/strata/config/strata-iq3_s.json after setup. Setup adds
+    # the flag only for a rotational model disk (#605) and sdc reports
+    # rotational = 0, so its own config leaves the table on the engine's
+    # default, --ple-io direct. Measured on the Swift lane: ram charges the
+    # table to the process (strata RSS 52.3 GB vs 36.9 GB direct) and buys a
+    # few percent on single-stream decode plus no cold-start stall. Budget
+    # here: 50.3 GB experts + 28.8 GB table + 3.6 GB int8 KV against 107 GB.
+    # Chat template: Strata renders the tokenizer dir's chat_template.jinja
+    # (serve/server.py:4014, the config's "tokenizer" key). Setup writes the
+    # GGUF's embedded template there - 8,952 bytes, reasoning_effort defaulting
+    # to xhigh, accepting only low/medium/xhigh. A read-only single-file bind
+    # mounts the repo's Froggeric v22.5 template
+    # (images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja, 28,250 bytes,
+    # default medium) over it, so this lane renders the same template as the
+    # vLLM lanes: per-message think_on/think_off state, tool-argument
+    # truncation, preserve_thinking. The bind survives a re-pack, which would
+    # overwrite a copied file.
+    # FIRST START ONLY: run the cmd with the bind line removed. Setup's
+    # tokenizer writer (tools/strata_tokenizer.py:297) opens that exact path
+    # for writing and dies with EROFS against the read-only bind; the pack is
+    # left with vocab.json and no native_experts.txt. Restore the line after
+    # setup finishes - with vocab.json and the bind in place both setup's and
+    # iq_pack.py's guards skip the writer, so later starts are unaffected.
+    # LiteLLM's callback registers this id as a plain Qwen route, so an
+    # uncontrolled request keeps Froggeric's medium default.
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --network llama-swap-vllm-backend
+      --env FAMILY=qwen --env MODEL=IQ3_S --env CONTEXT=262144
+      --env VISION=yes --env GPU=0 --env LOW_RAM=auto
+      --env HOST=0.0.0.0 --env PORT=8080
+      --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-iq3s
+      --env STRATA_VERIFY_ALL_RESIDENT=0
+      --volume /mnt/more-models/strata:/data
+      --volume /mnt/more-models/strata/chat-templates/qwen3.8-froggeric-v22.5.jinja:/data/packs/iq3_s/tokenizer/chat_template.jinja:ro
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      --name strata-qwen3-8-flash-next-iq3s
+      ${STRATA_IMAGE}
+    cmdStop: docker stop --time 90 strata-qwen3-8-flash-next-iq3s
