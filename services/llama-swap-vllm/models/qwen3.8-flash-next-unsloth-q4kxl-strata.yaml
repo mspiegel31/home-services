@@ -45,6 +45,9 @@
 # a time. Each slot costs 0.56 GiB of VRAM plus its whole KV cache in pinned
 # RAM (3.3 GB at 262144); batch slots carry no MTP drafts and no
 # repetition/presence penalties.
+# The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
+# are NOT hand-set: the image entrypoint merges them into this config from
+# images/strata/merge_args.py on every start, so a REINSTALL keeps them.
 #
 # Model files: the 111.3 GB four-shard download at pinned revision 38bb39e
 # lands under /data/models/unsloth-UD-Q4_K_XL/ (setup's tag dir) with
@@ -78,7 +81,7 @@ models:
       vision: false
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.1"
     proxy: http://strata-qwen3-8-flash-next-unsloth-q4kxl:8080
     cmd: >-
       docker run --init --rm --gpus all --ipc host

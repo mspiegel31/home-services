@@ -23,7 +23,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.1"
     proxy: http://strata-swift-1-5-flash:8080
     # LOW_RAM=on because the host's MemTotal (107 GB) lies to setup.py, which
     # sizes RAM from /proc/meminfo: with all experts pinned it needs ~75 GB,
@@ -68,6 +68,9 @@ models:
     # Each slot costs 0.56 GiB of VRAM (its session, KV streaming keeping the
     # rest in RAM) plus its whole KV cache in pinned RAM (3.3 GB at 262144), and
     # batch slots carry no MTP drafts and no repetition/presence penalties.
+    # The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
+    # are NOT hand-set: the image entrypoint merges them into this config from
+    # images/strata/merge_args.py on every start, so a REINSTALL keeps them.
     # Chat template: Strata renders the tokenizer dir's chat_template.jinja
     # (serve/server.py:4014, the config's "tokenizer" key), which setup writes
     # from the GGUF's embedded template (8,952 bytes here, reasoning_effort

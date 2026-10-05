@@ -28,7 +28,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.1"
     proxy: http://strata-qwen3-8-flash-next-unsloth:8080
     # LOW_RAM=auto: setup.py warns that --low-ram does not apply to a budget
     # model (it always reads part of its experts through the file cache), so the
@@ -56,6 +56,9 @@ models:
     # streaming keeping the rest in RAM) plus its whole KV cache in pinned RAM
     # (3.3 GB at 262144), and batch slots carry no MTP drafts and no
     # repetition/presence penalties.
+    # The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
+    # are NOT hand-set: the image entrypoint merges them into this config from
+    # images/strata/merge_args.py on every start, so a REINSTALL keeps them.
     # PLE (the 28.8 GB n-gram table): hand-set --ple-io ram in
     # /mnt/more-models/strata/config/strata-unsloth-ud-iq4_xs.json after setup,
     # same reason as the IQ3_S lane - setup only adds it for a rotational disk.
