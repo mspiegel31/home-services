@@ -52,10 +52,17 @@ RUN git init -q . \
 ARG CUDA_ARCHITECTURES=120
 ARG BUILD_VISION=1
 # setup.cmake_build sizes ninja at max(2, cpu_count // 2), so the 4-vCPU runner
-# compiles with -j 2: 25 of the 27 min this image takes uncached. Single-arch
-# nvcc at -j 4 stays inside the runner's 16 GB. The default is sized for that
-# runner, not for a local build: this box's 8 cores / 96 GB take
-# --build-arg BUILD_JOBS=8 (nvcc is the RAM sink, ~2 GB per job at one arch).
+# would compile with -j 2: the compile is ~24 min cold and a couple of minutes
+# when the registry cache hits. BUILD_JOBS=4 gives the runner -j 4; single-arch
+# nvcc stays inside its 16 GB.
+#
+# Keep this value identical wherever the cache is shared. The ARG is part of the
+# compile layer's key, so a local build reuses CI's :buildcache layers only at
+# BUILD_JOBS=4:
+#   docker build --cache-from type=registry,ref=ghcr.io/mspiegel31/strata:buildcache .
+# A one-off cold compile can pass a higher value instead (this box's 8 cores /
+# 96 GB take -j 8, nvcc being the RAM sink at ~2 GB per job) and accept the
+# registry layers going unused.
 ARG BUILD_JOBS=4
 
 RUN python3 -m venv .venv \
