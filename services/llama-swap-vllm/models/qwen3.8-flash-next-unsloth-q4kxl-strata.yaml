@@ -34,17 +34,25 @@
 # STRATA_VERIFY_ALL_RESIDENT=0: the 0.1.39 engine bug workaround
 # (github.com/Niko1221/Strata/issues/776, fix in PR #792, unmerged). Its
 # precondition — every expert in VRAM — does not strictly hold for this pack,
-# but the batch-slot verify path is the same code and this lane is meant to
-# run "parallel": 8; the ~6% solo-decode cost is cheap insurance against the
+# but the batch-slot verify path is the same code and this lane runs
+# "parallel": 6; the ~6% solo-decode cost is cheap insurance against the
 # crash loop. Drop it once STRATA_IMAGE carries #792.
 #
-# "parallel": 8 is hand-set in
+# "parallel": 6 is hand-set in
 # /mnt/more-models/strata/config/strata-unsloth-ud-q4_k_xl.json after setup
 # writes it: docker-entrypoint.sh builds setup.py's arguments itself and drops
 # "$@", so --parallel is never passed and setup omits the key. Absent = one at
-# a time. Each slot costs 0.56 GiB of VRAM plus its whole KV cache in pinned
-# RAM (3.3 GB at 262144); batch slots carry no MTP drafts and no
-# repetition/presence penalties.
+# a time. Measured here at 262144 with kv-resident 32768: a slot takes 0.95 GiB
+# of VRAM (5.69 GiB for 6 — the docs' 0.56 GiB is the 32K figure), which lands
+# the expert cache at 19616 slots / 57.25 GiB and the pinned RAM complement at
+# 14.48 GiB, against 18961 / 55.33 GiB / 16.39 GiB at 8 slots (21576 slots /
+# 62.98 GiB / 8.75 GiB with no slots at all). A slot decodes one token per
+# window, without MTP drafts: 8 concurrent 300-token chats measured 8/8 200s
+# but only ~88 tok/s aggregate against 108-117 tok/s solo, while 6 slots leave
+# 1.9 GiB more VRAM for experts. One of two identical 8-way bursts killed the
+# engine (every in-flight request 503, no error line in its log, lane
+# oom_kill=0 with ~65 GiB still available, so the cause is unproven — #776's
+# batch verify path is the suspect); server.py reloads it on the next request.
 # The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
 # are NOT hand-set: the image entrypoint merges them into this config from
 # images/strata/merge_args.py on every start, so a REINSTALL keeps them.
