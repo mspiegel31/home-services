@@ -35,24 +35,38 @@ jobs:
             const globber = await glob.create('images/*/Dockerfile');
             const all = [...new Set((await globber.glob()).map(f => f.split('/').at(-2)))].sort();
 
-            // Per-image build policy. GHA cache is capped at 10 GB per repo, so
-            // images whose base is tens of GB must not export layers to it —
-            // the export alone can run 15+ min and evicts every other image's
-            // cache while almost nothing is actually retained. The digest-pinned
-            // base is immutable, so a Docker Hub pull beats any cache anyway.
-            // arm64 is still built for local debugging on Apple Silicon.
+            // GHA cache is the default backend, but the whole repo shares 10 GB
+            // and one multi-GB export evicts every other image's layers. An
+            // image in that size class caches to a :buildcache tag in ghcr
+            // instead: no cap, no cross-image eviction, a push only on a miss.
+            // Reading or writing a registry cache ref needs the ghcr login,
+            // which the build job only performs on main.
+            const ghaCache = image => ({
+              cacheFrom: `type=gha,scope=${image}`,
+              cacheTo: `type=gha,mode=max,scope=${image}`,
+            });
+            const registryCache = image => (context.ref === 'refs/heads/main' ? {
+              cacheFrom: `type=registry,ref=ghcr.io/${context.repo.owner}/${image}:buildcache`,
+              cacheTo: `type=registry,ref=ghcr.io/${context.repo.owner}/${image}:buildcache,mode=max,ignore-error=true`,
+            } : { cacheFrom: '', cacheTo: '' });
+            const noCache = { cacheFrom: '', cacheTo: '' };
+
+            // Per-image build policy; unspecified fields fall back to the
+            // defaults in the matrix below. arm64 is still built for local
+            // debugging on Apple Silicon.
             const policy = {
-              'vllm-fastokens': { platforms: 'linux/amd64,linux/arm64', cacheTo: '' },
+              'vllm-fastokens': { platforms: 'linux/amd64,linux/arm64', ...noCache },
               // The upstream unified-cuda image does not publish arm64.
-              'llama-swap-vllm': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
+              'llama-swap-vllm': { platforms: 'linux/amd64' },
               // PyPI wheels are manylinux x86_64 only.
-              'freetoken': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
-              // CUDA devel base is tens of GB and the engine targets x86-64 AVX2.
-              'strata': { platforms: 'linux/amd64', cacheTo: '' },
+              'freetoken': { platforms: 'linux/amd64' },
+              // CUDA devel base is tens of GB and the engine compile step is 25
+              // of a 27 min build; the engine targets x86-64 AVX2.
+              'strata': { platforms: 'linux/amd64', ...registryCache('strata') },
               // The official signal-cli native release asset is x86_64 only.
-              'signal-cli': { platforms: 'linux/amd64', cacheTo: 'type=gha,mode=max' },
+              'signal-cli': { platforms: 'linux/amd64' },
             };
-            const defaults = { platforms: 'linux/amd64,linux/arm64', cacheTo: 'type=gha,mode=max' };
+            const defaults = { platforms: 'linux/amd64,linux/arm64' };
             const versionFor = image => {
               const versionPath = `images/${image}/VERSION`;
               if (!fs.existsSync(versionPath)) {
@@ -104,6 +118,7 @@ jobs:
                 image,
                 version: versionFor(image),
                 ...defaults,
+                ...ghaCache(image),
                 ...(policy[image] || {}),
               })),
             }));
@@ -151,5 +166,5 @@ jobs:
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: ${{ matrix.cacheTo && format('type=gha,scope={0}', matrix.image) || '' }}
-          cache-to: ${{ matrix.cacheTo && format('{0},scope={1}', matrix.cacheTo, matrix.image) || '' }}
+          cache-from: ${{ matrix.cacheFrom }}
+          cache-to: ${{ matrix.cacheTo }}

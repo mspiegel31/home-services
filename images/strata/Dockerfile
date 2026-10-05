@@ -11,8 +11,9 @@
 # reached when setup.py has to compile, which the pinned sources make impossible:
 # a source change needs a new image, not --build (no nvcc and no git here).
 #
-# build-images.yml pins this image to amd64 and exports no GHA cache: the CUDA
-# base is GBs and upstream targets x86-64 AVX2.
+# build-images.yml pins this image to amd64 and caches the layers below to a
+# :buildcache tag in ghcr: they are GBs, and the repo-wide GHA cache is 10 GB.
+# Upstream targets x86-64 AVX2.
 #
 # llama-swap spawns this with the upstream env contract (FAMILY, MODEL, CONTEXT,
 # VISION, GPU/GPUS, LOW_RAM, HOST, PORT, API_KEY). :8080 is the engine, :8000 is
@@ -44,6 +45,10 @@ RUN git init -q . \
 # here (RTX 30 = 86, RTX 40 = 89, A-series = 80).
 ARG CUDA_ARCHITECTURES=120
 ARG BUILD_VISION=1
+# setup.cmake_build sizes ninja at max(2, cpu_count // 2), so the 4-vCPU runner
+# compiles with -j 2: 25 of the 27 min this image takes uncached. Single-arch
+# nvcc at -j 4 stays inside the runner's 16 GB.
+ARG BUILD_JOBS=4
 
 RUN python3 -m venv .venv \
     && .venv/bin/pip install --no-cache-dir --upgrade pip \
@@ -57,6 +62,11 @@ RUN python3 -m venv .venv \
 RUN .venv/bin/python - <<'PYEOF'
 import json, os, pathlib, shutil
 import setup
+
+jobs = int(os.environ.get("BUILD_JOBS") or 0)
+if jobs:
+    # cmake_build's -j is max(2, cpu_count // 2) and ninja takes no env var
+    os.cpu_count = lambda: 2 * jobs
 
 llama = setup.get_llama_cpp()
 nvcc, _ = setup.find_nvcc()
