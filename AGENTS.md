@@ -14,6 +14,8 @@ a collection of primarily docker-compose stacks for use with various portainer h
 
 1. for github workflows, strongly prefer github script to bash for ad-hoc scripting
 
+1. write planning documents to `.plans/` (gitignored) or `~/plans/`; never commit plan files to the repo
+
 ## examples/prior art
 1. large amounts of homelab content can be found at https://github.com/JamesTurland/JimsGarage
 1. self-hosted app listing can also be found at https://selfh.st/apps/
