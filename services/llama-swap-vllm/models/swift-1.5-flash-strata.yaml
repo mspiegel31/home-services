@@ -37,10 +37,12 @@ models:
     # container name. /data holds the GGUF, MTP layer, mmproj, the pack
     # (experts.bin included) and the config setup writes; the first start
     # downloads ~83 GB there. Setup picks --ple-io ram by itself, because
-    # /mnt/models is on a rotational disk and the RAM test passes.
+    # /mnt/more-models is on a rotational disk and the RAM test passes.
+    # /data is /mnt/more-models/strata on the 1.75 TB more-vm-data disk (sdc):
+    # /mnt/models (sdb) sits at 96% full, so strata's ~120 GB was copied there.
     # Two different limits: past concurrencyLimit llama-swap 429s the caller,
     # while Strata queues. The engine's own knob is "parallel": N in
-    # /mnt/models/strata/config/strata-swift-iq3_xxs.json (--batch N at start),
+    # /mnt/more-models/strata/config/strata-swift-iq3_xxs.json (--batch N at start),
     # 2..8 - 8 is the ceiling, the engine's verify window holds 8 rows - so 12
     # here means 8 decode and the rest wait rather than fail.
     # "parallel" is hand-set on the volume: setup.py writes it only for an
@@ -67,7 +69,7 @@ models:
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-swift-1-5-flash
       --env STRATA_VERIFY_ALL_RESIDENT=0
-      --volume /mnt/models/strata:/data
+      --volume /mnt/more-models/strata:/data
       --label io.mspiegel.llama-swap.managed=true
       --label io.mspiegel.llama-swap.model=${MODEL_ID}
       --name strata-swift-1-5-flash
