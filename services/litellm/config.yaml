@@ -29,6 +29,8 @@
 include:
   - models/qwen3.8-27b-fp8.yaml
   - models/qwen3.8-27b-bf16.yaml
+  - models/qwen3.8-flash-next-iq3s-strata.yaml
+  - models/qwen3.8-flash-next-unsloth-iq4xs-strata.yaml
   - models/qwen3.8-27b-bf16-sglang.yaml
   - models/qwen3.8-27b-nvfp4.yaml
   - models/qwen3.8-27b-nvfp4-redhat.yaml
