@@ -74,7 +74,7 @@ routing:
     settings:
       matrix:
         sets:
-          qwen-flash-next: "qwen3.8-flash-next-nvfp4 | qwen3.8-flash-next-nvfp4-ram-ple | qwen3.8-flash-next-iq3s-strata | qwen3.8-flash-next-unsloth-iq4xs-strata"
+          qwen-flash-next: "qwen3.8-flash-next-nvfp4 | qwen3.8-flash-next-nvfp4-ram-ple | qwen3.8-flash-next-iq3s-strata | qwen3.8-flash-next-unsloth-iq4xs-strata | qwen3.8-flash-next-unsloth-q4kxl-strata"
           # Three Swift Flash Next variants of the same backbone: AutoRound
           # W4A16 (auggie246), ModelOpt NVFP4 W4A4 (d0xin) and Strata's GGUF
           # IQ2_XS on its own engine. All fill most of the 72 GB card, so they
