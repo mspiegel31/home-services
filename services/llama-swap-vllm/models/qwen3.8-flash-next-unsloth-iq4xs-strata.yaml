@@ -28,7 +28,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.4"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.5"
     proxy: http://strata-qwen3-8-flash-next-unsloth:8080
     # LOW_RAM=auto: setup.py warns that --low-ram does not apply to a budget
     # model (it always reads part of its experts through the file cache), so the
@@ -48,31 +48,28 @@ models:
     # ring, so the second concurrent chat hits "verify batch: timed out at layer
     # 0", the engine exits 1 and restarts, in a loop. Cost per the issue: solo
     # decode ~6% slower. Drop it once STRATA_IMAGE carries #792.
-    # PARALLEL=6 (was 8): the verify-batch window grows with the busy-slot
-    # count, and instantiating a 5-slot window over 30-45k-token prompts
-    # overran the VRAM past --vram-reserve-mib 700 — "verify: batch
-    # instantiate: out of memory", engine exit 1, llama-swap restart loop
-    # (2026-10-05). 6 caps the window; the q4kxl lane measured 6 at 262144.
-    # merge_args.py writes the env into the config json on every start, so a
-    # REINSTALL keeps it. Each slot costs 0.95 GiB of VRAM (its session, KV
+    # PARALLEL=6 (was 8): the engine's verify path keeps one CUDA graph pair
+    # per distinct busy-slot subset and never evicts them (~9 MiB/pair, 2^N-1
+    # subsets), so at 8 slots the pairs accumulated past --vram-reserve-mib
+    # 700 — "verify: batch instantiate: out of memory", engine exit 1,
+    # llama-swap restart loop (2026-10-05). 6 caps the subsets at 63; full
+    # diagnosis in images/strata/merge_args.py's docstring. Each slot costs
+    # 0.95 GiB of VRAM at 262144 with --kv-resident 32768 (its session, KV
     # streaming keeping the rest in RAM) plus its whole KV cache in pinned RAM
     # (3.3 GB at 262144), and batch slots carry no MTP drafts and no
     # repetition/presence penalties.
-    # --vram-reserve-mib 2048 is hand-set in
-    # /mnt/more-models/strata/config/strata-unsloth-ud-iq4_xs.json (setup
-    # writes 700; merge_args leaves a lane's own value alone): strata-vision
-    # holds 1.46 GiB on the same card outside the engine's accounting, and
-    # 700 left no room for the verify-batch graphs on top.
-    # The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
-    # are NOT hand-set: the image entrypoint merges them into this config from
-    # images/strata/merge_args.py on every start, so a REINSTALL keeps them.
-    # PLE (the 28.8 GB n-gram table): hand-set --ple-io ram in
-    # /mnt/more-models/strata/config/strata-unsloth-ud-iq4_xs.json after setup,
-    # same reason as the IQ3_S lane - setup only adds it for a rotational disk.
-    # Budget is the tightest of the three lanes: 59.5 GB of experts (55 GiB
-    # resident budget) + 28.8 GB table + 3.6 GB int8 KV against 107 GB, so
-    # watch the strata process RSS; if the box runs out of headroom, drop the
-    # flag and let the table stream from sdc.
+    # parallel, --vram-reserve-mib 2048 and --ple-io all come from the cmd
+    # env below: images/strata/merge_args.py writes them into the config json
+    # on every start, so a REINSTALL keeps them. The 2 GiB reserve leaves
+    # room for the batch graphs — post-load free VRAM must cover
+    # (2^6-1) x ~9 MiB x 1.5 (>= 850 MiB; measured 1736 MiB free here). The
+    # multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
+    # are merged the same way.
+    # PLE (the 28.8 GB n-gram table): STRATA_PLE_IO=direct, the engine
+    # default — this lane's RAM budget is the tightest of the three (59.5 GB
+    # of experts with a 55 GiB resident budget + 28.8 GB table + 3.6 GB int8
+    # KV against 107 GB), so locking the table in RAM on top of the expert
+    # budget is unsafe; it streams from sdc instead.
     # Chat template: Strata renders the tokenizer dir's chat_template.jinja
     # (serve/server.py:4014, the config's "tokenizer" key), which setup writes
     # from the GGUF's embedded template (reasoning_effort defaulting to xhigh,
@@ -99,6 +96,7 @@ models:
       --network llama-swap-vllm-backend
       --env FAMILY=unsloth --env MODEL=UD-IQ4_XS --env CONTEXT=262144
       --env VISION=yes --env GPU=0 --env LOW_RAM=auto --env PARALLEL=6
+      --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=direct
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth
       --env STRATA_VERIFY_ALL_RESIDENT=0

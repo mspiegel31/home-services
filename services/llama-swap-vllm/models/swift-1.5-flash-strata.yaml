@@ -23,7 +23,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.4"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.5"
     proxy: http://strata-swift-1-5-flash:8080
     # LOW_RAM=on because the host's MemTotal (107 GB) lies to setup.py, which
     # sizes RAM from /proc/meminfo: with all experts pinned it needs ~75 GB,
@@ -38,39 +38,40 @@ models:
     # (experts.bin included) and the config setup writes; the first start
     # downloads ~83 GB there.
     # /data is /mnt/more-models/strata on the 1.75 TB more-vm-data disk (sdc).
-    # PLE (the 28.8 GB n-gram table, per_layer_token_embd.weight) is kept in RAM
-    # by --ple-io ram, hand-set in
-    # /mnt/more-models/strata/config/strata-swift-iq3_xxs.json. Setup adds the
-    # flag only when it reads the model disk as rotational (#605); sdc reports
-    # /sys/block/sdc/queue/rotational = 0, an SSD, so a REINSTALL drops the
-    # flag and the table falls back to the engine's default, --ple-io direct.
-    # Re-add it after any REINSTALL.
+    # PLE (the 28.8 GB n-gram table, per_layer_token_embd.weight) is kept in
+    # RAM by STRATA_PLE_IO=ram below. Setup adds --ple-io only when it reads
+    # the model disk as rotational (#605); sdc reports
+    # /sys/block/sdc/queue/rotational = 0, an SSD, so setup alone would leave
+    # the engine default, --ple-io direct. parallel, --vram-reserve-mib and
+    # --ple-io all come from the cmd env: images/strata/merge_args.py writes
+    # them into the config json on every start, so a REINSTALL keeps them.
     # The engine's own words: direct = "unbuffered SSD reads, the table never
     # enters RAM or the file cache"; ram = "mmap with the whole table locked in
     # RAM at start". Measured on the live lane (strata process RSS): direct
     # 36.9 GB, ram 52.3 GB - the table is charged to the process in ram mode.
     # Decode, 900 tokens at xhigh: direct 198.7/211.2/211.0 tok/s, ram
-    # 212.9/212.9/214.4. 8 concurrent slots (the "parallel": 8 ceiling):
+    # 212.9/212.9/214.4. 8 concurrent slots:
     # direct 222.3 tok/s aggregate, ram 223.7 - 28 tok/s per slot either way.
     # ram costs 15.4 GB of RAM for a few percent on single-stream and removes
     # the cold-start penalty (the first decode after a load measured 24-53
     # tok/s while the table was read in). The box has 107 GB and 41 GB
     # available with the lane loaded, so the table stays resident.
     # Two different limits: past concurrencyLimit llama-swap 429s the caller,
-    # while Strata queues. The engine's own knob is "parallel": N in
-    # /mnt/more-models/strata/config/strata-swift-iq3_xxs.json (--batch N at start),
-    # 2..8 - 8 is the ceiling, the engine's verify window holds 8 rows - so 12
-    # here means 8 decode and the rest wait rather than fail.
-    # "parallel" is hand-set on the volume: setup.py writes it only for an
-    # explicit --parallel, which the image's env contract does not expose
-    # (docker-entrypoint.sh builds setup.py's arguments itself and drops "$@").
-    # A REINSTALL or a volume wipe therefore loses it; absent = one at a time.
-    # Each slot costs 0.56 GiB of VRAM (its session, KV streaming keeping the
-    # rest in RAM) plus its whole KV cache in pinned RAM (3.3 GB at 262144), and
-    # batch slots carry no MTP drafts and no repetition/presence penalties.
+    # while Strata queues. The engine's own knob is "parallel": N in the config
+    # json (--batch N at start), 2..8 - so 12 here means 6 decode (PARALLEL=6)
+    # and the rest wait rather than fail. 6 because the engine's verify path
+    # keeps one CUDA graph pair per distinct busy-slot subset and never evicts
+    # them (~9 MiB/pair, 2^N-1 subsets; full diagnosis in merge_args.py's
+    # docstring) - at 8 slots the pairs accumulated past --vram-reserve-mib
+    # 700 on the iq4xs lane: "verify: batch instantiate: out of memory",
+    # engine restart loop. STRATA_VRAM_RESERVE_MIB=2048 leaves room for all
+    # 63 subsets of 6 slots (rule: post-load free VRAM >= (2^6-1) x ~9 MiB x
+    # 1.5). Each slot costs 0.95 GiB of VRAM at 262144 with --kv-resident
+    # 32768 (its session, KV streaming keeping the rest in RAM) plus its whole
+    # KV cache in pinned RAM (3.3 GB at 262144), and batch slots carry no MTP
+    # drafts and no repetition/presence penalties.
     # The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
-    # are NOT hand-set: the image entrypoint merges them into this config from
-    # images/strata/merge_args.py on every start, so a REINSTALL keeps them.
+    # are merged into this config the same way, on every start.
     # Chat template: Strata renders the tokenizer dir's chat_template.jinja
     # (serve/server.py:4014, the config's "tokenizer" key), which setup writes
     # from the GGUF's embedded template (8,952 bytes here, reasoning_effort
@@ -109,7 +110,8 @@ models:
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
       --env FAMILY=swift --env MODEL=IQ3_XXS --env CONTEXT=262144
-      --env VISION=yes --env GPU=0 --env LOW_RAM=on --env PARALLEL=8
+      --env VISION=yes --env GPU=0 --env LOW_RAM=on --env PARALLEL=6
+      --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=ram
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-swift-1-5-flash
       --env STRATA_VERIFY_ALL_RESIDENT=0

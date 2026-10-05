@@ -47,3 +47,19 @@ by Portainer — never commit them.
 
 ## Amazing prior art
 1. for vllm, recipes and tips for models can be found in https://recipes.vllm.ai/
+
+## Strata lanes
+- Lane env contract (each start, `images/strata/merge_args.py` writes these
+  into `/mnt/more-models/strata/config/strata-*.json`): `PARALLEL` ->
+  `parallel`, `STRATA_VRAM_RESERVE_MIB` -> `--vram-reserve-mib`,
+  `STRATA_PLE_IO` -> `--ple-io`, `STRATA_VISION_MMPROJ` -> `--vision` + the
+  vision block. Never hand-edit those keys in the volume json: set the lane
+  env instead.
+- Sizing rule: post-load free VRAM (engine log line `strata serve: N MiB of
+  VRAM free with everything loaded`) must be >= (2^PARALLEL - 1) x ~9 MiB x
+  1.5, i.e. >= 850 MiB at 6 slots — the verify path caches one CUDA graph
+  pair per busy-slot subset and never evicts. Full diagnosis: merge_args.py's
+  docstring. Crash signature `verify: batch instantiate: out of memory` ->
+  raise STRATA_VRAM_RESERVE_MIB or lower PARALLEL.
+- Graphs captured since the last engine start (must stay <= 2^PARALLEL - 1):
+  `docker exec <lane> awk '/PCIe probe/{b=0} /captured the batch window/{b++} END{print b}' /opt/strata/strata-<tag>.log`

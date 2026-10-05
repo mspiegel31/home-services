@@ -26,7 +26,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.4"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.5"
     proxy: http://strata-qwen3-8-flash-next-iq3s:8080
     # LOW_RAM=auto, not the Swift lane's "on": setup.py's low_ram_needed() is
     # ram < arena_gb + 10, i.e. 107 < 60.3, so it picks the RAM-resident mode by
@@ -50,24 +50,21 @@ models:
     # qwen family's vision encoder is mmproj-Qwen3.8-Flash-Next-BF16.gguf, which
     # is a different file from the Swift mmproj already on the volume; setup
     # downloads it on the first start.
-    # "parallel": 8 is hand-set in
-    # /mnt/more-models/strata/config/strata-iq3_s.json after setup writes it:
-    # docker-entrypoint.sh builds setup.py's arguments itself and drops "$@", so
-    # --parallel is never passed and setup omits the key. Absent = one at a time.
-    # Each slot costs 0.56 GiB of VRAM (its session, KV streaming keeping the
-    # rest in RAM) plus its whole KV cache in pinned RAM (3.3 GB at 262144), and
-    # batch slots carry no MTP drafts and no repetition/presence penalties.
-    # The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
-    # are NOT hand-set: the image entrypoint merges them into this config from
-    # images/strata/merge_args.py on every start, so a REINSTALL keeps them.
-    # PLE (the 28.8 GB n-gram table): hand-set --ple-io ram in
-    # /mnt/more-models/strata/config/strata-iq3_s.json after setup. Setup adds
-    # the flag only for a rotational model disk (#605) and sdc reports
-    # rotational = 0, so its own config leaves the table on the engine's
-    # default, --ple-io direct. Measured on the Swift lane: ram charges the
-    # table to the process (strata RSS 52.3 GB vs 36.9 GB direct) and buys a
-    # few percent on single-stream decode plus no cold-start stall. Budget
-    # here: 50.3 GB experts + 28.8 GB table + 3.6 GB int8 KV against 107 GB.
+    # parallel, --vram-reserve-mib 2048 and --ple-io all come from the cmd
+    # env below: images/strata/merge_args.py writes them into the config json
+    # on every start, so a REINSTALL keeps them. 6 slots and the 2 GiB
+    # reserve because the engine's verify path keeps one CUDA graph pair per
+    # distinct busy-slot subset and never evicts them (~9 MiB/pair, 2^N-1
+    # subsets; full diagnosis in merge_args.py's docstring). Each slot costs
+    # 0.95 GiB of VRAM at 262144 with --kv-resident 32768 (its session, KV
+    # streaming keeping the rest in RAM) plus its whole KV cache in pinned
+    # RAM (3.3 GB at 262144), and batch slots carry no MTP drafts and no
+    # repetition/presence penalties.
+    # PLE (the 28.8 GB n-gram table): STRATA_PLE_IO=direct, the engine
+    # default — not the Swift lane's ram. This lane pins all 50.3 GB of
+    # experts (LOW_RAM=auto), and 6 slots add ~3.3 GB of pinned KV each, so
+    # locking the table on top (50.3 + 28.8 + ~20 GB) is unsafe on 107 GB;
+    # the table streams from sdc.
     # Chat template: Strata renders the tokenizer dir's chat_template.jinja
     # (serve/server.py:4014, the config's "tokenizer" key), which setup writes
     # from the GGUF's embedded template (reasoning_effort defaulting to xhigh,
@@ -96,7 +93,8 @@ models:
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
       --env FAMILY=qwen --env MODEL=IQ3_S --env CONTEXT=262144
-      --env VISION=yes --env GPU=0 --env LOW_RAM=auto --env PARALLEL=8
+      --env VISION=yes --env GPU=0 --env LOW_RAM=auto --env PARALLEL=6
+      --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=direct
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-iq3s
       --env STRATA_VERIFY_ALL_RESIDENT=0

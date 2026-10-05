@@ -22,8 +22,8 @@
 # the CPU path — unlike the IQ4_XS lane's 100% VRAM hit. Expect a real decode
 # drop from the IQ4_XS lane's ~150 tok/s; the quality gain is the point.
 #
-# PLE (the 28.8 GB n-gram table): keep the engine default --ple-io direct —
-# do NOT hand-set ram here as the other lanes do. 76.3 GB of resident experts
+# PLE (the 28.8 GB n-gram table): STRATA_PLE_IO=direct in this file's cmd —
+# do NOT set ram here as the swift lane does. 76.3 GB of resident experts
 # + 28.8 GB table + 3.6 GB int8 KV > the box's 107 GB; the table must stream
 # from sdc.
 #
@@ -36,7 +36,8 @@
 # same BF16 encoder every quant of this base model shares and the pack layout
 # (--compat-bf16) matches the IQ4_XS lane that already serves images. Verified
 # end-to-end: an image_url request round-trips in ~6 s and transcribes text.
-# Cost: --vram-reserve-mib 700 for the encoder, taken from the expert cache.
+# Cost: --vram-reserve-mib 2048 (STRATA_VRAM_RESERVE_MIB below), shared with
+# the batch-graph headroom, taken from the expert cache.
 #
 # STRATA_VERIFY_ALL_RESIDENT=0: the 0.1.39 engine bug workaround
 # (github.com/Niko1221/Strata/issues/776, fix in PR #792, unmerged). Its
@@ -45,10 +46,11 @@
 # "parallel": 6; the ~6% solo-decode cost is cheap insurance against the
 # crash loop. Drop it once STRATA_IMAGE carries #792.
 #
-# "parallel": 6 comes from --env PARALLEL=6 in this file's cmd: the image
-# entrypoint writes it into config/strata-unsloth-ud-q4_k_xl.json on every
-# start (merge_args.py), so a REINSTALL keeps it. setup.py never passes
-# --parallel, and drops "$@". Absent = one at a time. Measured here at 262144
+# parallel, --vram-reserve-mib and --ple-io all come from this file's cmd
+# env: the image entrypoint writes them into
+# config/strata-unsloth-ud-q4_k_xl.json on every start (merge_args.py), so a
+# REINSTALL keeps them. setup.py never passes --parallel, and drops "$@".
+# Absent = one at a time. Measured here at 262144
 # with kv-resident 32768: a slot takes 0.95 GiB of VRAM (5.69 GiB for 6 — the
 # docs' 0.56 GiB is the 32K figure), which lands the expert cache at 19616
 # slots / 57.25 GiB and the pinned RAM complement at
@@ -58,11 +60,12 @@
 # but only ~88 tok/s aggregate against 108-117 tok/s solo, while 6 slots leave
 # 1.9 GiB more VRAM for experts. One of two identical 8-way bursts killed the
 # engine (every in-flight request 503, no error line in its log, lane
-# oom_kill=0 with ~65 GiB still available, so the cause is unproven — #776's
-# batch verify path is the suspect); server.py reloads it on the next request.
+# oom_kill=0); the cause is the batch-graph VRAM leak — the verify path keeps
+# one CUDA graph pair per busy-slot subset and never evicts them, see
+# merge_args.py's docstring — consistent with a VRAM, not RAM, exhaustion.
+# [inference: not re-tested on this lane]
 # The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
-# are NOT hand-set: the image entrypoint merges them into this config from
-# images/strata/merge_args.py on every start, so a REINSTALL keeps them.
+# are merged into this config the same way, on every start.
 #
 # Model files: the 111.3 GB four-shard download at pinned revision 38bb39e
 # lands under /data/models/unsloth-UD-Q4_K_XL/ (setup's tag dir) with
@@ -96,7 +99,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.4"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.5"
     proxy: http://strata-qwen3-8-flash-next-unsloth-q4kxl:8080
     cmd: >-
       docker run --init --rm --gpus all --ipc host
@@ -104,6 +107,7 @@ models:
       --network llama-swap-vllm-backend
       --env FAMILY=unsloth --env MODEL=UD-Q4_K_XL --env CONTEXT=262144
       --env VISION=no --env GPU=0 --env LOW_RAM=auto --env PARALLEL=6
+      --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=direct
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_VISION_MMPROJ=/data/models/mmproj-Qwen3.8-Flash-Next-BF16.gguf
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth-q4kxl
