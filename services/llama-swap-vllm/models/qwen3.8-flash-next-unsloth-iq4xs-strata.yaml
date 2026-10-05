@@ -48,14 +48,21 @@ models:
     # ring, so the second concurrent chat hits "verify batch: timed out at layer
     # 0", the engine exits 1 and restarts, in a loop. Cost per the issue: solo
     # decode ~6% slower. Drop it once STRATA_IMAGE carries #792.
-    # "parallel": 8 is hand-set in
-    # /mnt/more-models/strata/config/strata-unsloth-ud-iq4_xs.json after setup
-    # writes it: docker-entrypoint.sh builds setup.py's arguments itself and
-    # drops "$@", so --parallel is never passed and setup omits the key.
-    # Absent = one at a time. Each slot costs 0.56 GiB of VRAM (its session, KV
+    # PARALLEL=6 (was 8): the verify-batch window grows with the busy-slot
+    # count, and instantiating a 5-slot window over 30-45k-token prompts
+    # overran the VRAM past --vram-reserve-mib 700 — "verify: batch
+    # instantiate: out of memory", engine exit 1, llama-swap restart loop
+    # (2026-10-05). 6 caps the window; the q4kxl lane measured 6 at 262144.
+    # merge_args.py writes the env into the config json on every start, so a
+    # REINSTALL keeps it. Each slot costs 0.95 GiB of VRAM (its session, KV
     # streaming keeping the rest in RAM) plus its whole KV cache in pinned RAM
     # (3.3 GB at 262144), and batch slots carry no MTP drafts and no
     # repetition/presence penalties.
+    # --vram-reserve-mib 2048 is hand-set in
+    # /mnt/more-models/strata/config/strata-unsloth-ud-iq4_xs.json (setup
+    # writes 700; merge_args leaves a lane's own value alone): strata-vision
+    # holds 1.46 GiB on the same card outside the engine's accounting, and
+    # 700 left no room for the verify-batch graphs on top.
     # The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
     # are NOT hand-set: the image entrypoint merges them into this config from
     # images/strata/merge_args.py on every start, so a REINSTALL keeps them.
@@ -91,7 +98,7 @@ models:
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
       --env FAMILY=unsloth --env MODEL=UD-IQ4_XS --env CONTEXT=262144
-      --env VISION=yes --env GPU=0 --env LOW_RAM=auto --env PARALLEL=8
+      --env VISION=yes --env GPU=0 --env LOW_RAM=auto --env PARALLEL=6
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth
       --env STRATA_VERIFY_ALL_RESIDENT=0
