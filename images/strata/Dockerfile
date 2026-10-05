@@ -13,7 +13,13 @@
 #
 # build-images.yml pins this image to amd64 and caches the layers below to a
 # :buildcache tag in ghcr: they are GBs, and the repo-wide GHA cache is 10 GB.
-# Upstream targets x86-64 AVX2.
+# Upstream's CMakeLists FORCEs GGML_NATIVE ON unless STRATA_PORTABLE (the AVX2
+# release build) or STRATA_ISA_FLOOR is given, so the engine otherwise inherits
+# the build host's ISA via -march=native. The ubuntu-latest pool mixes AVX-512
+# and AVX2 hosts, and a binary built on an AVX-512 host SIGILLs in
+# ggml_cpu_init on an AVX2-only PC: 6f32ec0.1 (built 2026-10-05) does exactly
+# that on this box's Ryzen 5700X, EVEX-encoded ymm16-19 in the ggml_cpu_init
+# prologue. Both builds below pass STRATA_PORTABLE=ON.
 #
 # llama-swap spawns this with the upstream env contract (FAMILY, MODEL, CONTEXT,
 # VISION, GPU/GPUS, LOW_RAM, HOST, PORT, API_KEY). :8080 is the engine, :8000 is
@@ -47,7 +53,9 @@ ARG CUDA_ARCHITECTURES=120
 ARG BUILD_VISION=1
 # setup.cmake_build sizes ninja at max(2, cpu_count // 2), so the 4-vCPU runner
 # compiles with -j 2: 25 of the 27 min this image takes uncached. Single-arch
-# nvcc at -j 4 stays inside the runner's 16 GB.
+# nvcc at -j 4 stays inside the runner's 16 GB. The default is sized for that
+# runner, not for a local build: this box's 8 cores / 96 GB take
+# --build-arg BUILD_JOBS=8 (nvcc is the RAM sink, ~2 GB per job at one arch).
 ARG BUILD_JOBS=4
 
 RUN python3 -m venv .venv \
@@ -74,12 +82,12 @@ arch = os.environ.get("CUDA_ARCHITECTURES", "75;80;86;89;120").strip().strip('"'
 vision = "gpu" if os.environ.get("BUILD_VISION", "1") == "1" else "none"
 
 setup.cmake_build(setup.ROOT, setup.ROOT / "build", "strata",
-    ["-DSTRATA_ENABLE_CUDA=ON", "-DSTRATA_BUILD_TESTS=OFF",
+    ["-DSTRATA_ENABLE_CUDA=ON", "-DSTRATA_BUILD_TESTS=OFF", "-DSTRATA_PORTABLE=ON",
      f"-DCMAKE_CUDA_ARCHITECTURES={arch}", f"-DCMAKE_CUDA_COMPILER={nvcc}",
      f"-DSTRATA_GGML_DIR={llama}"], None, "build-strata.bat")
 if vision != "none":
     setup.cmake_build(setup.ROOT / "tools" / "vision", setup.ROOT / "build-vision", "strata-vision",
-        [f"-DLLAMA_DIR={llama}", "-DSTRATA_VISION_CUDA=ON",
+        [f"-DLLAMA_DIR={llama}", "-DSTRATA_VISION_CUDA=ON", "-DSTRATA_PORTABLE=ON",
          f"-DCMAKE_CUDA_ARCHITECTURES={arch}", f"-DCMAKE_CUDA_COMPILER={nvcc}"], None, "build-vision.bat")
 
 eng = setup.ROOT / "engine"
