@@ -23,7 +23,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.2"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.3"
     proxy: http://strata-swift-1-5-flash:8080
     # LOW_RAM=on because the host's MemTotal (107 GB) lies to setup.py, which
     # sizes RAM from /proc/meminfo: with all experts pinned it needs ~75 GB,
@@ -109,7 +109,7 @@ models:
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
       --env FAMILY=swift --env MODEL=IQ3_XXS --env CONTEXT=262144
-      --env VISION=yes --env GPU=0 --env LOW_RAM=on
+      --env VISION=yes --env GPU=0 --env LOW_RAM=on --env PARALLEL=8
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-swift-1-5-flash
       --env STRATA_VERIFY_ALL_RESIDENT=0

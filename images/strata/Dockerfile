@@ -22,7 +22,7 @@
 # prologue. Both builds below pass STRATA_PORTABLE=ON.
 #
 # llama-swap spawns this with the upstream env contract (FAMILY, MODEL, CONTEXT,
-# VISION, GPU/GPUS, LOW_RAM, HOST, PORT, API_KEY). :8080 is the engine, :8000 is
+# VISION, GPU/GPUS, LOW_RAM, PARALLEL, HOST, PORT, API_KEY). :8080 is the engine, :8000 is
 # metrics_exporter.py, which Alloy's vllm_backends scrape reads because the
 # engine's own /metrics is JSON.
 ARG CUDA_TAG=13.0.1-devel-ubuntu24.04@sha256:7d2f6a8c2071d911524f95061a0db363e24d27aa51ec831fcccf9e76eb72bc92

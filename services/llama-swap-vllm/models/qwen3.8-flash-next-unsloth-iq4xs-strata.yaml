@@ -28,7 +28,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.2"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.3"
     proxy: http://strata-qwen3-8-flash-next-unsloth:8080
     # LOW_RAM=auto: setup.py warns that --low-ram does not apply to a budget
     # model (it always reads part of its experts through the file cache), so the
@@ -91,7 +91,7 @@ models:
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
       --env FAMILY=unsloth --env MODEL=UD-IQ4_XS --env CONTEXT=262144
-      --env VISION=yes --env GPU=0 --env LOW_RAM=auto
+      --env VISION=yes --env GPU=0 --env LOW_RAM=auto --env PARALLEL=8
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth
       --env STRATA_VERIFY_ALL_RESIDENT=0

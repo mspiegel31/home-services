@@ -38,13 +38,13 @@
 # "parallel": 6; the ~6% solo-decode cost is cheap insurance against the
 # crash loop. Drop it once STRATA_IMAGE carries #792.
 #
-# "parallel": 6 is hand-set in
-# /mnt/more-models/strata/config/strata-unsloth-ud-q4_k_xl.json after setup
-# writes it: docker-entrypoint.sh builds setup.py's arguments itself and drops
-# "$@", so --parallel is never passed and setup omits the key. Absent = one at
-# a time. Measured here at 262144 with kv-resident 32768: a slot takes 0.95 GiB
-# of VRAM (5.69 GiB for 6 — the docs' 0.56 GiB is the 32K figure), which lands
-# the expert cache at 19616 slots / 57.25 GiB and the pinned RAM complement at
+# "parallel": 6 comes from --env PARALLEL=6 in this file's cmd: the image
+# entrypoint writes it into config/strata-unsloth-ud-q4_k_xl.json on every
+# start (merge_args.py), so a REINSTALL keeps it. setup.py never passes
+# --parallel, and drops "$@". Absent = one at a time. Measured here at 262144
+# with kv-resident 32768: a slot takes 0.95 GiB of VRAM (5.69 GiB for 6 — the
+# docs' 0.56 GiB is the 32K figure), which lands the expert cache at 19616
+# slots / 57.25 GiB and the pinned RAM complement at
 # 14.48 GiB, against 18961 / 55.33 GiB / 16.39 GiB at 8 slots (21576 slots /
 # 62.98 GiB / 8.75 GiB with no slots at all). A slot decodes one token per
 # window, without MTP drafts: 8 concurrent 300-token chats measured 8/8 200s
@@ -89,14 +89,14 @@ models:
       vision: false
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.2"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:6f32ec0.3"
     proxy: http://strata-qwen3-8-flash-next-unsloth-q4kxl:8080
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
       --env FAMILY=unsloth --env MODEL=UD-Q4_K_XL --env CONTEXT=262144
-      --env VISION=no --env GPU=0 --env LOW_RAM=auto
+      --env VISION=no --env GPU=0 --env LOW_RAM=auto --env PARALLEL=6
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth-q4kxl
       --env STRATA_VERIFY_ALL_RESIDENT=0

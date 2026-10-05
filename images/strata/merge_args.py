@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Why this exists: the lane config json is written once by setup.py and never
-refreshed — the engine's multi-session cache flags are not in setup.py's env
-contract, and hand-edits are lost on a reinstall. The entrypoint runs this on
-every start, after any setup pass and before setup.py serves. Flags already in
-the config (a lane's own override) are left alone.
+refreshed — the engine's multi-session cache flags and the batch-slot count
+are not in setup.py's env contract, and hand-edits are lost on a reinstall.
+The entrypoint runs this on every start, after any setup pass and before
+setup.py serves. Flags already in the config (a lane's own override) are left
+alone.
 
 The symptom it fixes: with the engine's default 6 prompt-cache checkpoints, one
 90k-token chat session holds all of them, so two interleaved sessions evict
@@ -27,8 +28,12 @@ STANDARD_ARGS = [
     "--conversation-cache-min-free-mib", "8192",
 ]
 
+# server.py's own range for cfg["parallel"]; outside it the server ignores the
+# value with a warning, so refuse it here instead of writing a broken config.
+PARALLEL_MIN, PARALLEL_MAX = 2, 8
 
-def merge(path):
+
+def merge(path, parallel=None):
     with open(path) as f:
         cfg = json.load(f)
     args = cfg.setdefault("args", [])
@@ -38,6 +43,17 @@ def merge(path):
         if flag not in have:
             args += [flag, value]
             added.append(f"{flag} {value}")
+    if parallel:
+        # the lane yaml's PARALLEL env is the declarative source for the batch
+        # slots; an empty value leaves whatever the volume already has (the
+        # engine's own default is one request at a time).
+        n = int(parallel) if parallel.isdigit() else 0
+        if not PARALLEL_MIN <= n <= PARALLEL_MAX:
+            print(f"[strata] PARALLEL={parallel} is not {PARALLEL_MIN}..{PARALLEL_MAX}: "
+                  f"leaving the config's own value", flush=True)
+        elif cfg.get("parallel") != n:
+            cfg["parallel"] = n
+            added.append(f"parallel {n}")
     if added:
         with open(path, "w") as f:
             json.dump(cfg, f, indent=1)
@@ -47,4 +63,4 @@ def merge(path):
 
 
 if __name__ == "__main__":
-    merge(sys.argv[1])
+    merge(*sys.argv[1:3])

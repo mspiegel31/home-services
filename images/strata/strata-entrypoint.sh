@@ -24,6 +24,7 @@ GPUS="${GPUS:-}"                # "0,2" or "all": one model across several cards
 GPU="${GPU:-}"                  # one card, numbered as nvidia-smi numbers them
 LAYER_SPLIT="${LAYER_SPLIT:-}"  # with GPUS: where each later card's layers start (default: auto)
 LOW_RAM="${LOW_RAM:-auto}"      # on: the experts come from the pack's experts.bin, not from RAM
+PARALLEL="${PARALLEL:-}"        # 2..8: requests decoded together (the engine's batch slots)
 
 # setup.py starts the newest strata-*.json it finds, so link in exactly the one
 # this family and model were set up with. The config is the recorded output of
@@ -57,11 +58,11 @@ else
   [ -e "/opt/strata/strata-$tag.json" ] || ln -s "$cfg" "/opt/strata/strata-$tag.json"
 fi
 
-# The one local change: fold the standard serve args into the config now that it
-# exists (post-setup) and before setup.py execs the server. Idempotent; a flag a
-# lane already set is left untouched.
+# The one local change: fold the standard serve args (and the PARALLEL env's
+# batch-slot count) into the config now that it exists (post-setup) and before
+# setup.py execs the server. Idempotent; a flag a lane already set is untouched.
 if [ -f "$cfg" ]; then
-  .venv/bin/python /opt/strata-exporter/merge_args.py "$cfg"
+  .venv/bin/python /opt/strata-exporter/merge_args.py "$cfg" "$PARALLEL"
 fi
 
 # Later starts skip straight here: setup.py finds the installed config and
