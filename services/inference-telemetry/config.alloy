@@ -131,7 +131,7 @@ discovery.relabel "logs" {
   rule {
     action        = "keep"
     source_labels = ["keepme"]
-    regex         = "(litellm|llama-swap-vllm);.*|;.+"
+    regex         = "(litellm|llama-swap(-vllm)?);.*|;.+"
   }
   // job = app for compose containers...
   rule {
@@ -148,10 +148,25 @@ discovery.relabel "logs" {
     replacement   = "vllm"
     target_label  = "job"
   }
+  // Loki ingest-time service_name discovery falls back app -> container ->
+  // job, so raw docker-run model backends get their container name. Pin the
+  // model label instead: Logs Drilldown then groups by model, not container.
+  rule {
+    action        = "replace"
+    source_labels = ["model"]
+    regex         = "(.+)"
+    target_label  = "service_name"
+  }
+  rule {
+    action        = "replace"
+    source_labels = ["app"]
+    regex         = "(.+)"
+    target_label  = "service_name"
+  }
   // Keep the container id: loki.source.docker keys tailers on it.
   rule {
     action = "labelkeep"
-    regex  = "__meta_docker_container_id|container|app|model|job"
+    regex  = "__meta_docker_container_id|container|app|model|job|service_name"
   }
 }
 

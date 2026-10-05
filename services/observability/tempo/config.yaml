@@ -31,8 +31,11 @@ metrics_generator:
 
 # tempo 2.9: processors live in overrides, flat key (generator.Config has no
 # processors field); dashed names, the plan's underscore form is invalid.
+# local-blocks is mandatory for Grafana Traces Drilldown's TraceQL metrics
+# (span rate/duration/error ratio); without it the panel fails with
+# "localblocks processor not found".
 overrides:
-  metrics_generator_processors: [service-graphs, span-metrics]
+  metrics_generator_processors: [local-blocks, service-graphs, span-metrics]
 
 storage:
   trace:
