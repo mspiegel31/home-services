@@ -32,6 +32,15 @@ by Portainer — never commit them.
 - Backends are addressed by docker network DNS
   (`proxy: http://<container-name>:8000`); the router container shares the
   `llama-swap-vllm-backend` network. Never proxy via host loopback ports.
+- The router reads `config.yaml` and every `models/*.yaml` **once at startup**:
+  a merged change to a model's `cmd` is not live until the stack is redeployed
+  (or `docker restart llama-swap-vllm`). git-sync updating the checkout within
+  30s is not enough, and there is no reload endpoint (`/api/reload`,
+  `/api/restart`, `/api/admin/*` are 404; `/api/version` and `/api/profiles`
+  are keyed and read-only). `-watch-config` is deliberately NOT set: with it,
+  every 30s sync of a changed config reloads the router and can unload a lane
+  someone is using mid-session. So: **a lane change ships as a stack redeploy**,
+  and a lane still running an older `cmd` is expected until then.
 
 ## Configuration tips
 1. it's always worth checking https://recipes.vllm.ai/ to see if there are tips and tricks if we're using vllm as the engine
