@@ -66,21 +66,26 @@ models:
     # few percent on single-stream decode plus no cold-start stall. Budget
     # here: 50.3 GB experts + 28.8 GB table + 3.6 GB int8 KV against 107 GB.
     # Chat template: Strata renders the tokenizer dir's chat_template.jinja
-    # (serve/server.py:4014, the config's "tokenizer" key). Setup writes the
-    # GGUF's embedded template there - 8,952 bytes, reasoning_effort defaulting
-    # to xhigh, accepting only low/medium/xhigh. A read-only single-file bind
-    # mounts the repo's Froggeric v22.5 template
+    # (serve/server.py:4014, the config's "tokenizer" key), which setup writes
+    # from the GGUF's embedded template (reasoning_effort defaulting to xhigh,
+    # accepting only low/medium/xhigh).
+    # /mnt/more-models/strata/tokenizers/qwen3.8-flash-next supplies the whole
+    # directory instead: vocab.json, merges.txt, token_type.json and
+    # tokenizer.json are byte-identical between Swift 1.5 and the base model's
+    # UD-IQ4_XS (cmp-verified - all three lanes are the same Qwen3.8-Flash-Next
+    # tokenizer), and chat_template.jinja is the repo's Froggeric v22.5
     # (images/vllm-fastokens/qwen3.8-froggeric-v22.5.jinja, 28,250 bytes,
-    # default medium) over it, so this lane renders the same template as the
-    # vLLM lanes: per-message think_on/think_off state, tool-argument
-    # truncation, preserve_thinking. The bind survives a re-pack, which would
-    # overwrite a copied file.
-    # FIRST START ONLY: run the cmd with the bind line removed. Setup's
-    # tokenizer writer (tools/strata_tokenizer.py:297) opens that exact path
-    # for writing and dies with EROFS against the read-only bind; the pack is
-    # left with vocab.json and no native_experts.txt. Restore the line after
-    # setup finishes - with vocab.json and the bind in place both setup's and
-    # iq_pack.py's guards skip the writer, so later starts are unaffected.
+    # default medium), so this lane renders what the vLLM lanes render:
+    # per-message think_on/think_off state, tool-argument truncation,
+    # preserve_thinking.
+    # It is mounted as a DIRECTORY over <pack>/tokenizer, never as a
+    # single-file bind over chat_template.jinja: the extraction guards test for
+    # vocab.json (setup.py:4182) and vocab.json+chat_template.jinja
+    # (tools/iq_pack.py:564), so a file bind creates the template while
+    # vocab.json is still missing, the one writer that then runs dies with
+    # EROFS, and the 0-byte file it leaves makes every later run skip the
+    # writer and serve an empty template. With the directory mounted, both
+    # guards skip the writer and nothing is ever written into the pack.
     # LiteLLM's callback registers this id as a plain Qwen route, so an
     # uncontrolled request keeps Froggeric's medium default.
     cmd: >-
@@ -93,7 +98,7 @@ models:
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-iq3s
       --env STRATA_VERIFY_ALL_RESIDENT=0
       --volume /mnt/more-models/strata:/data
-      --volume /mnt/more-models/strata/chat-templates/qwen3.8-froggeric-v22.5.jinja:/data/packs/iq3_s/tokenizer/chat_template.jinja:ro
+      --volume /mnt/more-models/strata/tokenizers/qwen3.8-flash-next:/data/packs/iq3_s/tokenizer:ro
       --label io.mspiegel.llama-swap.managed=true
       --label io.mspiegel.llama-swap.model=${MODEL_ID}
       --name strata-qwen3-8-flash-next-iq3s
