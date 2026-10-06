@@ -134,12 +134,15 @@ pocket-id.<MGMT_DOMAIN> A  192.168.1.39
 monitor.<MGMT_DOMAIN>   A  192.168.1.39
 ```
 
-Two resolution hazards:
+Resolution facts (verified 2026-10-06):
 
-- **DNS rebinding protection.** UniFi (verified 2026-10-06) returns these
-  private A records unfiltered; if a resolver ever does filter public names
-  that resolve to private addresses, add local Host (A) records under
-  Settings → Policy Table → DNS.
+- **The gateway intercepts DNS for the zone.** Answers carry the
+  authoritative-answer flag even when queried at external nameservers, and
+  it caches negative answers for the zone (SOA minimum, 30 min). The A
+  records resolve fine, but lego's ACME propagation check can never see the
+  `_acme-challenge` TXT record, so the compose sets
+  `dnschallenge.propagation.disablechecks=true`. Do not "fix" this by
+  pointing lego at other resolvers — port 53 is intercepted too.
 - **The host itself must resolve them.** Omni reaches the Pocket ID issuer
   by hostname, so the TrueNAS host's resolver must return the private
   address too. If it does not, add a host override rather than weakening the
