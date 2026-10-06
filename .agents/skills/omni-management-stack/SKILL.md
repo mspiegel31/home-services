@@ -124,7 +124,8 @@ certificate per hostname and consume an ACME order each time.
 
 ## DNS
 
-Four A records (or one wildcard) pointing at the host address:
+Already created in Cloudflare (DNS-only, grey cloud): the four A records
+below pointing at the host address — create them only if rebuilding:
 
 ```text
 omni.<MGMT_DOMAIN>      A  192.168.1.39
@@ -135,9 +136,10 @@ monitor.<MGMT_DOMAIN>   A  192.168.1.39
 
 Two resolution hazards:
 
-- **DNS rebinding protection.** Gateways (UniFi) and some resolvers refuse
-  public names that resolve to private addresses. Allow-list the management
-  subzone, or the names fail to resolve and it looks like a stack fault.
+- **DNS rebinding protection.** UniFi (verified 2026-10-06) returns these
+  private A records unfiltered; if a resolver ever does filter public names
+  that resolve to private addresses, add local Host (A) records under
+  Settings → Policy Table → DNS.
 - **The host itself must resolve them.** Omni reaches the Pocket ID issuer
   by hostname, so the TrueNAS host's resolver must return the private
   address too. If it does not, add a host override rather than weakening the
@@ -155,18 +157,20 @@ Two resolution hazards:
    sudo python3 truenas_setup.py prep
    ```
 2. Create the scoped Cloudflare API token (Zone → DNS → Edit, limited to
-   the management zone only) and the four DNS records.
+   the management zone only). The four A records already exist in
+   Cloudflare (DNS-only, → 192.168.1.39); create them only if missing.
 3. Create the edge stack in Portainer (Edge Stacks → Add stack → Repository)
    pointing at this repository, the compose path
    `services/omni/docker-compose.yml`, and the branch or SHA you intend to
    run; set every variable from the table below. `OMNI_CONFIG_REF` must
    match the deployed ref.
 4. Let the first stage come up (git-sync → traefik → pocket-id → kuma;
-   `omni` runs on the pre-OIDC config with `auth.oidc.enabled: false`, so it
-   does not crash-loop). Create the operator user and passkey at
+   `omni` restart-loops on the missing config until step 4's finalize —
+   v1.12.2 refuses to start with no auth provider enabled). Create the
+   operator user and passkey at
    `https://pocket-id.<MGMT_DOMAIN>:9443/setup`, register the Omni OIDC
    client, then run `sudo python3 truenas_setup.py finalize` (client ID/
-   secret, operator email) to complete `omni-config.yaml`, and redeploy so
+   secret, operator email) to write `omni-config.yaml`, and redeploy so
    `omni` starts with OIDC.
 5. Verify: certificates issued (green padlock, no trust import), the four
    hostnames resolve and route, and the Omni login flow completes.
