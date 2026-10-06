@@ -8,6 +8,20 @@
       - type: split-column
         widgets:
         - type: bookmarks
+          title: Management
+          groups:
+            - title: Omni stack
+              links:
+                - title: Omni
+                  icon: auto-invert sh:sidero-omni
+                  url: https://omni.mgmt.electricgarage.net:9443
+                - title: Pocket ID (Omni)
+                  icon: auto-invert sh:pocket-id
+                  url: https://pocket-id.mgmt.electricgarage.net:9443
+                - title: Uptime Kuma
+                  icon: auto-invert sh:uptime-kuma
+                  url: https://monitor.mgmt.electricgarage.net:9443
+        - type: bookmarks
           title: Applications
           groups:
             - title: NVR
