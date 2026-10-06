@@ -30,7 +30,8 @@ models:
     # expert-weight offload and the native SimpleCPU prefix tier are separate.
     # InstantTensor's GPU staging OOMs during MTP loading on this 72 GB GPU;
     # safetensors loads the same weights without that transient allocation.
-    # Validated 2026-09-28 on the 5700G / PCIe 3.0 x16 host: 15 GiB expert
+    # Validated 2026-09-28 on the 5700X / PCIe 4.0 x16 host (link runs
+    # 16.0 GT/s x16): 15 GiB expert
     # offload yields 5.47 GiB GPU cache (353,864 tokens, 1.35x at 262,144).
     # An uncached 261,632-token prompt + 512 output tokens passed retrieval:
     # 152.9s TTFT, ~25.7 output tok/s. VM retained ~15 GiB available RAM.
