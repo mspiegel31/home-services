@@ -11,10 +11,14 @@
 #   MGMT_DOMAIN (the management subzone, used for the wildcard certificate)
 #
 # Certificates: every router requests the SAME wildcard via the `mgmt` ACME
-# resolver, so Traefik performs exactly one DNS-01 order for
-# `*.<MGMT_DOMAIN>` and reuses that single certificate for all four SNI
-# names. A per-router resolver without `domains` would instead issue four
-# separate certificates and consume four ACME orders.
+# resolver: `tls.domains` is exactly one entry, main = `*.<MGMT_DOMAIN>`,
+# with no `sans` — one DNS-01 order, one authorization, reused for all four
+# SNI names. Do not add the subzone apex to the order: apex and wildcard
+# authorizations share one `_acme-challenge` TXT name, and lego's sequential
+# present/validate/clean-up then races Let's Encrypt into an NXDOMAIN for the
+# second authorization (observed 2026-10-06). No hostname uses the bare
+# subzone apex, so it needs no certificate. A router with `certResolver` but
+# no `domains` would instead issue a separate certificate per hostname.
 #
 # Upstream topology (loopback-only, host network):
 #   Omni API     h2c://127.0.0.1:8443   cleartext HTTP/2, gRPC-capable
@@ -34,9 +38,7 @@ http:
       tls:
         certResolver: mgmt
         domains:
-          - main: '{{ env "MGMT_DOMAIN" }}'
-            sans:
-              - '*.{{ env "MGMT_DOMAIN" }}'
+          - main: '*.{{ env "MGMT_DOMAIN" }}'
 
     omni-k8s:
       rule: Host(`{{ env "OMNI_K8S_HOSTNAME" }}`)
@@ -46,9 +48,7 @@ http:
       tls:
         certResolver: mgmt
         domains:
-          - main: '{{ env "MGMT_DOMAIN" }}'
-            sans:
-              - '*.{{ env "MGMT_DOMAIN" }}'
+          - main: '*.{{ env "MGMT_DOMAIN" }}'
 
     pocket-id:
       rule: Host(`{{ env "POCKET_ID_HOSTNAME" }}`)
@@ -58,9 +58,7 @@ http:
       tls:
         certResolver: mgmt
         domains:
-          - main: '{{ env "MGMT_DOMAIN" }}'
-            sans:
-              - '*.{{ env "MGMT_DOMAIN" }}'
+          - main: '*.{{ env "MGMT_DOMAIN" }}'
 
     monitor:
       rule: Host(`{{ env "MONITOR_HOSTNAME" }}`)
@@ -70,9 +68,7 @@ http:
       tls:
         certResolver: mgmt
         domains:
-          - main: '{{ env "MGMT_DOMAIN" }}'
-            sans:
-              - '*.{{ env "MGMT_DOMAIN" }}'
+          - main: '*.{{ env "MGMT_DOMAIN" }}'
 
   services:
     omni-svc:
