@@ -1,9 +1,9 @@
 # Management reverse proxy — dynamic routes (TrueNAS variant).
 #
-# Rendered as a Go template by the Traefik file provider: the
-# {{ env "..." }} placeholders resolve from the container environment at
-# load time. watch=false in the static config, so a change here takes
-# effect on a deliberate Traefik restart.
+# Traefik's file provider renders this whole file as a Go template, comments
+# included: never write template braces in a comment, or the provider fails
+# to start and every route returns 404. watch=false in the static config, so
+# a change here takes effect on a deliberate Traefik restart.
 #
 # Certificates: every router requests the SAME wildcard via the `mgmt`
 # resolver — `tls.domains` is exactly one entry, main = `*.<MGMT_DOMAIN>`,
@@ -14,11 +14,11 @@
 #
 # Two quoting traps — both silent until deploy:
 #   1. The file must be valid YAML *including* the placeholder text, so the
-#      wildcard entry is single-quoted (unquoted, `{{` parses as a flow
-#      mapping and `*` as an alias).
+#      wildcard entry is single-quoted (unquoted, the template braces parse
+#      as a YAML flow mapping and the asterisk as an alias).
 #   2. Never put quotes inside the templated value: Traefik parses the YAML
 #      first and templates the resulting value, so injected quotes land in
-#      the domain string and ACME orders `"*...."`.
+#      the domain string and ACME orders a quoted domain.
 #
 # Upstreams are loopback-only (host network). Unmatched hosts receive
 # Traefik's default 404: there is no catch-all router.
