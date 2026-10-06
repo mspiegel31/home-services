@@ -1,32 +1,27 @@
 # Management reverse proxy — dynamic routes (TrueNAS variant).
 #
-# Consumed by the Traefik file provider, which renders this file as a Go
-# template: the {{ env "..." }} placeholders are resolved from the container
-# environment at load time (no entrypoint script, no sed, no templating
-# sidecar). watch=false in the static config, so a change here takes effect
-# on a deliberate Traefik restart.
+# Rendered as a Go template by the Traefik file provider: the
+# {{ env "..." }} placeholders resolve from the container environment at
+# load time. watch=false in the static config, so a change here takes
+# effect on a deliberate Traefik restart.
 #
-# Hostnames, set in the compose `traefik.environment` block:
-#   OMNI_HOSTNAME, OMNI_K8S_HOSTNAME, POCKET_ID_HOSTNAME, MONITOR_HOSTNAME,
-#   MGMT_DOMAIN (the management subzone, used for the wildcard certificate)
+# Certificates: every router requests the SAME wildcard via the `mgmt`
+# resolver — `tls.domains` is exactly one entry, main = `*.<MGMT_DOMAIN>`,
+# with no `sans`: one DNS-01 order, one authorization, reused for all SNI
+# names. Wildcard-only is a hard rule: never add the subzone apex to the
+# order (apex/wildcard TXT race — home-prod/docs/management-stack.md →
+# Known traps). No hostname uses the bare apex, so it needs no certificate.
 #
-# Certificates: every router requests the SAME wildcard via the `mgmt` ACME
-# resolver: `tls.domains` is exactly one entry, main = `*.<MGMT_DOMAIN>`,
-# with no `sans` — one DNS-01 order, one authorization, reused for all four
-# SNI names. Do not add the subzone apex to the order: apex and wildcard
-# authorizations share one `_acme-challenge` TXT name, and lego's sequential
-# present/validate/clean-up then races Let's Encrypt into an NXDOMAIN for the
-# second authorization (observed 2026-10-06). No hostname uses the bare
-# subzone apex, so it needs no certificate. A router with `certResolver` but
-# no `domains` would instead issue a separate certificate per hostname.
+# Two quoting traps — both silent until deploy:
+#   1. The file must be valid YAML *including* the placeholder text, so the
+#      wildcard entry is single-quoted (unquoted, `{{` parses as a flow
+#      mapping and `*` as an alias).
+#   2. Never put quotes inside the templated value: Traefik parses the YAML
+#      first and templates the resulting value, so injected quotes land in
+#      the domain string and ACME orders `"*...."`.
 #
-# Upstream topology (loopback-only, host network):
-#   Omni API     h2c://127.0.0.1:8443   cleartext HTTP/2, gRPC-capable
-#   k8s-proxy    https://127.0.0.1:8095 TLS, self-signed, unverified (loopback)
-#   Pocket ID    http://127.0.0.1:1411  bridge service on host loopback
-#   Kuma         http://127.0.0.1:3001  bridge service on host loopback
-#
-# Unmatched hosts receive Traefik's default 404: there is no catch-all router.
+# Upstreams are loopback-only (host network). Unmatched hosts receive
+# Traefik's default 404: there is no catch-all router.
 
 http:
   routers:
@@ -60,16 +55,6 @@ http:
         domains:
           - main: '*.{{ env "MGMT_DOMAIN" }}'
 
-    monitor:
-      rule: Host(`{{ env "MONITOR_HOSTNAME" }}`)
-      entryPoints:
-        - websecure
-      service: kuma-svc
-      tls:
-        certResolver: mgmt
-        domains:
-          - main: '*.{{ env "MGMT_DOMAIN" }}'
-
   services:
     omni-svc:
       loadBalancer:
@@ -87,16 +72,10 @@ http:
         servers:
           - url: http://127.0.0.1:1411
 
-    kuma-svc:
-      loadBalancer:
-        servers:
-          - url: http://127.0.0.1:3001
-
-  # Upstream trust for the Omni k8s-proxy hop: the listener is always TLS and
-  # serves a self-signed certificate, so verification is skipped. The tradeoff
-  # is accepted because the hop is loopback-only (127.0.0.1) — there is no
-  # network path on which an attacker could present a different certificate.
-  # serverName is unnecessary: with verification off, no SAN has to match.
+  # The k8s-proxy listener is always TLS with a self-signed certificate, so
+  # verification is skipped. Accepted because the hop is loopback-only
+  # (127.0.0.1): no network path exists on which a wrong certificate could
+  # be presented. serverName is unnecessary with verification off.
   serversTransports:
     k8sproxy:
       insecureSkipVerify: true

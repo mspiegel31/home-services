@@ -18,9 +18,6 @@
                 - title: Pocket ID (Omni)
                   icon: auto-invert sh:pocket-id
                   url: https://pocket-id.mgmt.electricgarage.net:9443
-                - title: Uptime Kuma
-                  icon: auto-invert sh:uptime-kuma
-                  url: https://monitor.mgmt.electricgarage.net:9443
         - type: bookmarks
           title: Applications
           groups:
