@@ -105,22 +105,36 @@ Routes (single `:9443` listener; one hostname each):
 ## Certificates
 
 One **wildcard** certificate per management subzone. All four routers carry
-the same `tls.domains` block, so Traefik performs exactly one DNS-01 order
-for `*.<MGMT_DOMAIN>` and reuses that certificate for every SNI name. A
-router with `certResolver` but no `domains` would instead issue a separate
-certificate per hostname and consume an ACME order each time.
+the same `tls.domains` block — a single entry, `main: '*.<MGMT_DOMAIN>'`,
+no `sans` — so Traefik performs exactly one DNS-01 order for one
+authorization and reuses that certificate for every SNI name. A router with
+`certResolver` but no `domains` would instead issue a separate certificate
+per hostname and consume an ACME order each time.
 
-**Two traps in `traefik/dynamic.yaml`** — both silent until deploy:
+**Never add the subzone apex to the order** (e.g. `main: '<MGMT_DOMAIN>'`
+with the wildcard as a SAN). Apex and wildcard authorizations share one
+`_acme-challenge.<MGMT_DOMAIN>` TXT name; lego presents, validates, and
+cleans up sequentially, and the apex challenge's clean-up deletes the record
+while Let's Encrypt is still validating the wildcard — observed 2026-10-06
+as `invalid authorization ... NXDOMAIN` on the wildcard with the apex
+validated. No hostname uses the bare subzone apex, so it needs no
+certificate. Pair wildcard-only with
+`propagation.delayBeforeChecks=60s` (plus `disablechecks=true`, see DNS
+section): with checks disabled lego sleeps the delay after creating the TXT
+record before notifying ACME, giving Cloudflare's anycast fleet time to
+serve it.
+
+**Two traps in `traefik/dynamic.yaml`** - both silent until deploy:
 
 1. The template file must be valid YAML *including* the placeholder text,
-   so `main:` and the wildcard entry are single-quoted. Unquoted, `{{` is
-   parsed as a YAML flow mapping and `*` as an alias.
+ so the wildcard entry is single-quoted. Unquoted, `{{` is parsed as a YAML
+ flow mapping and `*` as an alias.
 2. Do **not** put quotes inside the templated value to achieve (1).
-   Traefik parses the YAML first and templates the resulting *value*, so
-   `'"*.{{ env "MGMT_DOMAIN" }}"'` yields a domain string with literal
-   quote characters, and ACME then tries to order a certificate for
-   `"*.…"`. Verify with the Traefik API (`/api/http/routers`) that `sans`
-   reads `*.mgmt.example.net`, not `"*.mgmt.example.net"`.
+ Traefik parses the YAML first and templates the resulting *value*, so
+ `'"*.{{ env "MGMT_DOMAIN" }}"'` yields a domain string with literal
+ quote characters, and ACME then tries to order a certificate for
+ `"*...."`. Verify with the Traefik API (`/api/http/routers`) that the
+ certificate's `main` reads `*.mgmt.example.net`, not `"*.mgmt.example.net"`.
 
 ## DNS
 

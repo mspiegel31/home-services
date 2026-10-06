@@ -206,6 +206,12 @@ services:
       # the LAN, so the local pre-check is skipped; a genuinely missing
       # record still fails the order at ACME.
       - "--certificatesresolvers.mgmt.acme.dnschallenge.propagation.disablechecks=true"
+      # With checks disabled, lego sleeps this delay after creating the TXT
+      # record before notifying ACME, so Cloudflare's anycast fleet has the
+      # record when Let's Encrypt queries it. The order is wildcard-only (see
+      # traefik/dynamic.yaml), so exactly one authorization — and one TXT
+      # record — is in flight and there is nothing to race with.
+      - "--certificatesresolvers.mgmt.acme.dnschallenge.propagation.delayBeforeChecks=60s"
       # Telemetry off; anonymous usage off.
       - "--global.checknewversion=false"
       - "--global.sendanonymoususage=false"
