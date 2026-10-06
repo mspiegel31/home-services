@@ -14,9 +14,8 @@ passkeys).
   backup/recovery: `.agents/skills/omni-management-stack/SKILL.md`.
 - Proxmox clustering prerequisites and the safe seed-vs-join checklist:
   `.agents/skills/omni-proxmox-cluster/SKILL.md`.
-- Bootstrap inputs, the management DNS helper and the full
-  deployment/operations procedure live in
-  `home-prod/bootstrap/management/` and
+- Bootstrap inputs, the host setup script and the full deployment/operations
+  procedure live in `home-prod/bootstrap/management/` and
   `home-prod/docs/management-stack.md`.
 - Endpoints are LAN/VPN-only. Management-host downtime is accepted and
   must not stop household identity or existing Kubernetes workloads.

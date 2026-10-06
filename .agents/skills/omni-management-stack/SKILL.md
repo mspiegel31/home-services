@@ -77,7 +77,7 @@ plan-mandated machine API. External LAN/VPN exposure is exactly
   rendered from `{{ env "..." }}`, placed by the `git-sync` sidecar.
 - **Omni** — host network; listeners set in the reviewed
   `omni-config.yaml`: API `127.0.0.1:8443` (cleartext h2c), k8s-proxy
-  `127.0.0.1:8095` (TLS, internal CA), machine API `0.0.0.0:8090`
+  `127.0.0.1:8095` (TLS, self-signed), machine API `0.0.0.0:8090`
   (LAN/VPN direct from Talos nodes).
 - **Pocket ID / Uptime Kuma** — bridge network, published to host loopback
   only (`127.0.0.1:1411`, `127.0.0.1:3001`); Traefik reaches them there.
@@ -97,7 +97,7 @@ Routes (single `:9443` listener; one hostname each):
 | Hostname | Upstream |
 |---|---|
 | `omni.<MGMT_DOMAIN>` | `h2c://127.0.0.1:8443` (gRPC-capable) |
-| `omni-k8s.<MGMT_DOMAIN>` | `https://127.0.0.1:8095` (internal CA trusted, SNI pinned) |
+| `omni-k8s.<MGMT_DOMAIN>` | `https://127.0.0.1:8095` (self-signed; `insecureSkipVerify` — loopback-only hop, no network path to attack) |
 | `pocket-id.<MGMT_DOMAIN>` | `http://127.0.0.1:1411` |
 | `monitor.<MGMT_DOMAIN>` | `http://127.0.0.1:3001` |
 | anything else | Traefik default 404 (no catch-all router) |
@@ -145,15 +145,14 @@ Two resolution hazards:
 
 ## Bring-up order
 
-1. Create the host directory tree on TrueNAS under
-   `/mnt/tank/container-configs/omni-mgmt/` (repo convention for services on
-   this host, so ZFS snapshots and backups cover it):
-   `omni/` (state), `omni-config/` (reviewed config + `omni.asc` + internal
-   TLS), `pocket-id/`, `pocket-id-key/encryption.key`, `omni-k8s-ca/ca.crt`,
-   `provider/`, `pve-ca-bundle.pem`, `git/`, `acme/`, `kuma/`.
-   Then fix ownership for the identity service:
+1. Run the host setup script on TrueNAS (creates the directory tree under
+   `/mnt/tank/container-configs/omni-mgmt/` with correct modes/ownership,
+   generates the account UUID, etcd GPG key, Pocket ID encryption key and the
+   self-signed k8s-proxy cert, and pre-creates every bind-mount file target so
+   Docker cannot create directories in their place). Idempotent; see
+   `home-prod/docs/management-stack.md` for the exact invocation:
    ```sh
-   chown -R 1000:1000 /mnt/tank/container-configs/omni-mgmt/pocket-id
+   sudo python3 truenas_setup.py prep
    ```
 2. Create the scoped Cloudflare API token (Zone → DNS → Edit, limited to
    the management zone only) and the four DNS records.
@@ -162,11 +161,13 @@ Two resolution hazards:
    `services/omni/docker-compose.yml`, and the branch or SHA you intend to
    run; set every variable from the table below. `OMNI_CONFIG_REF` must
    match the deployed ref.
-4. Let the first stage come up (git-sync → traefik → pocket-id → kuma), then
-   create the operator user and passkey at
+4. Let the first stage come up (git-sync → traefik → pocket-id → kuma;
+   `omni` runs on the pre-OIDC config with `auth.oidc.enabled: false`, so it
+   does not crash-loop). Create the operator user and passkey at
    `https://pocket-id.<MGMT_DOMAIN>:9443/setup`, register the Omni OIDC
-   client, complete `omni-config.yaml` (client ID/secret, account UUID, etcd
-   GPG key), and redeploy so `omni` starts.
+   client, then run `sudo python3 truenas_setup.py finalize` (client ID/
+   secret, operator email) to complete `omni-config.yaml`, and redeploy so
+   `omni` starts with OIDC.
 5. Verify: certificates issued (green padlock, no trust import), the four
    hostnames resolve and route, and the Omni login flow completes.
 
@@ -182,21 +183,19 @@ plus the PVE CA; do not use `insecureSkipVerify`.
 
 ## Portainer variables (UI, no env_file)
 
-Required values use the fail-fast `${VAR:?message}` form, so a missing value
-fails the deployment loudly instead of resolving to an empty string.
+Only `TZ`, `ACME_EMAIL`, `CF_DNS_API_TOKEN`, `MGMT_DOMAIN` and
+`OMNI_CONFIG_REF` are required (fail-fast `${VAR:?…}` form). The four
+hostnames default to their well-known labels under `MGMT_DOMAIN` (`omni.`,
+`omni-k8s.`, `pocket-id.`, `monitor.`), `POCKET_ID_URL` defaults to
+`https://pocket-id.<MGMT_DOMAIN>:9443`, and `PUID`/`PGID` default to `1000` —
+override only for a non-default layout.
 
 | Variable | Used by | Notes |
 |---|---|---|
 | `TZ` | all | time zone |
-| `PUID`, `PGID` | pocket-id | container user for `/app/data`; use a dedicated app uid/gid on the host |
 | `ACME_EMAIL` | traefik | ACME account email for DNS-01 |
 | `CF_DNS_API_TOKEN` | traefik | scoped Cloudflare token, **Zone:DNS:Edit for the management zone only** — never a Global API Key |
-| `MGMT_DOMAIN` | traefik | the management subzone, e.g. `mgmt.example.net`; the wildcard is derived from it |
-| `OMNI_HOSTNAME` | traefik | e.g. `omni.mgmt.example.net` |
-| `OMNI_K8S_HOSTNAME` | traefik | e.g. `omni-k8s.mgmt.example.net` |
-| `POCKET_ID_HOSTNAME` | traefik | e.g. `pocket-id.mgmt.example.net` |
-| `MONITOR_HOSTNAME` | traefik | e.g. `monitor.mgmt.example.net` |
-| `POCKET_ID_URL` | pocket-id | issuer URL, must match `POCKET_ID_HOSTNAME` and include the port, e.g. `https://pocket-id.mgmt.example.net:9443` |
+| `MGMT_DOMAIN` | traefik | the management subzone, e.g. `mgmt.example.net`; the wildcard and all four hostnames derive from it |
 | `OMNI_CONFIG_REF` | git-sync | config ref to sync; must match the edge-stack ref |
 | `PROVIDER_KEY` | provider | infra provider key; injected via env, never argv (provider profile only) |
 
@@ -227,7 +226,7 @@ The `git-sync` sidecar places the non-secret config into a shared volume:
 
 **Separation of secrets from config:** the operator-protected host files —
 Omni `omni-config.yaml` + `omni.asc`, the provider `config.yaml`, the Pocket
-ID encryption key, the internal CA, the PVE CA bundle, and all `${VAR}`
+ID encryption key, the k8s-proxy key, the PVE CA bundle, and all `${VAR}`
 values — stay on the host and are never checked in. Only the non-secret
 proxy config travels through git-sync.
 

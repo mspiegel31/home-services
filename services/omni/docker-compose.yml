@@ -22,17 +22,16 @@ name: omni-mgmt
 # cannot collide with the public proxy records already in that zone.
 #
 # Portainer CE edge stack: no env_file by design. Every ${VAR} is declared
-# explicitly below; set values in the Portainer edge-stack UI. Required
-# values use the fail-fast `${VAR:?message}` form so a missing value fails
-# loudly instead of resolving to an empty string. Secrets are never stored
-# in this file. The variable table lives in
-# `.agents/skills/omni-management-stack/SKILL.md`.
+# explicitly below; set values in the Portainer edge-stack UI. Genuinely
+# required values use the fail-fast `${VAR:?message}` form so a missing value
+# fails loudly instead of resolving to an empty string; values with a correct
+# default (hostnames under MGMT_DOMAIN, PUID/PGID) use `${VAR:-default}` so
+# the minimum variable set is small. Secrets are never stored in this file.
+# The variable table lives in `.agents/skills/omni-management-stack/SKILL.md`.
 #
 # Only one LAN-facing port: TrueNAS owns 80/443 for its own UI, so Traefik
 # terminates TLS on 9443. Everything else is routed by Host header on that
-# single entrypoint, so no per-service host ports exist (the previous
-# four-entrypoint scheme existed only because IP-only routing needs one port
-# per service).
+# single entrypoint, so no per-service host ports exist.
 #
 # The Traefik dynamic route config is a Go template delivered by the
 # git-sync sidecar into a shared volume, because Portainer CE drops compose
@@ -45,7 +44,7 @@ name: omni-mgmt
 #     CLI flags (single source of truth); no entrypoint script, no dashboard,
 #     no access log, no labels provider, no Docker socket.
 #   - Omni: host network; API 127.0.0.1:8443 (cleartext h2c), k8s-proxy
-#     127.0.0.1:8095 (TLS, internal CA), machine API 0.0.0.0:8090 (LAN/VPN
+#     127.0.0.1:8095 (TLS, self-signed), machine API 0.0.0.0:8090 (LAN/VPN
 #     direct for Talos nodes). No private API is bound to 0.0.0.0 except the
 #     machine API and SideroLink.
 #   - Pocket ID / Uptime Kuma: bridge, published to host loopback only.
@@ -123,7 +122,7 @@ services:
     volumes:
       # Embedded etcd + sqlite (durable, backed up per docs/management-stack.md)
       # and the reviewed config: omni-config.yaml, the omni.asc etcd GPG key,
-      # the internal TLS certs for the k8s-proxy listener, and the internal CA.
+      # and the self-signed TLS pair for the k8s-proxy listener.
       - /mnt/tank/container-configs/omni-mgmt/omni:/var/lib/omni
       - /mnt/tank/container-configs/omni-mgmt/omni-config:/etc/omni:ro
     command: --config-path=/etc/omni/omni-config.yaml
@@ -146,7 +145,7 @@ services:
     container_name: omni-pocket-id
     image: ghcr.io/pocket-id/pocket-id:v2.16.0
     environment:
-      APP_URL: ${POCKET_ID_URL:?Set POCKET_ID_URL in Portainer}
+      APP_URL: ${POCKET_ID_URL:-https://pocket-id.${MGMT_DOMAIN}:9443}
       # Secrets at rest are encrypted with this key. Read from a file so the
       # value never appears in argv, inspect output or this repository.
       ENCRYPTION_KEY_FILE: /etc/pocket-id/encryption.key
@@ -155,8 +154,8 @@ services:
       UI_CONFIG_DISABLED: "true"
       ANALYTICS_DISABLED: "true"
       VERSION_CHECK_DISABLED: "true"
-      PUID: ${PUID:?Set PUID in Portainer}
-      PGID: ${PGID:?Set PGID in Portainer}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
       TZ: ${TZ:?Set TZ in Portainer}
     volumes:
       - /mnt/tank/container-configs/omni-mgmt/pocket-id:/app/data
@@ -170,8 +169,8 @@ services:
   traefik:
     # Management reverse proxy. Terminates the public DNS-01 certificates for
     # the management hostnames and routes to Pocket ID + monitor over host
-    # loopback and to Omni (API h2c; k8s-proxy TLS with the internal CA
-    # trusted).
+    # loopback and to Omni (API h2c; k8s-proxy TLS with the self-signed
+    # certificate accepted unverified — loopback-only hop, see dynamic.yaml).
     #
     # All static configuration is CLI flags. The dynamic route config is read
     # from the git-sync volume and rendered as a native Go template by the
@@ -207,12 +206,14 @@ services:
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?Set CF_DNS_API_TOKEN in Portainer}
       # Site hostnames and the subzone, rendered into the route config by the
       # file provider's Go-template support. The wildcard certificate is
-      # derived from MGMT_DOMAIN.
+      # derived from MGMT_DOMAIN. Each hostname defaults to its well-known
+      # label under MGMT_DOMAIN, so MGMT_DOMAIN alone is enough; override an
+      # individual hostname only for a non-default layout.
       MGMT_DOMAIN: ${MGMT_DOMAIN:?Set MGMT_DOMAIN in Portainer}
-      OMNI_HOSTNAME: ${OMNI_HOSTNAME:?Set OMNI_HOSTNAME in Portainer}
-      OMNI_K8S_HOSTNAME: ${OMNI_K8S_HOSTNAME:?Set OMNI_K8S_HOSTNAME in Portainer}
-      POCKET_ID_HOSTNAME: ${POCKET_ID_HOSTNAME:?Set POCKET_ID_HOSTNAME in Portainer}
-      MONITOR_HOSTNAME: ${MONITOR_HOSTNAME:?Set MONITOR_HOSTNAME in Portainer}
+      OMNI_HOSTNAME: ${OMNI_HOSTNAME:-omni.${MGMT_DOMAIN}}
+      OMNI_K8S_HOSTNAME: ${OMNI_K8S_HOSTNAME:-omni-k8s.${MGMT_DOMAIN}}
+      POCKET_ID_HOSTNAME: ${POCKET_ID_HOSTNAME:-pocket-id.${MGMT_DOMAIN}}
+      MONITOR_HOSTNAME: ${MONITOR_HOSTNAME:-monitor.${MGMT_DOMAIN}}
       TZ: ${TZ:?Set TZ in Portainer}
     volumes:
       # ACME account key and issued certificates. Durable: losing it means
@@ -220,9 +221,6 @@ services:
       - /mnt/tank/container-configs/omni-mgmt/acme:/data
       # Templated route config delivered by git-sync.
       - /mnt/tank/container-configs/omni-mgmt/git:/config:ro
-      # CA for the Traefik -> Omni k8s-proxy hop (serversTransport.rootCAs).
-      # Internal CA, machine-facing only: nothing a browser ever sees.
-      - /mnt/tank/container-configs/omni-mgmt/omni-k8s-ca/ca.crt:/etc/traefik/certs/omni-k8s-ca.crt:ro
     depends_on:
       # Routes are only live once git-sync has delivered the route config.
       git-sync:
