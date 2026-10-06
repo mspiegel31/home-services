@@ -196,6 +196,16 @@ services:
       - "--certificatesresolvers.mgmt.acme.email=${ACME_EMAIL:?Set ACME_EMAIL in Portainer}"
       - "--certificatesresolvers.mgmt.acme.storage=/data/acme.json"
       - "--certificatesresolvers.mgmt.acme.dnschallenge.provider=cloudflare"
+      # The LAN resolver answers port-53 queries for this zone itself and
+      # caches negative answers (verified 2026-10-06: responses carry `aa`
+      # even when sent to external nameservers, and a pre-creation NXDOMAIN
+      # persists ~7 minutes after the TXT record exists). lego's own
+      # propagation check therefore always sees a stale NXDOMAIN and fails
+      # the order. Cloudflare's API write is synchronous and Let's Encrypt
+      # validates against Cloudflare's authoritative servers from outside
+      # the LAN, so the local pre-check is skipped; a genuinely missing
+      # record still fails the order at ACME.
+      - "--certificatesresolvers.mgmt.acme.dnschallenge.propagation.disablechecks=true"
       # Telemetry off; anonymous usage off.
       - "--global.checknewversion=false"
       - "--global.sendanonymoususage=false"
