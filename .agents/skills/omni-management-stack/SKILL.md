@@ -64,10 +64,11 @@ has no WebAuthn credential.
 
 ## Topology
 
-Loopback-minimal; no private API is bound to `0.0.0.0` except the
-plan-mandated machine API. External LAN/VPN exposure is exactly
-`9443/tcp` (Traefik TLS), `8090/tcp` (Omni machine API) and
-`50180/udp` (SideroLink WireGuard).
+Loopback-minimal; no private API is bound to a wildcard. External LAN/VPN
+exposure is exactly `9443/tcp` (Traefik TLS), `8090/tcp` (Omni machine API,
+bound to the specific LAN IPv4 — never `0.0.0.0`, which Go opens as a
+dual-stack IPv6 wildcard that collides with the SideroLink event sink on the
+WireGuard IPv6) and `50180/udp` (SideroLink WireGuard).
 
 - **Traefik** — host network; binds `192.168.1.39:9443` (TLS, DNS-01).
   This is the **only** listener: TrueNAS owns 80/443 for its own UI, and
@@ -77,7 +78,7 @@ plan-mandated machine API. External LAN/VPN exposure is exactly
   rendered from `{{ env "..." }}`, placed by the `git-sync` sidecar.
 - **Omni** — host network; listeners set in the reviewed
   `omni-config.yaml`: API `127.0.0.1:8443` (cleartext h2c), k8s-proxy
-  `127.0.0.1:8095` (TLS, self-signed), machine API `0.0.0.0:8090`
+  `127.0.0.1:8095` (TLS, self-signed), machine API `192.168.1.39:8090`
   (LAN/VPN direct from Talos nodes).
 - **Pocket ID / Uptime Kuma** — bridge network, published to host loopback
   only (`127.0.0.1:1411`, `127.0.0.1:3001`); Traefik reaches them there.

@@ -44,9 +44,12 @@ name: omni-mgmt
 #     CLI flags (single source of truth); no entrypoint script, no dashboard,
 #     no access log, no labels provider, no Docker socket.
 #   - Omni: host network; API 127.0.0.1:8443 (cleartext h2c), k8s-proxy
-#     127.0.0.1:8095 (TLS, self-signed), machine API 0.0.0.0:8090 (LAN/VPN
-#     direct for Talos nodes). No private API is bound to 0.0.0.0 except the
-#     machine API and SideroLink.
+#     127.0.0.1:8095 (TLS, self-signed), machine API 192.168.1.39:8090
+#     (LAN/VPN direct for Talos nodes). Bind the specific LAN IPv4, never
+#     0.0.0.0: Go opens 0.0.0.0 as a dual-stack IPv6 wildcard that collides
+#     with the SideroLink event sink on the WireGuard IPv6 (same port 8090).
+#     No private API is bound to a wildcard; only the machine API and
+#     SideroLink are LAN-facing.
 #   - Pocket ID / Uptime Kuma: bridge, published to host loopback only.
 #   - Provider: host network (opt-in profile), reaches the loopback Omni API.
 #
