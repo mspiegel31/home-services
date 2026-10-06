@@ -28,6 +28,10 @@ metrics_generator:
     remote_write:
       - url: "http://victoriametrics:8428/api/v1/write"
         send_exemplars: false
+  # local-blocks fails init without a traces WAL; each failed init grew the
+  # heap unbounded (grafana/tempo#5491).
+  traces_storage:
+    path: /var/tempo/generator/traces
 
 # tempo 2.9: processors live in overrides, flat key (generator.Config has no
 # processors field); dashed names, the plan's underscore form is invalid.
