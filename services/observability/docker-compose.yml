@@ -148,6 +148,13 @@ services:
     volumes:
       - observability-config:/grafana:ro
       - /mnt/tank/container-configs/observability/tempo:/var/tempo
+    # Backstop: a stuck metrics-generator WAL loop once grew this process
+    # to 4 GiB of live heap on ~1 span/s. Working set is a few hundred MB;
+    # the cap bounds blast radius on the shared TrueNAS host.
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     depends_on:
       git-sync:
         condition: service_healthy
