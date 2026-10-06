@@ -179,7 +179,7 @@ def apply() -> None:
             print("[config-apply] Migrated retired household-auth plugin out of live config")
     gateway = config.get("gateway")
     if isinstance(gateway, dict):
-        for key in ("multiplex_profiles", "multiplex_profile_allowlist", "profile_routes"):
+        for key in ("multiplex_profile_allowlist", "profile_routes"):
             if key in gateway:
                 gateway.pop(key)
                 print(f"[config-apply] Migrated retired gateway.{key} out of live config")
@@ -302,7 +302,9 @@ def check() -> int:
 
         # Retired principal-layer state must be gone from the live root
         # config: the household-auth plugin entry and the gateway
-        # multiplex/profile-routing settings are migrated out by apply().
+        # profile-routing settings are migrated out by apply(). (Upstream
+        # v2026.9.24 owns gateway.multiplex_profiles and rewrites it on
+        # every start, so it is no longer treated as retired state.)
         # A lingering entry means an apply has not converged since the
         # retirement, so readiness drops instead of running un-converged.
         plugins = root_config.get("plugins")
@@ -310,7 +312,7 @@ def check() -> int:
             raise RuntimeError("retired household-auth plugin still enabled in live root config")
         gateway = root_config.get("gateway")
         if isinstance(gateway, dict):
-            stale = [k for k in ("multiplex_profiles", "multiplex_profile_allowlist", "profile_routes") if k in gateway]
+            stale = [k for k in ("multiplex_profile_allowlist", "profile_routes") if k in gateway]
             if stale:
                 raise RuntimeError(f"retired gateway settings {sorted(stale)} still present in live root config")
     except (RuntimeError, OSError, yaml.YAMLError) as exc:
