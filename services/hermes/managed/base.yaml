@@ -16,11 +16,11 @@ providers:
     api: http://192.168.1.98:4000/v1
     key_env: LITELLM_KEY
     transport: chat_completions
-    default_model: swift-qwen3.8-27b-nvfp4
+    default_model: qwen3.8-flash-next-unsloth-iq4xs-strata
     discover_models: true
 
 model:
-  default: swift-qwen3.8-27b-nvfp4
+  default: qwen3.8-flash-next-unsloth-iq4xs-strata
   provider: custom:home-litellm
   streaming: true
 
