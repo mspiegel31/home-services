@@ -68,15 +68,14 @@
       - type: group
         widgets:
         - type: releases
-          title: Work
+          title: llms
           show-source-icon: true
           cache: 5m
           token: ${GITHUB_TOKEN}
           repositories:
-            # work
-            - codefresh-io/gitops-runtime-helm
-            - backstage/backstage
-            - kubernetes/kubernetes
+            - Niko1221/Strata
+            - vllm-project/vllm
+            - sgl-project/sglang
 
         - type: releases
           title: self-hosted
@@ -90,6 +89,17 @@
             - blakeblackshear/frigate
             - koush/scrypted
             - karakeep-app/karakeep
+
+        - type: releases
+          title: Work
+          show-source-icon: true
+          cache: 5m
+          token: ${GITHUB_TOKEN}
+          repositories:
+            # work
+            - codefresh-io/gitops-runtime-helm
+            - backstage/backstage
+            - kubernetes/kubernetes
 
     - size: full
       widgets:
