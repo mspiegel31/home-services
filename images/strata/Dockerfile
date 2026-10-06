@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv unzip \
     && rm -rf /var/lib/apt/lists/*
 
-ARG STRATA_REF=6f32ec070f23ced9f50e704d854d775da52591ab
+ARG STRATA_REF=82f46a8c8f475f001ad76d92f58f4a4f8ffb0253
 
 WORKDIR /opt/strata
 RUN git init -q . \
