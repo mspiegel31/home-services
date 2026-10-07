@@ -68,8 +68,15 @@ models:
     # 63 subsets of 6 slots (rule: post-load free VRAM >= (2^6-1) x ~9 MiB x
     # 1.5). Each slot costs 0.95 GiB of VRAM at 262144 with --kv-resident
     # 32768 (its session, KV streaming keeping the rest in RAM) plus its whole
-    # KV cache in pinned RAM (3.3 GB at 262144), and batch slots carry no MTP
-    # drafts and no repetition/presence penalties.
+    # KV cache in pinned RAM (3.3 GB at 262144); batch slots carry no
+    # repetition/presence penalties and no MTP drafts unless
+    # STRATA_BATCH_MTP=1 (below).
+    # STRATA_BATCH_MTP=1 (0.1.40, PR #846): batch slots keep MTP drafts —
+    # +31-39% aggregate with 2-4 clients, upstream on the RTX PRO 5000;
+    # graceful degrade (logged) if draft state exceeds free VRAM.
+    # STRATA_PREFILL_CPU_SHARE=auto (0.1.40.2): CPU computes least-routed
+    # experts for prompt chunks under 1024 tokens, 19-35% faster chat turns;
+    # not byte-identical (mean KL 0.006).
     # The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
     # are merged into this config the same way, on every start.
     # Chat template: Strata renders the tokenizer dir's chat_template.jinja
@@ -104,6 +111,7 @@ models:
       --env FAMILY=swift --env MODEL=IQ3_XXS --env CONTEXT=262144
       --env VISION=yes --env GPU=0 --env LOW_RAM=on --env PARALLEL=6
       --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=ram
+      --env STRATA_BATCH_MTP=1 --env STRATA_PREFILL_CPU_SHARE=auto
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-swift-1-5-flash
       --volume /mnt/more-models/strata:/data

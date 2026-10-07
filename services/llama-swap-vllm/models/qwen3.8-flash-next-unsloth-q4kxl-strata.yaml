@@ -66,9 +66,12 @@
 # state on top of its 0.95 GiB session; post-load free here is ~2.1 GiB
 # (nvidia-smi 71333/73415 with the 2 GiB reserve), above the 850 MiB
 # batch-graph floor. If the drafts don't fit the engine says so in its log
-# and batches without them (docs/BATCHING.md) — degrade is graceful. Not
-# yet verified on this lane: the router still serves the pre-restart
-# 6f32ec0.5 (0.1.39) container until llama-swap-vllm is restarted.
+# and batches without them (docs/BATCHING.md) — degrade is graceful.
+# STRATA_PREFILL_CPU_SHARE=auto (0.1.40.2): CPU computes least-routed
+# experts for prompt chunks under 1024 tokens, 19-35% faster chat turns;
+# not byte-identical (mean KL 0.006).
+# Verified on the iq4xs lane (same engine e8ca9af): two back-to-back
+# 8-way bursts, 16/16 200s, no verify-timeout or OOM lines.
 #
 # Model files: the 111.3 GB four-shard download at pinned revision 38bb39e
 # lands under /data/models/unsloth-UD-Q4_K_XL/ (setup's tag dir) with
@@ -114,7 +117,7 @@ models:
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_VISION_MMPROJ=/data/models/mmproj-Qwen3.8-Flash-Next-BF16.gguf
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth-q4kxl
-      --env STRATA_BATCH_MTP=1
+      --env STRATA_BATCH_MTP=1 --env STRATA_PREFILL_CPU_SHARE=auto
       --volume /mnt/more-models/strata:/data
       --volume /mnt/more-models/strata/tokenizers/qwen3.8-flash-next:/data/packs/unsloth-ud-q4_k_xl/tokenizer:ro
       --label io.mspiegel.llama-swap.managed=true

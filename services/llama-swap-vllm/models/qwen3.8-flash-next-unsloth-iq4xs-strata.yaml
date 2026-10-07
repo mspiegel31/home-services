@@ -49,8 +49,17 @@ models:
     # diagnosis in images/strata/merge_args.py's docstring. Each slot costs
     # 0.95 GiB of VRAM at 262144 with --kv-resident 32768 (its session, KV
     # streaming keeping the rest in RAM) plus its whole KV cache in pinned RAM
-    # (3.3 GB at 262144), and batch slots carry no MTP drafts and no
-    # repetition/presence penalties.
+    # (3.3 GB at 262144); batch slots carry no repetition/presence penalties
+    # and no MTP drafts unless STRATA_BATCH_MTP=1 (below).
+    # STRATA_BATCH_MTP=1 (0.1.40, PR #846): batch slots keep MTP drafts
+    # instead of one token per window — +31-39% aggregate with 2-4 clients,
+    # measured upstream on the RTX PRO 5000. Server env, no merge_args
+    # change. If the draft state does not fit the post-load free VRAM
+    # (measured 1736 MiB here, 850 MiB floor) the engine logs it and
+    # batches without drafts — graceful.
+    # STRATA_PREFILL_CPU_SHARE=auto (0.1.40.2): the CPU computes the
+    # least-routed experts for prompt chunks under 1024 tokens — 19-35%
+    # faster chat turns and tool calls; not byte-identical (mean KL 0.006).
     # parallel, --vram-reserve-mib 2048 and --ple-io all come from the cmd
     # env below: images/strata/merge_args.py writes them into the config json
     # on every start, so a REINSTALL keeps them. The 2 GiB reserve leaves
@@ -90,6 +99,7 @@ models:
       --env FAMILY=unsloth --env MODEL=UD-IQ4_XS --env CONTEXT=262144
       --env VISION=yes --env GPU=0 --env LOW_RAM=auto --env PARALLEL=6
       --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=direct
+      --env STRATA_BATCH_MTP=1 --env STRATA_PREFILL_CPU_SHARE=auto
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth
       --volume /mnt/more-models/strata:/data
