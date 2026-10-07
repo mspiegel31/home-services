@@ -8,17 +8,6 @@
       - type: split-column
         widgets:
         - type: bookmarks
-          title: Management
-          groups:
-            - title: Omni stack
-              links:
-                - title: Omni
-                  icon: auto-invert sh:sidero-omni
-                  url: https://omni.mgmt.electricgarage.net:9443
-                - title: Pocket ID (Omni)
-                  icon: auto-invert sh:pocket-id
-                  url: https://pocket-id.mgmt.electricgarage.net:9443
-        - type: bookmarks
           title: Applications
           groups:
             - title: NVR
@@ -38,18 +27,15 @@
                   icon: auto-invert di:hifiberry
                   url: http://192.168.1.10
         - type: bookmarks
-          title: Infrastructure
+          title: Quick Links
           groups:
-            - title: Quick Links
-              links:
+            - links:
                 - title: Router
                   icon: auto-invert sh:ubiquiti-unifi
                   url: https://192.168.1.1
                 - title: Hermes
                   icon: auto-invert mdi:robot
                   url: http://192.168.1.39:9119
-
-
                 - title: Basic Infrastructure
                   icon: auto-invert sh:portainer
                   url: https://192.168.1.51:9443/
@@ -62,6 +48,17 @@
                 - title: Hugging Face Downloader
                   icon: auto-invert si:huggingface
                   url: http://192.168.1.98:11436/
+        - type: bookmarks
+          title: Infrastructure
+          groups:
+            - title: Omni stack
+              links:
+                - title: Omni
+                  icon: auto-invert sh:sidero-omni
+                  url: https://omni.mgmt.electricgarage.net:9443
+                - title: Pocket ID (Omni)
+                  icon: auto-invert sh:pocket-id
+                  url: https://pocket-id.mgmt.electricgarage.net:9443
 
             - title: Hosts
               links:
