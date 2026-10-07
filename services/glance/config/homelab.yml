@@ -60,6 +60,24 @@
                   icon: auto-invert sh:pocket-id
                   url: https://pocket-id.mgmt.electricgarage.net:9443
 
+            - title: Observability
+              color: 180 70 50 # Teal
+              links:
+                # Home Grafana = the observability stack on TrueNAS. ${GRAFANA_URL} is the
+                # work SpotOn Grafana (used by the Work group on the Home page) - do not reuse it here.
+                - title: Inference Dashboard
+                  icon: auto-invert sh:grafana
+                  url: http://192.168.1.39:3000/d/inference/inference
+                - title: Explore (logs/traces)
+                  icon: auto-invert si:grafana
+                  url: http://192.168.1.39:3000/explore
+                - title: VictoriaMetrics
+                  icon: auto-invert sh:victoriametrics
+                  url: http://192.168.1.39:8428/vmui
+                - title: Grafana Admin
+                  icon: auto-invert sh:grafana
+                  url: http://192.168.1.39:3000
+
             - title: Hosts
               links:
                 - title: Datacenter Manager
