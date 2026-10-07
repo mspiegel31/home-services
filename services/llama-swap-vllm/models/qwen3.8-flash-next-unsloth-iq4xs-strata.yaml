@@ -28,7 +28,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:82f46a8"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:e8ca9af"
     proxy: http://strata-qwen3-8-flash-next-unsloth:8080
     # LOW_RAM=auto: setup.py warns that --low-ram does not apply to a budget
     # model (it always reads part of its experts through the file cache), so the
@@ -41,14 +41,6 @@ models:
     # Vision: MODELS["UD-IQ4_XS"] carries "vision": True, so VISION=yes is
     # valid; the encoder is the ISTA mmproj-Qwen3.8-Flash-Next-BF16.gguf that
     # the qwen family entry names, shared with the IQ3_S lane.
-    # STRATA_VERIFY_ALL_RESIDENT=0: 0.1.39 zero-doorbell verify-graph bug
-    # (github.com/Niko1221/Strata/issues/776) — with every expert in VRAM the
-    # verify window is captured as the zero-doorbell graph, which rings no
-    # layer, yet batch windows still wait on layer 0's ring, so the second
-    # concurrent chat hits "verify batch: timed out at layer 0", the engine
-    # exits 1 and restarts, in a loop. Cost per the issue: solo decode ~6%
-    # slower. Fix shipped in 0.1.40 (PR #845; #792 itself closed unmerged) —
-    # drop the flag once the new engine is verified under concurrency.
     # PARALLEL=6 (was 8): the engine's verify path keeps one CUDA graph pair
     # per distinct busy-slot subset and never evicts them (~9 MiB/pair, 2^N-1
     # subsets), so at 8 slots the pairs accumulated past --vram-reserve-mib
@@ -100,7 +92,6 @@ models:
       --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=direct
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth
-      --env STRATA_VERIFY_ALL_RESIDENT=0
       --volume /mnt/more-models/strata:/data
       --volume /mnt/more-models/strata/tokenizers/qwen3.8-flash-next:/data/packs/unsloth-ud-iq4_xs/tokenizer:ro
       --label io.mspiegel.llama-swap.managed=true

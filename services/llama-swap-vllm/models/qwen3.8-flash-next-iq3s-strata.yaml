@@ -26,7 +26,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:82f46a8"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:e8ca9af"
     proxy: http://strata-qwen3-8-flash-next-iq3s:8080
     # LOW_RAM=auto, not the Swift lane's "on": setup.py's low_ram_needed() is
     # ram < arena_gb + 10, i.e. 107 < 60.3, so it picks the RAM-resident mode by
@@ -36,16 +36,6 @@ models:
     # container is the host's total, and 107 GB is what the engine actually has.
     # ctx_ram_need() at 262144 = 50.3 + 3.59 (int8 KV) + 24 = 77.9 GB, inside
     # the box, so setup accepts the full native context without --rope-scaling.
-    # STRATA_VERIFY_ALL_RESIDENT=0: 0.1.39 zero-doorbell verify-graph bug
-    # (github.com/Niko1221/Strata/issues/776) — with every expert in VRAM the
-    # verify window is captured as the zero-doorbell graph, which rings no
-    # layer, yet batch windows still wait on layer 0's ring, so the second
-    # concurrent chat hits "verify batch: timed out at layer 0", the engine
-    # exits 1 and restarts, in a loop. 50.3 GB of experts against
-    # ~65 GB of usable VRAM means this lane lands in that all-resident case.
-    # Cost per the issue: solo decode ~6% slower. Fix shipped in 0.1.40
-    # (PR #845; #792 itself closed unmerged) — drop the flag once the new
-    # engine is verified under concurrency.
     # /data is shared with the Swift Strata lane: the mtp/rt draft layer and the
     # expert profile are the base model's, so they are reused, not rebuilt. The
     # qwen family's vision encoder is mmproj-Qwen3.8-Flash-Next-BF16.gguf, which
@@ -98,7 +88,6 @@ models:
       --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=direct
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-iq3s
-      --env STRATA_VERIFY_ALL_RESIDENT=0
       --volume /mnt/more-models/strata:/data
       --volume /mnt/more-models/strata/tokenizers/qwen3.8-flash-next:/data/packs/iq3_s/tokenizer:ro
       --label io.mspiegel.llama-swap.managed=true

@@ -17,16 +17,19 @@ The reserve and the slot cap exist because of an engine VRAM leak (verified on
 the live box 2026-10-05, engine 0.1.39): Verifier::capture_batch /
 capture_commit_batch in src/core/verify.cpp keep one CUDA graph pair per
 distinct set of busy batch slots in std::map<uint64_t, cudaGraphExec_t>
-exec_bm_, commit_bm_, keyed by batch_key(rows, S, hbase). Entries are destroyed
-only in ~Verifier(), so nothing evicts them: VRAM use grows with every new slot
-combination until cudaGraphInstantiate fails with
-`verify: batch instantiate: out of memory` and the engine restarts.
+exec_bm_, commit_bm_, keyed by batch_key(rows, S, hbase). Through 0.1.40.1
+entries were destroyed only in ~Verifier(), so VRAM use grew with every new
+slot combination until cudaGraphInstantiate failed with
+`verify: batch instantiate: out of memory` and the engine restarted.
+0.1.40.2 added LRU eviction of older slot-layout graphs on OOM (upstream
+#1185), so the accumulation is no longer fatal — the reserve below is still
+the cheap insurance, and the slot cap keeps the graph working set small.
 Cost: ~9 MiB per graph pair (linear fit 8.86 MiB/pair against nvidia-smi).
 Possible combinations: 2^N - 1 for N slots — 255 at parallel 8, 63 at parallel 6.
 Sizing rule: the post-load free VRAM (log line `strata serve: N MiB of VRAM
 free with everything loaded`) must be >= (2^PARALLEL - 1) * 9 MiB * 1.5, i.e.
->= 850 MiB at 6 slots. Distinct from upstream #776 (handled by
-STRATA_VERIFY_ALL_RESIDENT=0); upstream has no issue for this one yet.
+>= 850 MiB at 6 slots. (The older STRATA_VERIFY_ALL_RESIDENT=0 workaround was
+for upstream #776, fixed in 0.1.40.)
 
 Vision: setup.py gates images per-model (UD-Q4_K_XL inherits the unsloth
 family's "vision": False), so a lane that CAN serve images can't ask for them.

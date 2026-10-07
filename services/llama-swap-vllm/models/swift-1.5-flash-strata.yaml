@@ -23,7 +23,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:82f46a8"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:e8ca9af"
     proxy: http://strata-swift-1-5-flash:8080
     # LOW_RAM=on because the host's MemTotal (107 GB) lies to setup.py, which
     # sizes RAM from /proc/meminfo: with all experts pinned it needs ~75 GB,
@@ -97,15 +97,6 @@ models:
     # reasoning block, chat_template_kwargs.enable_thinking=false yields an
     # empty think block, native tool calls emit structured tool_calls, and an
     # unknown effort is a 400 from the engine, not a crash.
-    # STRATA_VERIFY_ALL_RESIDENT=0: 0.1.39 zero-doorbell verify-graph bug
-    # (github.com/Niko1221/Strata/issues/776) — with every expert in VRAM the
-    # verify window is captured as the zero-doorbell graph, which rings no
-    # layer, yet batch windows still wait on layer 0's ring. The second
-    # concurrent chat then hits "verify batch: timed out at layer 0", the
-    # engine exits 1 and restarts, in a loop. Cost per the issue: solo decode
-    # ~6% slower (130 -> 122 tok/s). Fix shipped in 0.1.40 (PR #845; #792
-    # itself closed unmerged) — drop the flag once the new engine is verified
-    # under concurrency.
     cmd: >-
       docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
@@ -115,7 +106,6 @@ models:
       --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=ram
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-swift-1-5-flash
-      --env STRATA_VERIFY_ALL_RESIDENT=0
       --volume /mnt/more-models/strata:/data
       --volume /mnt/more-models/strata/tokenizers/qwen3.8-flash-next:/data/packs/swift-iq3_xxs/tokenizer:ro
       --label io.mspiegel.llama-swap.managed=true
