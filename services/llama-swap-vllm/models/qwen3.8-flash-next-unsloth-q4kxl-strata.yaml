@@ -67,6 +67,16 @@
 # [inference: not re-tested on this lane]
 # The multi-session cache flags (--prompt-cache 32, --conversation-cache-*)
 # are merged into this config the same way, on every start.
+# STRATA_BATCH_MTP=1 (0.1.40, PR #846): batch slots keep MTP drafts instead
+# of one token per window — +31-39% aggregate throughput with 2-4 clients,
+# measured upstream on the RTX PRO 5000. The server reads it from its own
+# environment, so no merge_args change. VRAM caveat: each slot needs draft
+# state on top of its 0.95 GiB session; post-load free here is ~2.1 GiB
+# (nvidia-smi 71333/73415 with the 2 GiB reserve), above the 850 MiB
+# batch-graph floor. If the drafts don't fit the engine says so in its log
+# and batches without them (docs/BATCHING.md) — degrade is graceful. Not
+# yet verified on this lane: the router still serves the pre-restart
+# 6f32ec0.5 (0.1.39) container until llama-swap-vllm is restarted.
 #
 # Model files: the 111.3 GB four-shard download at pinned revision 38bb39e
 # lands under /data/models/unsloth-UD-Q4_K_XL/ (setup's tag dir) with
@@ -113,6 +123,7 @@ models:
       --env STRATA_VISION_MMPROJ=/data/models/mmproj-Qwen3.8-Flash-Next-BF16.gguf
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth-q4kxl
       --env STRATA_VERIFY_ALL_RESIDENT=0
+      --env STRATA_BATCH_MTP=1
       --volume /mnt/more-models/strata:/data
       --volume /mnt/more-models/strata/tokenizers/qwen3.8-flash-next:/data/packs/unsloth-ud-q4_k_xl/tokenizer:ro
       --label io.mspiegel.llama-swap.managed=true
