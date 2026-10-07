@@ -77,6 +77,10 @@
                   icon: auto-invert sh:proxmox
                   url: https://192.168.1.45:8006/
 
+                - title: PDM System
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.41:8006/
+
             - title: Backups
               links:
               - title: PBS - Backup
