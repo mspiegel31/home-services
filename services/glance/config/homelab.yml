@@ -65,6 +65,10 @@
 
             - title: Hosts
               links:
+                - title: Datacenter Manager
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.49:8443/
+
                 - title: Main System
                   icon: auto-invert sh:proxmox
                   url: https://192.168.1.40:8006/
