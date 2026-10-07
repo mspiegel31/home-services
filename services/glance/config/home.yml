@@ -72,6 +72,7 @@
           token: ${GITHUB_TOKEN}
           repositories:
             - Niko1221/Strata
+            - FlashML-org/FreeToken
             - vllm-project/vllm
             - sgl-project/sglang
 
