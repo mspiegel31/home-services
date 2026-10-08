@@ -60,10 +60,10 @@
                   icon: auto-invert sh:pocket-id
                   url: https://pocket-id.mgmt.electricgarage.net:9443
                 - title: Argo CD
-                  icon: auto-invert sh:argocd
+                  icon: auto-invert sh:argo-cd
                   url: https://argocd.electricgarage.net
                 - title: Longhorn
-                  icon: auto-invert sh:longhorn
+                  icon: auto-invert sh:rancher-longhorn
                   url: https://longhorn.electricgarage.net
                 # Cluster Grafana (monitoring namespace). Not the TrueNAS stack below.
                 - title: Grafana (cluster)
