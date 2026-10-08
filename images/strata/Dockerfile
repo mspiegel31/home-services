@@ -46,7 +46,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
-ARG STRATA_REF=e8ca9afd03d839d4f8dbbe82dffce7f8a3bafd7a
+ARG STRATA_REF=fb58e0dbc8399662c0e47c76578c6e878b14f6cf
 
 WORKDIR /opt/strata
 RUN git init -q . \
@@ -160,7 +160,7 @@ arch = os.environ.get("CUDA_ARCHITECTURES", "75;80;86;89;120").strip().strip('"'
 setup.cmake_build(setup.ROOT, setup.ROOT / "build", "strata",
     ["-DSTRATA_ENABLE_CUDA=ON", "-DSTRATA_BUILD_TESTS=OFF", "-DSTRATA_PORTABLE=ON",
      f"-DCMAKE_CUDA_ARCHITECTURES={arch}", f"-DCMAKE_CUDA_COMPILER={nvcc}",
-     f"-DSTRATA_GGML_DIR={llama}"], None, "build-strata.bat")
+     *setup.toolkit_root_defs(nvcc), f"-DSTRATA_GGML_DIR={llama}"], None, "build-strata.bat")
 
 eng = setup.ROOT / "engine"
 eng.mkdir(exist_ok=True)

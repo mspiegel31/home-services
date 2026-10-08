@@ -26,7 +26,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:e8ca9af"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:fb58e0d"
     proxy: http://strata-qwen3-8-flash-next-iq3s:8080
     # LOW_RAM=auto, not the Swift lane's "on": setup.py's low_ram_needed() is
     # ram < arena_gb + 10, i.e. 107 < 60.3, so it picks the RAM-resident mode by
@@ -54,9 +54,13 @@ models:
     # STRATA_BATCH_MTP=1 (0.1.40, PR #846): batch slots keep MTP drafts —
     # +31-39% aggregate with 2-4 clients, upstream on the RTX PRO 5000;
     # graceful degrade (logged) if draft state exceeds free VRAM.
-    # STRATA_PREFILL_CPU_SHARE=auto (0.1.40.2): CPU computes least-routed
-    # experts for prompt chunks under 1024 tokens, 19-35% faster chat turns;
-    # not byte-identical (mean KL 0.006).
+    # STRATA_PREFILL_CPU_SHARE=auto: the CPU computes the least-routed
+    # experts for short prompt chunks — 19-35% faster chat turns; not
+    # byte-identical (mean KL ~0.004). 0.1.41 made the share a default only
+    # for one GPU with no batch slots, but explicit auto still arms it on a
+    # batched lane's solo-request prompt path, and now also stages chunks up
+    # to STRATA_PREFILL_CPU_SHARE_MAX (3072, measured ~2% slower at 2K
+    # upstream) — pinned to 1024 to keep the 0.1.40.2 range.
     # PLE (the 28.8 GB n-gram table): STRATA_PLE_IO=direct, the engine
     # default — not the Swift lane's ram. This lane pins all 50.3 GB of
     # experts (LOW_RAM=auto), and 6 slots add ~3.3 GB of pinned KV each, so
@@ -93,6 +97,7 @@ models:
       --env VISION=yes --env GPU=0 --env LOW_RAM=auto --env PARALLEL=6
       --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=direct
       --env STRATA_BATCH_MTP=1 --env STRATA_PREFILL_CPU_SHARE=auto
+      --env STRATA_PREFILL_CPU_SHARE_MAX=1024
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-iq3s
       --volume /mnt/more-models/strata:/data

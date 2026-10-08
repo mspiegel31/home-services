@@ -28,7 +28,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:e8ca9af"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:fb58e0d"
     proxy: http://strata-qwen3-8-flash-next-unsloth:8080
     # LOW_RAM=auto: setup.py warns that --low-ram does not apply to a budget
     # model (it always reads part of its experts through the file cache), so the
@@ -57,9 +57,13 @@ models:
     # change. If the draft state does not fit the post-load free VRAM
     # (measured 1736 MiB here, 850 MiB floor) the engine logs it and
     # batches without drafts — graceful.
-    # STRATA_PREFILL_CPU_SHARE=auto (0.1.40.2): the CPU computes the
-    # least-routed experts for prompt chunks under 1024 tokens — 19-35%
-    # faster chat turns and tool calls; not byte-identical (mean KL 0.006).
+    # STRATA_PREFILL_CPU_SHARE=auto: the CPU computes the least-routed
+    # experts for short prompt chunks — 19-35% faster chat turns and tool
+    # calls; not byte-identical (mean KL ~0.004). 0.1.41 made the share a
+    # default only for one GPU with no batch slots, but explicit auto still
+    # arms it on a batched lane's solo-request prompt path, and now also
+    # stages chunks up to STRATA_PREFILL_CPU_SHARE_MAX (3072, measured ~2%
+    # slower at 2K upstream) — pinned to 1024 to keep the 0.1.40.2 range.
     # parallel, --vram-reserve-mib 2048 and --ple-io all come from the cmd
     # env below: images/strata/merge_args.py writes them into the config json
     # on every start, so a REINSTALL keeps them. The 2 GiB reserve leaves
@@ -100,6 +104,7 @@ models:
       --env VISION=yes --env GPU=0 --env LOW_RAM=auto --env PARALLEL=6
       --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=direct
       --env STRATA_BATCH_MTP=1 --env STRATA_PREFILL_CPU_SHARE=auto
+      --env STRATA_PREFILL_CPU_SHARE_MAX=1024
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth
       --volume /mnt/more-models/strata:/data
