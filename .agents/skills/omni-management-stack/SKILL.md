@@ -1,6 +1,6 @@
 ---
 name: omni-management-stack
-description: Edit-time facts for the outside-cluster management Compose stack (Omni, Omni-only Pocket ID, stock-Traefik reverse proxy, opt-in Proxmox infra provider, git-sync config sidecar) deployed as a Portainer CE edge stack on the TrueNAS SCALE host. Browser-facing endpoints use public hostnames under one management subzone with Let's Encrypt DNS-01 via Cloudflare. Use when changing services/omni/ in this repository — compose, Traefik route config, Portainer variables — or when the user asks about the stack's layout. Deployment/operations procedure lives in home-prod/docs/management-stack.md; don't use for Proxmox cluster formation (see omni-proxmox-cluster), household Pocket ID, or in-cluster Kubernetes work.
+description: Edit-time facts for the outside-cluster management Compose stack (Omni, Omni-only Pocket ID, stock-Traefik reverse proxy, git-sync config sidecar) deployed as a Portainer CE edge stack on the TrueNAS SCALE host, plus its sibling omni-provider stack. Browser-facing endpoints use public hostnames under one management subzone with Let's Encrypt DNS-01 via Cloudflare. Use when changing services/omni/ in this repository — compose, Traefik route config, Portainer variables — or when the user asks about the stack's layout. Deployment/operations procedure lives in home-prod/docs/management-stack.md; don't use for Proxmox cluster formation (see omni-proxmox-cluster), household Pocket ID, or in-cluster Kubernetes work.
 ---
 
 # Management Stack
@@ -25,8 +25,10 @@ this skill holds only what you need while editing these files.
 - Old IP-only deployment → Relationship to the retired IP-only deployment
 
 **Hard rules:**
-- A plain deployment **never** starts the Proxmox provider. Only the
-  `provider` profile does. Initial bring-up must not mutate Proxmox.
+- A plain deployment of this stack **never** starts the Proxmox provider.
+  The provider is the separate `omni-provider` stack
+  (`services/omni/provider/docker-compose.yml`); deploying it is the opt-in
+  gate. Initial bring-up must not mutate Proxmox.
 - Endpoints are LAN/VPN-only. Management-host downtime is accepted and must
   not stop household identity or existing Kubernetes workloads.
 - Secrets never enter this repository. Only the non-secret proxy config
@@ -40,7 +42,7 @@ this skill holds only what you need while editing these files.
 | `omni` | `ghcr.io/siderolabs/omni:v1.12.2` | Node lifecycle + cluster management; embedded etcd, OIDC to Pocket ID, break-glass enabled |
 | `pocket-id` | `ghcr.io/pocket-id/pocket-id:v2.16.0` | Omni-only identity; separate issuer/DB/key/clients from any household instance |
 | `traefik` | `traefik:v3.7.6` (pinned digest) | Management HTTPS; wildcard certificate via public DNS-01 using the Cloudflare provider bundled in the stock image |
-| `omni-infra-provider-proxmox` | `ghcr.io/siderolabs/omni-infra-provider-proxmox:v0.3.0` | Proxmox VM provisioning; **opt-in profile, disabled by default** |
+| `omni-infra-provider-proxmox` | `ghcr.io/siderolabs/omni-infra-provider-proxmox:v0.3.0` | Proxmox VM provisioning; **separate `omni-provider` stack, undeployed by default** |
 | `git-sync` | `registry.k8s.io/git-sync/git-sync:v4.4.2` (pinned digest) | Delivers the non-secret proxy config (`traefik/dynamic.yaml`) into a shared volume; anonymous HTTPS (public repo) |
 
 ## Listeners and routes
@@ -75,12 +77,12 @@ default to `1000` — override only for a non-default layout.
 | `CF_DNS_API_TOKEN` | traefik | scoped Cloudflare token, **Zone:DNS:Edit for the management zone only** — never a Global API Key |
 | `MGMT_DOMAIN` | traefik | the management subzone, e.g. `mgmt.example.net`; the wildcard and all hostnames derive from it |
 | `OMNI_CONFIG_REF` | git-sync | optional pin of the config branch/SHA; case-sensitive; must equal the edge stack's Reference; defaults to `main` |
-| `PROVIDER_KEY` | provider | infra provider key; injected via env, never argv (provider profile only); deliberately `${PROVIDER_KEY:-}` — compose interpolates all services regardless of profile, so fail-fast here would break plain deploys |
+| `PROVIDER_KEY` | provider stack | infra provider key on the separate `omni-provider` stack; fail-fast `${PROVIDER_KEY:?}` there is safe because that stack exists only to run the provider |
 
 Host paths and the listener address are hardcoded in the compose, matching
 the other stacks on this host (`/mnt/tank/container-configs/omni-mgmt/...`,
-`192.168.1.39:9443`). The provider's `OMNI_ENDPOINT` is the fixed loopback
-`http://127.0.0.1:8443` and is not a UI variable.
+`192.168.1.39:9443`). The provider stack's `OMNI_ENDPOINT` is the fixed
+loopback `http://127.0.0.1:8443` and is not a UI variable.
 
 ## Traefik dynamic config traps (`traefik/dynamic.yaml`)
 
@@ -144,8 +146,9 @@ the `v`** — `2.16.0` does not exist and fails as `manifest unknown`.
 - The `omni-k8s` route and its self-signed k8s-proxy certificate are
   pre-provisioned for the first cluster's kubeconfig even though no
   cluster exists yet.
-- The `provider` profile costs nothing while off; leaving it in the
-  compose is deliberate.
+- The provider lives in its own stack rather than a compose profile:
+  enabling a profile would require rewriting this stack's Portainer
+  environment through the API, which cannot round-trip redacted secrets.
 - git-sync is required by Portainer CE (see above), not legacy.
 - Passkeys are bound to the RP ID: changing the issuer hostname
   invalidates existing passkeys, and
