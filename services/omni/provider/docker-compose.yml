@@ -1,0 +1,39 @@
+name: omni-provider
+
+# Proxmox infrastructure provider for Omni — TrueNAS SCALE host, Portainer CE
+# edge stack. Deploying this stack IS the opt-in gate: while it is undeployed
+# nothing can mutate Proxmox. It is deliberately a separate stack from
+# `omni-mgmt`: enabling a compose profile would require rewriting that stack's
+# environment through the API, which cannot round-trip the redacted secrets.
+# Procedure: home-prod/docs/management-stack.md → Provider enablement gate.
+#
+# No env_file (Portainer CE rule): every ${VAR} is declared below and set in
+# Portainer's UI. PROVIDER_KEY is the Omni infra-provider key; the operator
+# pastes it once from the host file below — never into Git or chat.
+
+services:
+  omni-infra-provider-proxmox:
+    container_name: omni-infra-provider-proxmox
+    image: ghcr.io/siderolabs/omni-infra-provider-proxmox:v0.3.0
+    # Host network: reaches Omni's loopback API listener on the same host.
+    network_mode: host
+    environment:
+      # Omni's same-host loopback API listener; browser traffic still uses HTTPS.
+      OMNI_ENDPOINT: http://127.0.0.1:8443
+      # Infra-provider key (not an Omni service account key). Fail-fast: this
+      # stack exists only to run the provider, so a missing key must be loud.
+      OMNI_SERVICE_ACCOUNT_KEY: ${PROVIDER_KEY:?Set PROVIDER_KEY in Portainer}
+      # Proxmox API TLS verifies against this bundle (public roots + the PVE
+      # CA). `insecureSkipVerify` is not used.
+      SSL_CERT_FILE: /etc/ssl/certs/ca-bundle.pem
+      TZ: ${TZ:?Set TZ in Portainer}
+    volumes:
+      # Holds the least-privilege Proxmox API token, outside Git.
+      - /mnt/tank/container-configs/omni-provider/config.yaml:/etc/provider/config.yaml:ro
+      - /mnt/tank/container-configs/omni-provider/ca-bundle.pem:/etc/ssl/certs/ca-bundle.pem:ro
+    command:
+      - --config-file
+      - /etc/provider/config.yaml
+      - --id
+      - proxmox-pve-data
+    restart: unless-stopped

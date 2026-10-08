@@ -1,8 +1,9 @@
 name: omni-mgmt
 
 # Outside-cluster management stack (Omni, Omni-only Pocket ID, stock Traefik,
-# opt-in Proxmox provider, git-sync config sidecar) — TrueNAS SCALE host,
-# Portainer CE edge stack. Rationale and procedure:
+# git-sync config sidecar) — TrueNAS SCALE host, Portainer CE edge stack.
+# The Proxmox provider is a separate stack (services/omni/provider/) so
+# enabling it never rewrites this stack's environment. Rationale and procedure:
 # home-prod/docs/management-stack.md.
 # No env_file (Portainer CE rule): every ${VAR} is declared below and set in
 # the edge-stack UI. Required values use fail-fast `${VAR:?…}` so a missing
@@ -155,34 +156,3 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  omni-infra-provider-proxmox:
-    # Official Proxmox infra provider. Opt-in gate: starts only with
-    # `--profile provider`, so a plain deployment can never mutate Proxmox.
-    # Host network to reach the loopback Omni API. Enablement procedure:
-    # home-prod/docs/management-stack.md → Provider enablement gate.
-    container_name: omni-infra-provider-proxmox
-    image: ghcr.io/siderolabs/omni-infra-provider-proxmox:v0.3.0
-    profiles:
-      - provider
-    network_mode: host
-    environment:
-      # Fixed loopback endpoint for the same-host internal path; external
-      # clients still use HTTPS.
-      OMNI_ENDPOINT: http://127.0.0.1:8443
-      # Deliberately NOT fail-fast `${VAR:?}`: Compose interpolates every
-      # service regardless of profiles, so a required provider variable
-      # would fail a plain deployment that never starts the provider.
-      OMNI_SERVICE_ACCOUNT_KEY: ${PROVIDER_KEY:-}
-      # Proxmox API TLS verifies against this bundle (public roots + the PVE
-      # CA). Self-signed PVE is not supported by this variant: the bundle
-      # must exist.
-      SSL_CERT_FILE: /etc/ssl/certs/pve-ca-bundle.pem
-      TZ: ${TZ:?Set TZ in Portainer}
-    volumes:
-      # config.yaml holds the least-privilege Proxmox token, outside Git.
-      - /mnt/tank/container-configs/omni-mgmt/provider:/etc/provider:ro
-      - /mnt/tank/container-configs/omni-mgmt/pve-ca-bundle.pem:/etc/ssl/certs/pve-ca-bundle.pem:ro
-    command: --config-file /etc/provider/config.yaml
-    depends_on:
-      - omni
-    restart: unless-stopped
