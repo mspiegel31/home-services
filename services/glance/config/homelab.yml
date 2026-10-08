@@ -59,6 +59,9 @@
                 - title: Pocket ID (Omni)
                   icon: auto-invert sh:pocket-id
                   url: https://pocket-id.mgmt.electricgarage.net:9443
+                - title: Argo CD
+                  icon: auto-invert sh:argocd
+                  url: https://argocd.electricgarage.net
 
             - title: Observability
               color: 180 70 50 # Teal
