@@ -63,6 +63,10 @@ jobs:
               // CUDA devel base is tens of GB and the engine compile step is 25
               // of a 27 min build; the engine targets x86-64 AVX2.
               'strata': { platforms: 'linux/amd64', ...registryCache('strata') },
+              // Same multi-GB CUDA build as strata (only the Q6K flags
+              // differ), so it needs the same registry-cache treatment: the
+              // default GHA cache cannot hold layers this size.
+              'strata-q6k': { platforms: 'linux/amd64', ...registryCache('strata-q6k') },
               // The official signal-cli native release asset is x86_64 only.
               'signal-cli': { platforms: 'linux/amd64' },
             };
