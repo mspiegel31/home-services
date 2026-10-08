@@ -62,6 +62,13 @@
                 - title: Argo CD
                   icon: auto-invert sh:argocd
                   url: https://argocd.electricgarage.net
+                - title: Longhorn
+                  icon: auto-invert sh:longhorn
+                  url: https://longhorn.electricgarage.net
+                # Cluster Grafana (monitoring namespace). Not the TrueNAS stack below.
+                - title: Grafana (cluster)
+                  icon: auto-invert sh:grafana
+                  url: https://grafana.electricgarage.net
 
             - title: Observability
               color: 180 70 50 # Teal
