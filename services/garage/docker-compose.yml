@@ -1,0 +1,17 @@
+# Garage single-node S3 (home-prod plan §9): local backup target for
+# Longhorn volume backups + Litestream SQLite replicas. No TLS termination
+# here — the omni-mgmt Traefik (same host) fronts :3900 as
+# https://s3.mgmt.electricgarage.net:9443; SigV4 is the auth, so the router
+# carries no extra auth. Host networking: Traefik reaches 192.168.1.39:3900
+# and Garage's RPC/admin bind addresses in garage.toml control exposure.
+# Config + buckets + keys: home-prod BOOTSTRAP.md §Garage.
+services:
+  garage:
+    image: dxflrs/garage:v2.4.1
+    network_mode: "host"
+    restart: unless-stopped
+    command: ["/garage", "server", "--single-node"]
+    volumes:
+      - /mnt/tank/container-configs/GARAGE/garage.toml:/etc/garage.toml
+      - /mnt/tank/container-configs/GARAGE/meta:/var/lib/garage/meta
+      - /mnt/tank/container-configs/GARAGE/data:/var/lib/garage/data

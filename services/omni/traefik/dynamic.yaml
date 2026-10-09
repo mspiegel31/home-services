@@ -55,6 +55,16 @@ http:
         domains:
           - main: '*.{{ env "MGMT_DOMAIN" }}'
 
+    garage:
+      rule: Host(`{{ env "GARAGE_HOSTNAME" }}`)
+      entryPoints:
+        - websecure
+      service: garage-svc
+      tls:
+        certResolver: mgmt
+        domains:
+          - main: '*.{{ env "MGMT_DOMAIN" }}'
+
   services:
     omni-svc:
       loadBalancer:
@@ -71,6 +81,11 @@ http:
       loadBalancer:
         servers:
           - url: http://127.0.0.1:1411
+
+    garage-svc:
+      loadBalancer:
+        servers:
+          - url: http://192.168.1.39:3900
 
   # The k8s-proxy listener is always TLS with a self-signed certificate, so
   # verification is skipped. Accepted because the hop is loopback-only

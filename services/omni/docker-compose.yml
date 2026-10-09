@@ -143,6 +143,7 @@ services:
       OMNI_HOSTNAME: ${OMNI_HOSTNAME:-omni.${MGMT_DOMAIN}}
       OMNI_K8S_HOSTNAME: ${OMNI_K8S_HOSTNAME:-omni-k8s.${MGMT_DOMAIN}}
       POCKET_ID_HOSTNAME: ${POCKET_ID_HOSTNAME:-pocket-id.${MGMT_DOMAIN}}
+      GARAGE_HOSTNAME: ${GARAGE_HOSTNAME:-s3.${MGMT_DOMAIN}}
       TZ: ${TZ:?Set TZ in Portainer}
     volumes:
       # ACME account key + certificates: losing it means re-issuing on every
