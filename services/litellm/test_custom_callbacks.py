@@ -107,7 +107,8 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
                       "qwen3.8-flash-next-iq3s-strata",
                       "qwen3.8-flash-next-unsloth-iq4xs-strata",
                       "qwen3.8-flash-next-unsloth-q4kxl-strata",
-                      "qwen3.8-flash-next-unsloth-q6kxl-strata"):
+                      "qwen3.8-flash-next-unsloth-q6kxl-strata",
+                      "qwen3.8-flash-next-unsloth-q8-strata"):
             with self.subTest(model=model):
                 self.assertIsNone(call_hook(chat({"model": model, "max_tokens": 16})))
 
@@ -138,6 +139,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-flash-next-unsloth-iq4xs-strata",
             "qwen3.8-flash-next-unsloth-q4kxl-strata",
             "qwen3.8-flash-next-unsloth-q6kxl-strata",
+            "qwen3.8-flash-next-unsloth-q8-strata",
             "swift-1.5-flash-nvfp4",
             "swift-1.5-flash-nvfp4-d0xin",
             "swift-1.5-flash-strata",
@@ -169,6 +171,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-flash-next-unsloth-iq4xs-strata",
             "qwen3.8-flash-next-unsloth-q4kxl-strata",
             "qwen3.8-flash-next-unsloth-q6kxl-strata",
+            "qwen3.8-flash-next-unsloth-q8-strata",
             "swift-1.5-flash-nvfp4",
             "swift-1.5-flash-nvfp4-d0xin",
             "swift-1.5-flash-strata",

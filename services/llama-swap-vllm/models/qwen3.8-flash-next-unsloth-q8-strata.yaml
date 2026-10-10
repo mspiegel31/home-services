@@ -1,0 +1,109 @@
+# qwen3.8-flash-next-unsloth-q8-strata — one model in the llama-swap
+# config-dir split. Shared macros live in ../config.yaml. This file defines
+# exactly one top-level key: models.
+#
+# Unsloth's Q8_0 of the ORIGINAL Qwen3.8-Flash-Next (~188.2 GB, routed
+# experts ~133 GB). Q8_0 is the highest-precision Unsloth GGUF: the experts are
+# effectively lossless, so this lane exists for fidelity, not speed.
+#
+# WHY THIS LANE LOOKS DIFFERENT (CONFIG=, not MODEL= setup): setup.py 0.1.42's
+# MODELS table has no Q8_0 entry, so the entrypoint's MODEL= setup pass cannot
+# be used. The lane instead points CONFIG= at the hand-authored serve config
+# (../strata-configs/strata-unsloth-q8_0.json) — the same shape the Q6 lane
+# uses. merge_args.py runs on the copy and is a no-op because every standard
+# cache arg is already in the config and this lane sets none of the env
+# merge_args reads (PARALLEL, STRATA_VRAM_RESERVE_MIB, STRATA_PLE_IO,
+# STRATA_VISION_MMPROJ): the shipped config is therefore the single source of
+# truth for every serve arg.
+#
+# The repo-committed CONFIG sits on the read-only git-sync mount (/config:ro),
+# and setup.start touches/rewrites the served config, so the image copies it
+# onto the writable /data volume first (commit 5bb2fd4 added that copy to the
+# plain image too), then serves the copy. Do not mount /config writable.
+#
+# ENGINE: ${STRATA_IMAGE} is the PLAIN ghcr.io/mspiegel31/strata:61b3fb5.1
+# build, NOT the strata-q6k variant. Q8_0 needs no Q6_K grouped kernels, so the
+# Q6K build flags stay off.
+#
+# RAM plan — the same streaming regime as the Q6 lane. The 54.4 GB Q8_0 PLE
+# table streams from disk (--ple-io direct in the config), which is what frees
+# the RAM the experts need: on a 107 GB box the table cannot be mlocked
+# alongside ~133 GB of experts. The config's --resident-budget-gib 71 pins
+# ~76.3 GB of experts in RAM — the same envelope the Q4/Q6 lanes fit (76.3 GB
+# experts + 3.6 GB int8 KV + engine < 107 GB) — and the rest of the experts
+# stream from sdc per token through the expert cache.
+#
+# VRAM plan: 72 GB of VRAM caches ~66 GiB of the ~133 GB of experts; the rest
+# is served from the RAM budget and the disk stream. Expect decode far under
+# the Q4/Q6 lanes — this lane trades speed for the Q8_0 quality, and is a
+# single-user lane, not a throughput lane.
+#
+# parallel 4 (config): a conservative floor for a lane that has never run. A
+# batch slot costs ~0.95 GiB of VRAM plus its share of the verify-path
+# CUDA-graph working set (merge_args.py's docstring), and this lane's expert
+# cache is the tightest in the fleet, so every slot is VRAM taken from experts.
+#
+# [inference: NOT STARTED — this lane has never run. There are no benchmark
+# numbers for it; see the box-side provisioning below before first boot.]
+#
+# Box-side provisioning (one-time, NOT in this repo — the lane will fail to
+# boot until it is done):
+#   1. Download the six-shard Q8_0 pack (~188.2 GB) to
+#      /mnt/more-models/strata/models/unsloth-Q8_0/ with the staged
+#      downloader /mnt/more-models/strata/download-q8_0.sh (box-only, mirrors
+#      the Q4/Q6 lanes' downloaders: curl per shard, sizes + SHA-256 from the
+#      model's docs, setup-compatible .done marks). Still downloading.
+#   2. Pack it by hand — setup.py cannot:
+#        tools/iq_pack.py --gguf .../Qwen3.8-Flash-Next-Q8_0-00001-of-00006.gguf \
+#          --out packs/unsloth-q8_0 --compat-bf16
+#      (--compat-bf16 = the same layout the Q4/IQ4_XS/Q6 packs use; the engine
+#      finds the Q8_0 PLE table by name, no --ple-gguf needed.)
+#   3. Disk: the pack download (~188 GB) plus the streamed table/experts want
+#      headroom on sdc.
+#
+# Chat template: /mnt/more-models/strata/tokenizers/qwen3.8-flash-next
+# supplies the tokenizer directory with the repo's Froggeric chat_template.jinja
+# (same base model as every other lane), mounted as a DIRECTORY over
+# <pack>/tokenizer so the extraction guards skip their writers.
+#
+# Vision: wired the same way as the Q4/Q6 lanes (the shared BF16 mmproj, same
+# base model, --compat-bf16 pack layout). Unverified on this quant — drop the
+# config's vision block + --vision if the encoder rejects the pack.
+
+models:
+  "qwen3.8-flash-next-unsloth-q8-strata":
+    name: Qwen3.8 Flash Next Q8_0 (Strata, Unsloth)
+    description: Unsloth Q8_0 GGUF of Qwen3.8 Flash Next on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, 71 GiB expert RAM budget with the rest streaming from disk, Q8_0 PLE table streamed from disk, images via the shared BF16 mmproj
+    concurrencyLimit: 8
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:61b3fb5.1"
+    proxy: http://strata-qwen3-8-flash-next-unsloth-q8:8080
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --network llama-swap-vllm-backend
+      --env FAMILY=unsloth --env MODEL=Q8_0
+      --env CONFIG=/config/current/services/llama-swap-vllm/strata-configs/strata-unsloth-q8_0.json
+      --env GPU=0
+      --env HOST=0.0.0.0 --env PORT=8080
+      --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth-q8
+      --env STRATA_BATCH_MTP=1 --env STRATA_PREFILL_CPU_SHARE=auto
+      --env STRATA_PREFILL_CPU_SHARE_MAX=1024
+      --volume /mnt/more-models/strata:/data
+      --volume llama-swap_llama-swap-config:/config:ro
+      --volume /mnt/more-models/strata/tokenizers/qwen3.8-flash-next:/data/packs/unsloth-q8_0/tokenizer:ro
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      --name strata-qwen3-8-flash-next-unsloth-q8
+      ${STRATA_IMAGE}
+    cmdStop: docker stop --time 90 strata-qwen3-8-flash-next-unsloth-q8
