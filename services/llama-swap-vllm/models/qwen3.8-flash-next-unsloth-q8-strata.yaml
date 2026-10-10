@@ -52,7 +52,15 @@
 #      /mnt/more-models/strata/models/unsloth-Q8_0/ with the staged
 #      downloader /mnt/more-models/strata/download-q8_0.sh (box-only, mirrors
 #      the Q4/Q6 lanes' downloaders: curl per shard, sizes + SHA-256 from the
-#      model's docs, setup-compatible .done marks). Still downloading.
+#      HF tree API, setup-compatible .done marks):
+#        docker run -d --name strata-q8-download \
+#          -v /mnt/more-models:/mnt/more-models --entrypoint bash \
+#          ghcr.io/mspiegel31/strata:61b3fb5.1 -c \
+#          "bash /mnt/more-models/strata/download-q8_0.sh >> /mnt/more-models/strata/download-q8_0.log 2>&1"
+#      The script writes to the HOST paths above, so the volume must map
+#      /mnt/more-models onto the same path inside the container; mounting it at
+#      /data instead puts the shards in the container's overlay layer, and
+#      --rm then discards them with the container.
 #   2. Pack it by hand — setup.py cannot:
 #        tools/iq_pack.py --gguf .../Qwen3.8-Flash-Next-Q8_0-00001-of-00006.gguf \
 #          --out packs/unsloth-q8_0 --compat-bf16
