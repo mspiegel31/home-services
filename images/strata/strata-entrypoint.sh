@@ -1,8 +1,12 @@
 #!/bin/sh
-# Vendored from upstream docker-entrypoint.sh at STRATA_REF; the ONLY change is
-# the merge_args.py call before the final exec, so every lane's config carries
-# the standard multi-session cache flags. On a STRATA_REF bump, re-copy upstream
-# and re-insert that one call.
+# Vendored from upstream docker-entrypoint.sh at STRATA_REF, with two local
+# changes: the merge_args.py call before the final exec (every lane's config
+# carries the standard multi-session cache flags), and the CONFIG copy onto the
+# writable data volume (setup.py's serve path touches the config it starts, so a
+# read-only CONFIG — a lane's repo-committed config off the llama-swap git-sync
+# volume — must be copied before it can be served). On a STRATA_REF bump,
+# re-copy upstream and re-insert both changes. Byte-identical to the q6k lane's
+# entrypoint; the only difference between the two images is the q6k build flags.
 #
 # Entry point for the Strata container. The engine is compiled during docker
 # build and lives in the image, so the first start only downloads the model.
@@ -68,8 +72,17 @@ elif [ "${REINSTALL:-0}" != "1" ] && [ -L "$link" ] && [ -f "$link" ]; then
 fi
 
 if [ -n "$CONFIG" ]; then
-  ln -sfn "$CONFIG" "$link"
-  echo "Config: $CONFIG (from CONFIG)"
+  # setup.py's serve path touches and may rewrite the config it starts
+  # (setup.start: cfg_path.touch() and write_config), so a CONFIG on a read-only mount — the llama-swap
+  # git-sync volume a lane can read its repo-committed config from — must be
+  # copied onto the writable data volume first; the copy is then the served
+  # config. A CONFIG already under $STRATA_DATA is served in place.
+  case "$CONFIG" in
+    "$STRATA_DATA"/*) served="$CONFIG" ;;
+    *) cp -f "$CONFIG" "$cfg"; served="$cfg" ;;
+  esac
+  ln -sfn "$served" "$link"
+  echo "Config: $served (from CONFIG)"
 elif [ -n "$keep" ]; then
   echo "Config: $(readlink "$link") (existing link kept)"
 elif [ "${REINSTALL:-0}" = "1" ] || [ ! -f "$cfg" ]; then

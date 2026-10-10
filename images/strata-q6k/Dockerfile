@@ -5,10 +5,9 @@
 # Q6_K behind these flags (docs/UNSLOTH_Q6.md: "every grouped-kernel instance
 # is loaded at start and would cost other models expert slots"), so the stock
 # images/strata engine refuses a Q6_K_XL pack. This image is the Q6 lane's
-# engine only; keep it byte-identical to images/strata everywhere else (the
-# one deliberate divergence: strata-entrypoint.sh also copies a read-only
-# CONFIG onto the data volume, which the Q6 lane's git-sync-committed config
-# needs), and bump STRATA_REF / LLAMA_CPP_COMMIT here and there together.
+# engine only; keep it byte-identical to images/strata everywhere else
+# (strata-entrypoint.sh is literally the same file in both), and bump
+# STRATA_REF / LLAMA_CPP_COMMIT here and there together.
 #
 # Strata: Qwen3.8-Flash-Next on NVIDIA GPUs (https://github.com/Niko1221/Strata).
 #
