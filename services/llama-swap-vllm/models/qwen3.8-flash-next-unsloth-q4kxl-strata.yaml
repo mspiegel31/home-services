@@ -109,7 +109,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:fb58e0d"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:61b3fb5"
     proxy: http://strata-qwen3-8-flash-next-unsloth-q4kxl:8080
     cmd: >-
       docker run --init --rm --gpus all --ipc host

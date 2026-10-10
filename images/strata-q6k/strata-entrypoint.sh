@@ -14,6 +14,16 @@
 set -e
 cd /opt/strata || exit 1
 
+# #1584: the engine in the image is built with AVX2 CPU kernels. A host CPU without AVX2 (Sandy / Ivy Bridge Xeons,
+# Bulldozer) runs it into an illegal instruction. A warning, not a stop: recommend, never force (the flags file
+# can be wrong in a VM, and a build made on that host may be fine). STRATA_CPUINFO is for the test.
+cpuinfo="${STRATA_CPUINFO:-/proc/cpuinfo}"
+if [ -r "$cpuinfo" ] && grep -q '^flags' "$cpuinfo" && ! grep -m1 '^flags' "$cpuinfo" | grep -qw avx2; then
+  echo "WARNING: this host CPU has no AVX2. The engine in this image is built for CPUs with AVX2, so it may stop" >&2
+  echo "  with 'illegal instruction' (exit 132). Build the image on this machine (docker build), which compiles the" >&2
+  echo "  engine for the CPU it runs on, and see docs/INSTALL.md (Older CPUs, experimental) for the older-CPU build." >&2
+fi
+
 STRATA_DATA="${STRATA_DATA:-/data}"
 FAMILY="${FAMILY:-qwen}"
 MODEL="${MODEL:-IQ2_XS}"
@@ -62,7 +72,7 @@ fi
 
 if [ -n "$CONFIG" ]; then
   # setup.py's serve path touches and may rewrite the config it starts
-  # (setup.py:4083), so a CONFIG on a read-only mount — the llama-swap
+  # (setup.start: cfg_path.touch() and write_config), so a CONFIG on a read-only mount — the llama-swap
   # git-sync volume a lane can read its repo-committed config from — must be
   # copied onto the writable data volume first; the copy is then the served
   # config. A CONFIG already under $STRATA_DATA is served in place.

@@ -28,7 +28,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:fb58e0d"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:61b3fb5"
     proxy: http://strata-qwen3-8-flash-next-unsloth:8080
     # LOW_RAM=auto: setup.py warns that --low-ram does not apply to a budget
     # model (it always reads part of its experts through the file cache), so the
