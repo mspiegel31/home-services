@@ -59,6 +59,10 @@
 # boot until it is done):
 #   1. Download the six-shard UD-Q6_K_XL pack (169.2 GB) at the revision
 #      pinned in images/strata-q6k to /mnt/more-models/strata/models/unsloth-UD-Q6_K_XL/.
+#      The staged downloader that did it is
+#      /mnt/more-models/strata/download-ud-q6_k_xl.sh (box-only, mirrors the
+#      Q4 lane's download-ud-q4_k_xl.sh: curl per shard, sizes + SHA-256 from
+#      the image's docs/UNSLOTH_Q6.md, setup-compatible .done marks).
 #   2. Pack it by hand — setup.py cannot:
 #        tools/iq_pack.py --gguf .../00001-of-00006.gguf \
 #          --out packs/unsloth-ud-q6_k_xl --compat-bf16
