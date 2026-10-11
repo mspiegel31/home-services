@@ -29,7 +29,11 @@ index = "index.html"
 root_domain = "s3.mgmt.electricgarage.net"
 
 [admin]
-# Loopback only: status/metrics/admin never leave the host.
-api_bind_addr = "127.0.0.1:3903"
+# LAN-reachable: the cluster Prometheus scrapes /metrics with metrics_token
+# (home-prod observability servicemonitor-garage.yaml); the admin token
+# gates every other endpoint. Browser administration goes through
+# garage-webui, which reads this file on the host, so admin_token itself
+# never leaves the NAS.
+api_bind_addr = "[::]:3903"
 metrics_token = "@METRICS_TOKEN@"
 admin_token = "@ADMIN_TOKEN@"

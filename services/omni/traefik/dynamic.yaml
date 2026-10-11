@@ -65,6 +65,16 @@ http:
         domains:
           - main: '*.{{ env "MGMT_DOMAIN" }}'
 
+    garage-webui:
+      rule: Host(`{{ env "GARAGE_WEBUI_HOSTNAME" }}`)
+      entryPoints:
+        - websecure
+      service: garage-webui-svc
+      tls:
+        certResolver: mgmt
+        domains:
+          - main: '*.{{ env "MGMT_DOMAIN" }}'
+
   services:
     omni-svc:
       loadBalancer:
@@ -87,10 +97,16 @@ http:
         servers:
           - url: http://192.168.1.39:3900
 
+    garage-webui-svc:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:3909
+
   # The k8s-proxy listener is always TLS with a self-signed certificate, so
   # verification is skipped. Accepted because the hop is loopback-only
   # (127.0.0.1): no network path exists on which a wrong certificate could
   # be presented. serverName is unnecessary with verification off.
+
   serversTransports:
     k8sproxy:
       insecureSkipVerify: true
