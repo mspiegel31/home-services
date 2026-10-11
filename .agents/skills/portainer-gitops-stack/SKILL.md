@@ -7,6 +7,8 @@ description: Create, verify, and update GitOps repository-tracked Docker stacks 
 
 Create a repository-tracked Docker stack on a Portainer environment using the Portainer MCP tools. The stack tracks `https://github.com/mspiegel31/home-services` (public, no auth) and pulls its compose file from the repo — never inline content. All changes to running stacks happen by committing to the repo, then redeploying through Portainer; never make live edits to Portainer stacks unless explicitly debugging.
 
+Stack env variable changes (add/rotate a secret, fix a wiped `GitConfig`) are a separate hazard surface — see the `portainer-stack-env` skill; `PUT /stacks/{id}` silently converts a git-tracked stack to file-based.
+
 ## Inputs
 
 Collect or derive before creating:
