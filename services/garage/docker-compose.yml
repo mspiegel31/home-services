@@ -92,9 +92,9 @@ services:
 
   webui:
     # Admin GUI (khairul169/garage-webui): Go backend + SPA. Reads the
-    # rendered garage.toml so the admin token stays on the host; browsers
-    # authenticate to the webui itself via AUTH_USER_PASS (bcrypt).
-    # Traefik fronts it as https://garage.mgmt.<MGMT_DOMAIN>:9443.
+    # rendered garage.toml so the admin token stays on the host. Access
+    # control is Traefik basicAuth (garage.mgmt.<MGMT_DOMAIN>:9443); the
+    # container itself is open on loopback.
     image: docker.io/khairul169/garage-webui:1.1.0
     container_name: garage-webui
     network_mode: "host"
@@ -108,8 +108,8 @@ services:
       # dialable; loopback is (host network).
       API_BASE_URL: "http://127.0.0.1:3903"
       S3_ENDPOINT_URL: "http://127.0.0.1:3900"
-      # bcrypt "user:hash" — generate: htpasswd -nbBC 10 USER 'PASS'.
-      # Value lives in Portainer stack variables (repo rule).
-      AUTH_USER_PASS: ${GARAGE_WEBUI_AUTH:?set in Portainer stack variables}
+      # No AUTH_USER_PASS: bcrypt hashes cannot survive Portainer's env
+      # interpolation ($-mangling). Access control is Traefik basicAuth on
+      # the garage-webui router (services/omni/traefik/dynamic.yaml).
     volumes:
       - /mnt/tank/container-configs/GARAGE/garage.toml:/etc/garage.toml:ro

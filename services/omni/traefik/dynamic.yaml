@@ -70,10 +70,25 @@ http:
       entryPoints:
         - websecure
       service: garage-webui-svc
+      middlewares:
+        - garage-webui-auth
       tls:
         certResolver: mgmt
         domains:
           - main: '*.{{ env "MGMT_DOMAIN" }}'
+
+  middlewares:
+    # The webui container runs open: this is the only gate. bcrypt hash of
+    # a 24-char random password (committed hash is a verifier, not a
+    # credential; the password lives in BWS `GARAGE_WEBUI_PASSWORD`).
+    # Portainer stack env CANNOT carry bcrypt hashes — its interpolation
+    # mangles `$` segments — so the hash lives here, templated verbatim
+    # (no template braces in this string: `$` is literal to Go templates).
+    garage-webui-auth:
+      basicAuth:
+        removeHeader: true
+        users:
+          - 'garage:$2y$10$tblMSfD5wg9g792NXVALC.nCHefEcCg.LWVwbBQex/SxvDaB4CEkO'
 
   services:
     omni-svc:
