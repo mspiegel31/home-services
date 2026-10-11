@@ -24,6 +24,9 @@ advertise_path_style = true
 [s3_web]
 bind_addr = "[::]:3902"
 index = "index.html"
+# Required since v2.2: domain serving bucket websites (unused here —
+# clients use the path-style API only).
+root_domain = "s3.mgmt.electricgarage.net"
 
 [admin]
 # Loopback only: status/metrics/admin never leave the host.
