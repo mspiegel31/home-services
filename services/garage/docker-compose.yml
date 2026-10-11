@@ -4,14 +4,88 @@
 # https://s3.mgmt.electricgarage.net:9443; SigV4 is the auth, so the router
 # carries no extra auth. Host networking: Traefik reaches 192.168.1.39:3900
 # and Garage's RPC/admin bind addresses in garage.toml control exposure.
-# Config + buckets + keys: home-prod BOOTSTRAP.md §Garage.
+#
+# Config: this repo tracks the template (services/garage/garage.toml);
+# git-sync delivers it (Portainer CE drops compose `configs:`, same platform
+# constraint as the omni-mgmt stack — see .agents/skills/omni-management-stack).
+# render-config substitutes the three secrets from Portainer stack variables
+# (repo rule: values live in Portainer's UI, never Git) into
+# /mnt/tank/container-configs/GARAGE/garage.toml, which garage mounts.
+# Bring-up/buckets/keys procedure: home-prod BOOTSTRAP.md §Garage.
 services:
+  git-sync:
+    container_name: garage-git-sync
+    image: registry.k8s.io/git-sync/git-sync:v4.4.2@sha256:3089d9787b89bdc5af01d9f6e8d515aefb9672e8aea3972d7ff67478112bacb3
+    restart: unless-stopped
+    user: "0:0"
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - git-sync
+      - --repo=https://github.com/mspiegel31/home-services.git
+      # Must equal the edge stack's Reference; defaults to main.
+      - --ref=${GARAGE_CONFIG_REF:-main}
+      - --root=/git
+      - --link=current
+      - --depth=1
+      - --submodules=off
+      - --period=30s
+      - --http-bind=:1234
+    volumes:
+      - /mnt/tank/container-configs/GARAGE/git:/git
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - test -f /git/current/services/garage/garage.toml && curl -fsS http://127.0.0.1:1234/ >/dev/null
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  render-config:
+    # One-shot: renders the tracked template + Portainer secrets into the
+    # host config file garage mounts. awk reads ENVIRON directly so secret
+    # values never appear in argv (docker inspect / ps). Re-runs on every
+    # stack redeploy; a template change therefore needs a redeploy.
+    container_name: garage-render-config
+    image: docker.io/library/alpine:3.22
+    depends_on:
+      git-sync:
+        condition: service_healthy
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set in Portainer stack variables}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?set in Portainer stack variables}
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN:?set in Portainer stack variables}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        awk '{
+          gsub(/@RPC_SECRET@/, ENVIRON["GARAGE_RPC_SECRET"]);
+          gsub(/@ADMIN_TOKEN@/, ENVIRON["GARAGE_ADMIN_TOKEN"]);
+          gsub(/@METRICS_TOKEN@/, ENVIRON["GARAGE_METRICS_TOKEN"]);
+          print
+        }' /git/current/services/garage/garage.toml > /garagecfg/garage.toml.tmp
+        test -s /garagecfg/garage.toml.tmp
+        grep -q rpc_secret /garagecfg/garage.toml.tmp
+        chmod 600 /garagecfg/garage.toml.tmp
+        mv /garagecfg/garage.toml.tmp /garagecfg/garage.toml
+    volumes:
+      - /mnt/tank/container-configs/GARAGE/git:/git:ro
+      - /mnt/tank/container-configs/GARAGE:/garagecfg
+    restart: "no"
+
   garage:
     image: dxflrs/garage:v2.4.1
+    container_name: garage
     network_mode: "host"
     restart: unless-stopped
+    depends_on:
+      render-config:
+        condition: service_completed_successfully
     command: ["/garage", "server", "--single-node"]
     volumes:
-      - /mnt/tank/container-configs/GARAGE/garage.toml:/etc/garage.toml
+      - /mnt/tank/container-configs/GARAGE/garage.toml:/etc/garage.toml:ro
       - /mnt/tank/container-configs/GARAGE/meta:/var/lib/garage/meta
       - /mnt/tank/container-configs/GARAGE/data:/var/lib/garage/data
