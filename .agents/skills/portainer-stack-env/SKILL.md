@@ -84,3 +84,15 @@ delete-then-recreate (brief undeploy - containers stop, then come back):
   (e.g. `/mnt/tank/container-configs/<stack>/provider-key.env`) so a wiped
   Portainer env is recoverable.
 - Stack creation and redeploy mechanics: `portainer-gitops-stack`.
+- **Never put `$`-bearing values (bcrypt/htpasswd hashes, base64 with
+  `$`) in stack env: interpolation corrupts them.** Verified live
+  2026-10-11: a bcrypt hash arrived at the container truncated
+  (`garage:$2y$1…`, 23/67 chars); the `$$`-escaped form arrived as
+  `garage:165342y…` (`$$` expanded to a PID-like number). The value is
+  mangled on the way into the compose render, before the container ever
+  starts - Portainer's stack status and even `StackInspect` show the
+  *stored* value intact, so verify with the container's `Config.Env`
+  (direct API `GET /api/endpoints/<N>/docker/containers/<name>/json`).
+  Fix pattern: keep such verifiers out of Portainer entirely - e.g.
+  Traefik basicAuth with the bcrypt hash committed in the file-provider
+  dynamic config (`services/omni/traefik/dynamic.yaml`), password in BWS.
