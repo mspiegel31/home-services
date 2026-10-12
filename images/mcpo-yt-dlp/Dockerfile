@@ -8,10 +8,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# yt-dlp: the binary that @kevinwatt/yt-dlp-mcp invokes for downloads,
-# transcripts, and metadata extraction. Installed into the base image's
-# venv at /app/.venv (VIRTUAL_ENV is already set in the base).
-RUN uv pip install yt-dlp
+# yt-dlp + curl-cffi: the binary that @kevinwatt/yt-dlp-mcp invokes for
+# downloads, transcripts, and metadata extraction. Installed into the base
+# image's venv at /app/.venv (VIRTUAL_ENV is already set in the base).
+# curl-cffi enables yt-dlp's TLS impersonation ("impersonate target");
+# without it YouTube 429s subtitle downloads from this network (2026-10-12).
+RUN uv pip install yt-dlp curl-cffi
 
 # yt-dlp-mcp validates that its downloads directory exists at startup
 RUN mkdir -p /root/Downloads
