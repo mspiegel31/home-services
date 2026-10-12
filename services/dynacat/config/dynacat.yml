@@ -2,7 +2,7 @@
 # services/glance; served read-only via git-sync, so the UI editor's
 # save-back is disabled by the mount (edits happen in git).
 server:
-  assets-path: /app/assets
+  assets-path: /git/current/services/dynacat/assets
   proxied: true
 
 auth:
@@ -14,9 +14,8 @@ auth:
   # until OIDC is proven, then set disable-password: true.
   oidc:
     issuer-url: https://id.electricgarage.net
-    client-id: ${OIDC_CLIENT_ID}
+    redirect-url: https://dynacat.electricgarage.net/api/oidc/callback
     client-secret: ${OIDC_CLIENT_SECRET}
-    redirect-url: https://glance.electricgarage.net/api/oidc/callback
     scopes:
       - openid
       - profile
