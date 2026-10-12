@@ -57,7 +57,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
-ARG STRATA_REF=61b3fb5dd3f1e8ec09cf7e4e05208bc6d3c46406
+ARG STRATA_REF=7695859aa13afb248bdb4d36f9b2e95707db079d
 
 WORKDIR /opt/strata
 RUN git init -q . \
