@@ -67,6 +67,10 @@ jobs:
               // differ), so it needs the same registry-cache treatment: the
               // default GHA cache cannot hold layers this size.
               'strata-q6k': { platforms: 'linux/amd64', ...registryCache('strata-q6k') },
+              // Same multi-GB CUDA compile as strata (engine + patched-mtmd
+              // encoder), x86-64 AVX2 target; needs the registry cache for
+              // the same reason.
+              'maya': { platforms: 'linux/amd64', ...registryCache('maya') },
               // The official signal-cli native release asset is x86_64 only.
               'signal-cli': { platforms: 'linux/amd64' },
             };

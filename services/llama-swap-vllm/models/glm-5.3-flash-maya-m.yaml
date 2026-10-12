@@ -1,0 +1,94 @@
+# glm-5.3-flash-maya-m — one model in the llama-swap config-dir split. Shared macros live in
+# ../config.yaml. This file defines exactly one top-level key: models.
+#
+# Project Maya (github.com/mw00/project-maya, Strata-derived engine for GLM-5.3-Flash: 321B
+# params / 18B active MoE, MIT) running its own Maya-M quant: IQ2_S gate/up + IQ3_XXS/IQ3_S down
+# experts, Q6_K attention, MTP draft block; 116.0 GB in three GGUF shards from
+# peasantsmith/GLM-5.3-Flash-Maya-GGUF. 97.9% of the FP8 model's zero-shot accuracy, 86% same-
+# next-token (bench/results/MAYA-M.md). Engine + encoder ship prebuilt in ghcr.io/mspiegel31/maya
+# (images/maya); the container's first boot builds the ~1 GB pack and persists its config under
+# /mnt/more-models/maya/config — see images/maya/maya-entrypoint.sh for the boot paths.
+#
+# WHY A DEDICATED ROUTING SET: the matrix router's sets are mutually exclusive coexistence
+# groups (internal/matrix/doc.go: a set lists what may coexist; a request outside the running
+# set evicts it). Maya pins all but ~6 GB of free RAM for its expert tier
+# (STRATA_GLM_RAM_HEADROOM_GB) — it must never share the box with the qwen/swift lanes, and
+# nothing may share with it.
+#
+# 256K CONTEXT — the number that makes this cheap: GLM-5.3-Flash is a 3:1 KDA-linear/sparse-
+# full-attention hybrid (docs/GLM5-FLASH.md §1): only 11 of its 45 layers hold a KV cache, and
+# those are MLA latents — 512 floats/token/layer = 11.3 KB/token FP16, so 262,144 tokens cost
+# ~2.97 GB, or ~1.53 GB with STRATA_GLM_KV_INT8=1 (544 B/token/layer; KL to FP16 within FP16's
+# own run-to-run spread, docs/SETTINGS.md). The 34 KDA layers keep a constant-size recurrent
+# state (~143 MB/sequence). The interactive setup menu stops at 128K but --context passes any
+# int through (maya.py choose_context) and the engine's native window is 1,048,576.
+#
+# MEMORY PLAN on this box (72 GB VRAM + 107 GB RAM): routed experts are ~95% of the model
+# (~110 GB of the 116 GB pack). VRAM: dense weights + ~3 GB KV/state + prompt buffers leave an
+# expert pool of roughly 55 GB; the RAM tier sizes itself to free RAM minus the 6 GB headroom
+# (~89 GB on an otherwise-idle box) and holds the ~55 GB complement — nothing streams from sdc
+# once warm. STRATA_GLM_RAM_RESIDENT=1 would *guarantee* no disk tier but hard-fails the start
+# when other containers hold RAM at boot, so it stays off. Expect RTX-5090-class decode or
+# better (README: 30+ tok/s on 32 GB VRAM + 96 GB RAM; this card caches far more experts).
+#
+# parallel 2: one GPU batches a token of each request through the dense weights once
+# (v1.1.0's --parallel; x1.41 aggregate for two on a V100, more the more VRAM holds). Each
+# extra sequence state takes its size from the expert pool (~1.17 GB at 64K per
+# docs/SETTINGS.md STRATA_GLM_SEQS) — uncapped at 256K that is ~4.7 GB for the second state, so
+# STRATA_GLM_SEQ_CTX=65536 keeps the extra state small. STRATA_GLM_SLOT_KEEP=1 keeps the SSD
+# conversation slots across the TTL unload — the SETTINGS.md entry names llama-swap as its
+# supervisor case: the next request after a reload re-reads only its new tokens.
+#
+# SHUTDOWN: the entrypoint execs serve/server.py as PID 1; its SIGTERM handler gives the engine
+# STRATA_ENGINE_QUIT_S (50) + requests STRATA_ENGINE_WRAP_S (40) — inside cmdStop's 90 s and the
+# router's unloadTimeout 120 s.
+#
+# Thinking: GLM's ladder is none/low/high/max via reasoning_effort (server.py validates exactly
+# those); requests naming none get the config's "high". This is NOT the Froggeric contract, so
+# the id is deliberately absent from litellm custom_callbacks' LocalReasoningModel.
+#
+# Vision: the shared F16 mmproj (1.13 GB) + vocab GGUF, staged under the model folder where
+# maya.py's vision_step looks; the encoder is compiled into the image (patched mtmd).
+#
+# Box-side provisioning (one-time, NOT in this repo — the lane fails its first boot until done,
+# with the exact curl commands in its log):
+#   1. /mnt/more-models/maya/download-maya-m.sh stages the three shards + vision files with
+#      sha256 checks (resumable; ~117 GB, sdc has ~985 GB free).
+#   2. First boot then needs no network for the model; the pack build takes a few minutes, the
+#      engine load a few more (it mlocks ~89 GB) — inside healthCheckTimeout 3600.
+#   3. Retuning CONTEXT/PARALLEL: Portainer env change + restart (the entrypoint re-applies both
+#      to the installed config). Any other setup-level change: delete
+#      /mnt/more-models/maya/config/maya-maya-m.json and restart.
+
+models:
+  "glm-5.3-flash-maya-m":
+    name: GLM-5.3-Flash Maya-M (Project Maya)
+    description: Project Maya's Maya-M IQ2_S GGUF of GLM-5.3-Flash (321B MoE) on Maya's Strata-derived tiered-expert engine, 262,144-token context, int8 MLA latents, MTP drafts, parallel 2, experts across VRAM + pinned RAM with the SSD tier cold, images via the shared F16 mmproj
+    concurrencyLimit: 2
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, high, max]
+    macros:
+      MAYA_IMAGE: "ghcr.io/mspiegel31/maya:1.1.0"
+    proxy: http://maya-glm-5-3-flash-maya-m:8080
+    cmd: >-
+      docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --network llama-swap-vllm-backend
+      --env MODEL=Maya-M --env CONTEXT=262144 --env PARALLEL=2 --env GPU=0
+      --env HOST=0.0.0.0 --env PORT=8080
+      --env STRATA_GLM_KV_INT8=1 --env STRATA_GLM_SEQ_CTX=65536
+      --env STRATA_GLM_SLOT_KEEP=1
+      --volume /mnt/more-models/maya:/data
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      --name maya-glm-5-3-flash-maya-m
+      ${MAYA_IMAGE}
+    cmdStop: docker stop --time 90 maya-glm-5-3-flash-maya-m
