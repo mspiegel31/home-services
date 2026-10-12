@@ -1,0 +1,147 @@
+# icons docs: https://github.com/glanceapp/glance/blob/main/docs/configuration.md#icons
+- name: Homelab
+  head-widgets:
+    - *shared-search
+  columns:
+   - size: full
+     widgets:
+      - type: split-column
+        widgets:
+        - type: bookmarks
+          title: Applications
+          groups:
+            - title: NVR
+              links:
+                - title: Frigate
+                  icon: auto-invert sh:frigate
+                  url: https://192.168.1.113:8971
+                - title: Scrypted
+                  icon: auto-invert https://cdn.jsdelivr.net/gh/selfhst/icons/webp/scrypted.webp
+                  url: https://192.168.1.113:10443
+            - title: Media
+              links:
+                - title: Immich
+                  icon: auto-invert sh:immich
+                  url: https://immich.electricgarage.net
+                - title: HiFiberry
+                  icon: auto-invert di:hifiberry
+                  url: http://192.168.1.10
+        - type: bookmarks
+          title: Quick Links
+          groups:
+            - links:
+                - title: Router
+                  icon: auto-invert sh:ubiquiti-unifi
+                  url: https://192.168.1.1
+                - title: Hermes
+                  icon: auto-invert mdi:robot
+                  url: http://192.168.1.39:9119
+                - title: Basic Infrastructure
+                  icon: auto-invert sh:portainer
+                  url: https://192.168.1.51:9443/
+                - title: llama-swap
+                  icon: auto-invert mdi:swap-horizontal
+                  url: http://192.168.1.98:11437/ui
+                - title: LiteLLM
+                  icon: auto-invert sh:litellm
+                  url: http://192.168.1.98:4000/ui
+                - title: Hugging Face Downloader
+                  icon: auto-invert si:huggingface
+                  url: http://192.168.1.98:11436/
+        - type: bookmarks
+          title: Infrastructure
+          groups:
+            - title: Omni stack
+              links:
+                - title: Omni
+                  icon: auto-invert sh:sidero-omni
+                  url: https://omni.mgmt.electricgarage.net:9443
+                - title: Pocket ID (Omni)
+                  icon: auto-invert sh:pocket-id
+                  url: https://pocket-id.mgmt.electricgarage.net:9443
+                - title: Argo CD
+                  icon: auto-invert sh:argo-cd
+                  url: https://argocd.electricgarage.net
+                - title: Longhorn
+                  icon: auto-invert sh:rancher-longhorn
+                  url: https://longhorn.electricgarage.net
+                # Cluster Grafana (monitoring namespace). Not the TrueNAS stack below.
+                - title: Grafana (cluster)
+                  icon: auto-invert sh:grafana
+                  url: https://grafana.electricgarage.net
+
+            - title: Observability
+              color: 180 70 50 # Teal
+              links:
+                # Home Grafana = the observability stack on TrueNAS. ${GRAFANA_URL} is the
+                # work SpotOn Grafana (used by the Work group on the Home page) - do not reuse it here.
+                - title: Inference Dashboard
+                  icon: auto-invert sh:grafana
+                  url: http://192.168.1.39:3000/d/inference/inference
+                - title: Explore (logs/traces)
+                  icon: auto-invert si:grafana
+                  url: http://192.168.1.39:3000/explore
+                - title: VictoriaMetrics
+                  icon: auto-invert sh:victoriametrics
+                  url: http://192.168.1.39:8428/vmui
+                - title: Grafana Admin
+                  icon: auto-invert sh:grafana
+                  url: http://192.168.1.39:3000
+
+            - title: Hosts
+              links:
+                - title: Datacenter Manager
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.49:8443/
+
+                - title: Main System
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.40:8006/
+
+                - title: Backup System
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.42:8006/
+
+                - title: AI System
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.45:8006/
+
+                - title: PDM System
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.41:8006/
+
+                - title: Data System
+                  icon: auto-invert sh:proxmox
+                  url: https://192.168.1.48:8006/
+
+            - title: Backups
+              links:
+              - title: PBS - Backup
+                icon: auto-invert sh:proxmox
+                url: https://192.168.1.31:8007/
+ 
+            - title: Data
+              color: 200 90 80
+              links:
+                - title: TrueNAS - Main
+                  icon: auto-invert sh:truenas-core
+                  url: https://192.168.1.39
+                - title: TrueNAS - Backup
+                  icon: auto-invert sh:truenas-core
+                  url: https://192.168.1.37
+
+            - title: KVM
+              color: 270 90 80  # Neon Purple
+              links:
+              - title: GPU Rig KVM
+                icon: auto-invert mdi:monitor-eye
+                url: http://192.168.1.90
+
+              - title: NAS KVM
+                icon: auto-invert mdi:monitor-eye
+                url: http://192.168.1.57
+
+              - title: AI Box Alt KVM
+                icon: auto-invert mdi:monitor-eye
+                url: http://192.168.1.60
+                
