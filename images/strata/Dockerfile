@@ -46,7 +46,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
-ARG STRATA_REF=7695859aa13afb248bdb4d36f9b2e95707db079d
+ARG STRATA_REF=ed4773eb7c8f1f1531ba2bc70e0e1987de2661af
 
 WORKDIR /opt/strata
 RUN git init -q . \
@@ -165,6 +165,13 @@ setup.cmake_build(setup.ROOT, setup.ROOT / "build", "strata",
 eng = setup.ROOT / "engine"
 eng.mkdir(exist_ok=True)
 shutil.copy2(setup.ROOT / "build" / setup.EXE, eng / setup.EXE)
+if (setup.ROOT / "build" / setup.KQ_LIB).exists():
+    # 0.1.44 Phase 1: on CUDA the K-quant MMQ prompt kernels are a library of
+    # their own (libstrata_kq.so), opened only for a model with Q4_K/Q5_K/
+    # Q5_1/Q6_K experts and STRATA_MMQ_KQ=1; build_engine copies it next to
+    # the engine, so this script must too or the K-quant lanes lose the
+    # prompt kernels (graceful FP16-path fallback, but silently slower).
+    shutil.copy2(setup.ROOT / "build" / setup.KQ_LIB, eng / setup.KQ_LIB)
 bindir = pathlib.Path(nvcc).parent
 meta = {"source": "local", "version": setup.source_version(),
         "archs": [int(a.split("-")[0]) for a in arch.split(";") if a.split("-")[0].isdigit()], "vision": "gpu",

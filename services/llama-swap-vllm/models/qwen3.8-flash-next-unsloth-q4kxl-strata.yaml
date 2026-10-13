@@ -92,6 +92,16 @@
 # Mounted as a DIRECTORY over <pack>/tokenizer, never as a single-file bind —
 # the extraction guards (setup.py:4182, tools/iq_pack.py:564) then skip their
 # writers and nothing is written into the pack.
+# 0.1.44 Unsloth-file defaults (upstream setup writes them into a fresh
+# config's env block; this lane's config on /data predates them, so they ride
+# as container env — the engine reads STRATA_* from its own environment):
+# STRATA_HC_Q8=1 reads the hyper-connection projections from the file's own
+# Q8_0 bytes instead of the BF16-rounded copy: the HC read -36-39% per call
+# (~2 ms per window) and the KL against Q8_0 improves 0.0562 -> 0.0526
+# (p99 0.925 -> 0.716); answers differ from 0.1.43.1's on these files.
+# STRATA_ROUTE_TAIL_SKIP=0 turns the route tail skip off: with every expert
+# in RAM the skip costs KL 0.056 -> 0.086 for only +4-10% decode, so setup's
+# rule: off with every expert in RAM, on in budget mode.
 
 models:
   "qwen3.8-flash-next-unsloth-q4kxl-strata":
@@ -109,7 +119,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:7695859"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:ed4773e"
     proxy: http://strata-qwen3-8-flash-next-unsloth-q4kxl:8080
     cmd: >-
       docker run --init --rm --gpus all --ipc host
@@ -123,6 +133,7 @@ models:
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth-q4kxl
       --env STRATA_BATCH_MTP=1 --env STRATA_PREFILL_CPU_SHARE=auto
       --env STRATA_PREFILL_CPU_SHARE_MAX=1024
+      --env STRATA_HC_Q8=1 --env STRATA_ROUTE_TAIL_SKIP=0
       --volume /mnt/more-models/strata:/data
       --volume /mnt/more-models/strata/tokenizers/qwen3.8-flash-next:/data/packs/unsloth-ud-q4_k_xl/tokenizer:ro
       --label io.mspiegel.llama-swap.managed=true

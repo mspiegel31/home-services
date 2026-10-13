@@ -5,8 +5,8 @@
 # writable data volume (setup.py's serve path touches the config it starts, so a
 # read-only CONFIG — a lane's repo-committed config off the llama-swap git-sync
 # volume — must be copied before it can be served). On a STRATA_REF bump,
-# re-copy upstream and re-insert both changes. Byte-identical to the q6k lane's
-# entrypoint; the only difference between the two images is the q6k build flags.
+# re-copy upstream and re-insert both changes (upstream's copy was unchanged
+# between 0.1.43.1 and 0.1.44).
 #
 # Entry point for the Strata container. The engine is compiled during docker
 # build and lives in the image, so the first start only downloads the model.

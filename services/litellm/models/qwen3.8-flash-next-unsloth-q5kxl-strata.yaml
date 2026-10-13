@@ -1,11 +1,11 @@
-# qwen3.8-flash-next-unsloth-q6kxl-strata - one deployment in the litellm
+# qwen3.8-flash-next-unsloth-q5kxl-strata - one deployment in the litellm
 # config split. Global settings live in ../config.yaml. This file defines
 # exactly one top-level key: model_list, with one entry.
 
 model_list:
-  - model_name: qwen3.8-flash-next-unsloth-q6kxl-strata
+  - model_name: qwen3.8-flash-next-unsloth-q5kxl-strata
     litellm_params:
-      model: qwen3.8-flash-next-unsloth-q6kxl-strata
+      model: qwen3.8-flash-next-unsloth-q5kxl-strata
       api_base: http://192.168.1.98:11437/v1
       api_key: os.environ/LLAMA_SWAP_API_KEY
       custom_llm_provider: hosted_vllm
@@ -14,7 +14,7 @@ model_list:
       max_input_tokens: 262144
       reasoning: true
       supports_reasoning: true
-      vision: true # shared BF16 mmproj; unverified on this quant, see the llama-swap lane yaml
+      vision: true # shared BF16 mmproj; upstream-verified on this quant (CPU encoder)
       supports_vision: true
       reasoning_effort: [low, medium, xhigh] # Strata maps these to none/low/medium/xhigh
       # Explicit native-tool discovery keeps omp on structured tool calls;
