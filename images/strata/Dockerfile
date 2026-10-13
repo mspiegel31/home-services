@@ -54,6 +54,12 @@ RUN git init -q . \
     && git fetch -q --depth 1 origin "${STRATA_REF}" \
     && git checkout -q FETCH_HEAD \
     && rm -rf .git
+# 0.1.44 check_shards bug (still on upstream main): check_shards derives a
+# shard's needed length from its GGUF header, which counts final-tensor
+# alignment padding HuggingFace never writes. UD-Q5_K_XL shard 1 is 6 bytes
+# short of that derived length, so a SHA-perfect download fails setup with
+# "is short". Allow the same 64-byte slack the sibling branch below allows.
+RUN sed -i 's/if have < need:/if have < need - 64:/' setup.py
 
 # The image encoder, configured and built the way setup.py builds it:
 # setup.cmake_build's command line with the vision call's definitions, and
