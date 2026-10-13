@@ -11,17 +11,18 @@
 # gate/up (Q6_K in layer 2) + Q8_0 down: 91.6 GiB, between the Q4 lane's 71.7
 # GiB and Q6's 101.7 GiB.
 #
-# ENGINE: ed4773e (0.1.44) + a one-line check_shards patch, as
-# :ed4773e-q5fix. Upstream's shard-length check fails this pack's shard 1: the
-# header-derived `need` counts 6 bytes of final-tensor alignment padding that
-# HuggingFace never wrote, so the SHA-256-perfect file (10,946,618 bytes) is
-# rejected as "short" of 10,946,624. The patch allows 64 bytes of slack,
-# mirroring the same alignment note upstream already makes for the
-# longer-than-its-tensor branch. 0.1.44 builds the Q6_K expert kernels and
-# libstrata_kq.so by default (STRATA_MMQ_KQ=1), and setup.py's MODELS table
-# has UD-Q5_K_XL, so this lane uses the normal MODEL= setup path; the fresh
-# setup writes the Unsloth env block itself (STRATA_MMQ_KQ=1, STRATA_HC_Q8=1;
-# route tail skip stays on in budget mode).
+# ENGINE: ed4773e.1 = images/strata @ ed4773e + a one-line check_shards patch,
+# built by CI as ghcr.io/mspiegel31/strata:ed4773e.1. Upstream 0.1.44 (still
+# on main) rejects this pack's shard 1: check_shards derives a shard's needed
+# length from its GGUF header, which counts 6 bytes of final-tensor alignment
+# padding HuggingFace never wrote, so a SHA-perfect download (10,946,618 bytes)
+# fails setup as "short" of 10,946,624. The patch allows 64 bytes of slack,
+# mirroring the same alignment note upstream's longer-than-its-tensor branch
+# already makes. 0.1.44 builds the Q6_K expert kernels + libstrata_kq.so by
+# default (STRATA_MMQ_KQ=1) and has UD-Q5_K_XL in setup.py's MODELS table, so
+# this lane uses the normal MODEL= setup path; the fresh setup writes the
+# Unsloth env block itself (STRATA_MMQ_KQ=1, STRATA_HC_Q8=1; route tail skip
+# stays on in budget mode).
 #
 # RAM plan — the streaming regime, like the Q8 lane. unsloth_budget(): the
 # 91.6 GiB of experts do not fit 107 GB with UNSLOTH_RESIDENT_BESIDE_GB (16)
@@ -84,7 +85,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:ed4773e-q5fix"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:ed4773e.1"
     proxy: http://strata-qwen3-8-flash-next-unsloth-q5kxl:8080
     cmd: >-
       docker run --init --rm --gpus all --ipc host
