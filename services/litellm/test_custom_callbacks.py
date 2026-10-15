@@ -171,6 +171,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-flash-next-unsloth-iq4xs-strata",
             "qwen3.8-flash-next-unsloth-q4kxl-strata",
             "qwen3.8-flash-next-unsloth-q5kxl-strata",
+            "qwen3.8-flash-next-fp4-local",
             "qwen3.8-flash-next-unsloth-q8-strata",
             "swift-1.5-flash-nvfp4",
             "swift-1.5-flash-nvfp4-d0xin",

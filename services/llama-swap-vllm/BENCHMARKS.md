@@ -1,4 +1,4 @@
-# qwen3.8-27b-fp8 benchmark record
+# Local inference benchmark records
 
 Numbers are from the live lane on the `ai` host. They exist because the lane's
 prefill and spec-decode settings are the two things that decide whether agent
@@ -114,3 +114,57 @@ docker run --rm --network llama-swap-vllm-backend \
 # engine-side counters for whatever is currently loaded
 docker logs --tail 20 vllm-qwen3-8-27b-fp8
 ```
+
+## NVIDIA FP4-Local on 72 GiB (2026-10-15)
+
+Lane: `qwen3.8-flash-next-fp4-local`. Weights:
+[`nvidia/Qwen3.8-Flash-Next-FP4-Local`](https://huggingface.co/nvidia/Qwen3.8-Flash-Next-FP4-Local)
+at `b9ce18a6887e18c089fdea8509a33e63429a3300`. The image in
+`images/vllm-fp4-local/` derives from the model card's pinned
+`ghcr.io/local-inference-lab/vllm:release-10152026` release.
+
+The upstream release creates empty CSF expert parameters during construction,
+then allocates packed weights while loading. Its construction-time UVA pass
+therefore offloads zero expert bytes, even with `--cpu-offload-gb 20`.
+The derivative allocates those deferred packed tensors through the same UVA
+budget and exact-segment parameter selection. It preserves the weights,
+compressed scales, and native B12X kernels.
+
+Configuration: RAM PLE (26.82 GiB), a 12 GiB expert offload budget,
+FP8 KV, MTP3, four request slots, 4,096-token chunked prefill, and
+262,144-token context. The engine allocated a 6.86 GiB KV pool.
+The 10 GiB budget left only 4.52 GiB for KV and failed the native-context
+capacity check (4.83 GiB required). Whole-tensor offloading can exceed the
+configured budget by one packed projection, matching vLLM's UVA semantics.
+
+The model-card W4A16 decode and A4 prefill controls are explicit. Safetensors
+loading avoids InstantTensor's GPU staging OOM on this card. The lane releases
+the host's unused 46,909 hugepages before loading and restores Strata's
+reservation on stop; the model container itself is not privileged.
+
+Direct backend measurements, thinking disabled, one run per scenario:
+
+| Scenario | Observed result |
+|---|---|
+| One client, 256 generated tokens | 53.0 decode tok/s; 0.75 s TTFT |
+| Four clients, 256 generated tokens each | 81.4 aggregate tok/s including prefill; 22.1–24.7 decode tok/s per client |
+| 9,734-token exact lookup, cold | Correct code; 2.89 s; zero cached tokens |
+| Same lookup, reused prefix | Same correct code; 0.31 s; 9,734 cached tokens |
+| Native tool call and tool-result continuation | `get_temperature(city="Oslo")`; final answer used the supplied 7°C |
+| Image input | Correctly identified a generated red image |
+
+These are smoke measurements, not a workload-wide throughput guarantee or a
+statistical prefix-cache corruption test. Gateway response caching was bypassed.
+
+Build and GPU regression checks from the inference host with this checkout:
+
+```sh
+docker build -t ghcr.io/mspiegel31/vllm-fp4-local:release-10152026-ram1 images/vllm-fp4-local
+docker run --rm --gpus all --ulimit memlock=-1 \
+  -v "$PWD/images/vllm-fp4-local:/tests:ro" --entrypoint python \
+  ghcr.io/mspiegel31/vllm-fp4-local:release-10152026-ram1 /tests/test_csf_ram_offload.py
+```
+
+The three GPU tests check budget exhaustion, exact-segment exclusion, and
+GPU-visible pinned RAM. A zero-offload counterfactual failed the budget test.
+

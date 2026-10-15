@@ -47,6 +47,7 @@ class LocalReasoningModel(str, Enum):
     QWEN38_NVFP4_UNSLOTH = "qwen3.8-27b-nvfp4-unsloth"
     QWEN38_FLASH_NEXT_NVFP4 = "qwen3.8-flash-next-nvfp4"
     QWEN38_FLASH_NEXT_NVFP4_RAM_PLE = "qwen3.8-flash-next-nvfp4-ram-ple"
+    QWEN38_FLASH_NEXT_FP4_LOCAL = "qwen3.8-flash-next-fp4-local"
     QWEN38_FLASH_NEXT_IQ3S_STRATA = "qwen3.8-flash-next-iq3s-strata"
     QWEN38_FLASH_NEXT_UNSLOTH_IQ4XS_STRATA = "qwen3.8-flash-next-unsloth-iq4xs-strata"
     QWEN38_FLASH_NEXT_UNSLOTH_Q4KXL_STRATA = "qwen3.8-flash-next-unsloth-q4kxl-strata"

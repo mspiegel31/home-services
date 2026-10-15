@@ -1,0 +1,63 @@
+models:
+  "qwen3.8-flash-next-fp4-local":
+    name: Qwen3.8 Flash Next NVIDIA FP4-Local
+    description: NVIDIA QAD FP4-Local with losslessly compressed scales, RAM PLE, expert RAM offload, FP8 KV, 262,144-token context and MTP3
+    concurrencyLimit: 4
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fp4-local:release-10152026-ram1"
+      checkpoint: "/models/huggingface/hub/models--nvidia--Qwen3.8-Flash-Next-FP4-Local/snapshots/b9ce18a6887e18c089fdea8509a33e63429a3300"
+    proxy: http://vllm-qwen3-8-flash-next-fp4-local:8000
+    # This checkpoint's compressed scales require the model-card fork:
+    # https://huggingface.co/nvidia/Qwen3.8-Flash-Next-FP4-Local
+    # The launcher classifies NVIDIA's scales as CSF; original is refused.
+    # Explicit model/quantization/load-format settings keep NVIDIA's weights
+    # on the image's ModelOpt compressed-scale reader, not another HF export.
+    # InstantTensor's GPU staging OOMs during load on 72 GiB; safetensors keeps
+    # staging on the CPU without changing the quantization or inference kernels.
+    # RAM PLE uses CUDA-mapped pinned host memory; expert-only offload preserves
+    # dense/attention residency. Four slots bound recurrent state and graph memory.
+    # The derivative fixes deferred CSF allocations bypassing cpu-offload-gb;
+    # its base is exactly the model-card release, with unchanged native kernels.
+    # /etc/sysctl.d/99-strata.conf reserves 46,909 idle 2-MiB hugepages.
+    # vLLM needs normal pinned RAM instead; restore that reservation on stop
+    # so switching back to Strata keeps its existing host-memory contract.
+    cmd: >-
+      sh -c 'docker run --rm --privileged --pid=host alpine:3
+      nsenter -t 1 -m -- sysctl -w vm.nr_hugepages=0 &&
+      exec docker run --init --rm --gpus all --ipc host
+      --ulimit memlock=-1 --ulimit stack=67108864
+      --network llama-swap-vllm-backend
+      ${COMPILER_CACHE}
+      --name vllm-qwen3-8-flash-next-fp4-local
+      --env HF_TOKEN --env HF_HOME=/models/huggingface
+      --env PROFILE=qwen38-flash-next --env TP=1 --env DCP=1 --env PORT=8000
+      --env MAX_MODEL_LEN=262144 --env MAX_NUM_SEQS=4
+      --env MAX_NUM_BATCHED_TOKENS=4096 --env GPU_MEMORY_UTILIZATION=0.97
+      --env VLLM_PLE_TABLE_MEMORY=ram
+      --env VLLM_B12X_MOE_FP4_FORCE_A16=1 --env B12X_W4A16_A4_PREFILL=1
+      --env CACHE_MODE=vram --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --volume /mnt/models:/models
+      --volume /mnt/models/qwen3.8-flash-next-fp4-local-runtime:/cache
+      --label io.mspiegel.llama-swap.managed=true
+      --label io.mspiegel.llama-swap.model=${MODEL_ID}
+      ${VLLM_IMAGE}
+      --checkpoint csf --model ${checkpoint} --served-model-name ${MODEL_ID}
+      --quantization modelopt_mixed --load-format safetensors
+      --mode mtp --draft-tokens 3
+      --cpu-offload-gb 12 --cpu-offload-params experts
+      --max-cudagraph-capture-size 16'
+    cmdStop: >-
+      sh -c 'docker stop --time 90 vllm-qwen3-8-flash-next-fp4-local &&
+      docker run --rm --privileged --pid=host alpine:3
+      nsenter -t 1 -m -- sysctl -w vm.nr_hugepages=46909'

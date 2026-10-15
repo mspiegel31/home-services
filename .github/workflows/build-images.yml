@@ -56,6 +56,8 @@ jobs:
             // debugging on Apple Silicon.
             const policy = {
               'vllm-fastokens': { platforms: 'linux/amd64,linux/arm64', ...noCache },
+              // The pinned Local Inference Lab release is x86-64 only.
+              'vllm-fp4-local': { platforms: 'linux/amd64', ...noCache },
               // The upstream unified-cuda image does not publish arm64.
               'llama-swap-vllm': { platforms: 'linux/amd64' },
               // PyPI wheels are manylinux x86_64 only.
