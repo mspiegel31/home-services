@@ -5,6 +5,31 @@ prefill and spec-decode settings are the two things that decide whether agent
 traffic feels fast, and both were re-litigated on 2026-10-01 (prefix caching
 re-enabled, DSpark7 adopted) without a record of what each one bought.
 
+## QAD integration smoke (2026-10-16)
+
+`qwen3.8-27b-nvfp4-qad` serves
+[`local-inference-lab/Qwen3.8-27B-NVFP4-QAD`](https://huggingface.co/local-inference-lab/Qwen3.8-27B-NVFP4-QAD)
+(snapshot `b9389787cbb5a09fbcf3517bdf673b5a56b16b02`). ModelOpt metadata
+selects NVFP4 MLPs, MXFP8 GDN projections, and BF16 full attention. The lane
+uses vLLM 0.31.0, Froggeric v22.5, native MTP3, BF16 KV, FP32 SSM state,
+prefix caching, and auto-fit context up to 262,144 tokens.
+
+- All indexed checkpoint shards were present, including 15 MTP tensors.
+- Live chat through llama-swap returned `42` for `17 + 25`, with thinking off.
+- LiteLLM returned a structured `get_temperature` call with `{"city":"Paris"}`.
+- LiteLLM discovery exposed tools, tool choice, and `[low, medium, xhigh]`.
+  Both OMP profiles rendered the matching native-tool and thinking overrides.
+- The 27 callback tests passed. Disabling QAD registration in memory caused
+  its effort and thinking-off precedence cases to fail.
+- The OMP CLI and tool-result continuation timed out amid competing lane
+  traffic. Those paths and live effort-tier behavior remain unverified.
+
+These checks establish basic loading and routing, not distillation quality,
+long-context capacity, prefix-reuse correctness, or a throughput benchmark.
+The upstream export is marked work-in-progress. The model is unloaded after
+verification; catalog discovery does not launch it.
+
+
 ## Environment
 
 | | |

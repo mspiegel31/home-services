@@ -1,0 +1,44 @@
+models:
+  "qwen3.8-27b-nvfp4-qad":
+    name: Qwen3.8 27B NVFP4 QAD
+    description: Local Inference Lab QAD mixed NVFP4/MXFP8 with native MTP3, BF16 KV, auto-fit context, and prefix caching
+    capabilities:
+      in: ["text", "image"]
+      out: ["text"]
+      tools: true
+      context: 262144
+    metadata:
+      reasoning: true
+      thinking: true
+      vision: true
+      reasoning_effort: [low, medium, xhigh]
+    macros:
+      USE_FASTOKENS: "1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fastokens:latest"
+      checkpoint: "local-inference-lab/Qwen3.8-27B-NVFP4-QAD"
+    proxy: http://vllm-qwen3-8-27b-nvfp4-qad:8000
+    # ModelOpt metadata selects NVFP4 MLPs, MXFP8 GDN, and BF16 full attention.
+    # Do not force a uniform quantization mode. The checkpoint preserves BF16
+    # MTP weights; use the existing native MTP3 + BF16 KV serving contract.
+    # This is a WIP distillation export; smoke checks do not establish quality
+    # or long-context prefix-reuse correctness (vllm#53912).
+    cmd: >-
+      ${DOCKER_PREFIX}
+      --name vllm-qwen3-8-27b-nvfp4-qad
+      --env MAX_JOBS=4
+      --env VLLM_ENABLE_STARTUP_PLAN=1
+      --env VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel
+      ${VLLM_IMAGE}
+      ${VLLM_COMMON}
+      --long-prefill-token-threshold 2048
+      --max-model-len auto
+      --gpu-memory-utilization 0.96
+      --attention-backend FLASHINFER
+      --kv-cache-dtype bfloat16
+      --mamba-ssm-cache-dtype float32
+      --mamba-cache-mode align
+      --generation-config auto
+      --chat-template /opt/chat-templates/qwen3.8-froggeric-v22.5.jinja
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+      ${QWEN38_COMMON}
+    cmdStop: docker stop --time 90 vllm-qwen3-8-27b-nvfp4-qad

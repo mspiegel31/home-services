@@ -38,6 +38,7 @@ include:
   - models/qwen3.8-27b-nvfp4.yaml
   - models/qwen3.8-27b-nvfp4-redhat.yaml
   - models/qwen3.8-27b-nvfp4-unsloth.yaml
+  - models/qwen3.8-27b-nvfp4-qad.yaml
   - models/qwen3.8-flash-next-nvfp4.yaml
   - models/qwen3.8-flash-next-nvfp4-ram-ple.yaml
   - models/qwen3.8-flash-next-fp4-local.yaml

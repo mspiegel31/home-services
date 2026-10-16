@@ -80,7 +80,7 @@ routing:
           # IQ2_XS on its own engine. All fill most of the 72 GB card, so they
           # are an A/B/C set — llama-swap swaps between them.
           swift-flash-next: "swift-1.5-flash-nvfp4 | swift-1.5-flash-nvfp4-d0xin | swift-1.5-flash-strata"
-          co-resident: "qwen3.8-27b-bf16-sglang | qwen3.8-27b-bf16 | qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | qwen3.8-27b-nvfp4-redhat | qwen3.8-27b-nvfp4-unsloth | swift-1.5-nvfp4 | swift-1.5-bf16 | swift-1.5-awq | swift-1.5-fp8"
+          co-resident: "qwen3.8-27b-bf16-sglang | qwen3.8-27b-bf16 | qwen3.8-27b-fp8 | qwen3.8-27b-nvfp4 | qwen3.8-27b-nvfp4-redhat | qwen3.8-27b-nvfp4-unsloth | qwen3.8-27b-nvfp4-qad | swift-1.5-nvfp4 | swift-1.5-bf16 | swift-1.5-awq | swift-1.5-fp8"
           # Maya pins all but ~6 GB of free RAM for its expert tier, so it gets a set of one:
           # the solver may only keep running what fits the chosen set expression, and the only
           # state containing maya is {maya} — every other lane is evicted before it loads, and

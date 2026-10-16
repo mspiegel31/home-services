@@ -133,6 +133,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
         for model in (
             "qwen3.8-27b-nvfp4-redhat",
             "qwen3.8-27b-nvfp4-unsloth",
+            "qwen3.8-27b-nvfp4-qad",
             "qwen3.8-flash-next-nvfp4",
             "qwen3.8-flash-next-nvfp4-ram-ple",
             "qwen3.8-flash-next-iq3s-strata",
@@ -165,6 +166,7 @@ class LocalThinkingPolicySmokeTests(unittest.TestCase):
             "qwen3.8-27b-nvfp4",
             "qwen3.8-27b-nvfp4-redhat",
             "qwen3.8-27b-nvfp4-unsloth",
+            "qwen3.8-27b-nvfp4-qad",
             "qwen3.8-flash-next-nvfp4",
             "qwen3.8-flash-next-nvfp4-ram-ple",
             "qwen3.8-flash-next-iq3s-strata",
