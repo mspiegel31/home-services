@@ -1,6 +1,6 @@
 # Xberg config for cookbook → Mealie.
 # VLM OCR + structured extraction both use the existing swift-1.5-bf16 vLLM lane.
-# Routed through the LiteLLM proxy (http://192.168.1.98:4000/v1), which owns
+# Routed through the LiteLLM proxy (https://llm.electricgarage.net/v1), which owns
 # the llama-swap auth and model routing. The LiteLLM master key is supplied
 # via XBERG_LLM_API_KEY (Portainer env var, never committed).
 # Scan path settings live here, not in the request: a request-scope `config`
@@ -24,7 +24,7 @@ mode = "always"
 
 [ocr.vlm_config]
 model = "swift-1.5-bf16"
-base_url = "http://192.168.1.98:4000/v1"
+base_url = "https://llm.electricgarage.net/v1"
 timeout_secs = 300
 
 [structured_extraction]
@@ -76,5 +76,5 @@ items = { type = "string" }
 
 [structured_extraction.llm]
 model = "swift-1.5-bf16"
-base_url = "http://192.168.1.98:4000/v1"
+base_url = "https://llm.electricgarage.net/v1"
 timeout_secs = 300

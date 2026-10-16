@@ -13,7 +13,7 @@ secrets:
 
 providers:
   home-litellm:
-    api: http://192.168.1.98:4000/v1
+    api: https://llm.electricgarage.net/v1
     key_env: LITELLM_KEY
     transport: chat_completions
     default_model: qwen3.8-flash-next-unsloth-iq4xs-strata
