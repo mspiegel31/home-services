@@ -208,6 +208,7 @@ COPY --from=builder /opt/strata /opt/strata
 COPY metrics_exporter.py /opt/strata-exporter/metrics_exporter.py
 COPY entrypoint.sh /opt/strata-exporter/entrypoint.sh
 COPY merge_args.py /opt/strata-exporter/merge_args.py
+COPY hugepage_preflight.py /opt/strata-exporter/hugepage_preflight.py
 COPY strata-entrypoint.sh /opt/strata/docker-entrypoint.sh
 RUN chmod +x /opt/strata-exporter/entrypoint.sh /opt/strata/docker-entrypoint.sh
 
