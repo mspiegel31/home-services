@@ -172,6 +172,38 @@ restored 91.6 GiB of hugepages, were removed. The exact transition that triggere
 the OOM remains unconfirmed. Host recovery and managed generation still require
 live verification.
 
+On 2026-10-16, a separate Q5 startup stalled with journald reporting memory
+pressure and a task blocked in `d_alloc_parallel` during `openat`. After reboot,
+Q5 started again while the 46,909-page hugetlb pool remained almost unused.
+The snapshot had 46,899 free pages and 62 outstanding reservations: only
+46,837 pages were available for Q5's 46,909-page mapping. Swap use reached
+about 4.5 GiB. The competing allocation's owner and the engine's actual
+fallback were not captured; PostgreSQL was a candidate.
+
+The LiteLLM PostgreSQL service now starts with `huge_pages=off`; PostgreSQL's
+default is `try`, which can compete for this pool. Applying that change requires
+a PostgreSQL restart and briefly interrupts database-backed gateway operations.
+Strata image `ed4773e.2` supports `STRATA_REQUIRED_HUGEPAGES`; the Q5 lane sets
+it to 46,909. The container exits before setup, vision, or engine startup unless
+`HugePages_Free - HugePages_Rsvd >= 46909` with 2 MiB pages. Missing or invalid
+memory information also blocks startup. Other lanes do not opt in.
+The admission boundary and malformed-input cases are covered by
+`python3 -m unittest discover -s images/strata -p 'test_*.py'`.
+
+The preflight does not allocate or lock pages, so it cannot prevent another
+consumer from claiming them after the check. Keep host reservations stable
+during startup. Before retrying Q5, stop its failed load, release competing
+allocations, and verify the uncommitted count. Its engine log must report
+`hugetlb 2 MB pages`, followed by readiness and a successful completion without
+rising swap or sustained memory pressure. On Talos, configure the host pool and
+the pod's matching hugepage resources; do not use privileged lifecycle helpers.
+
+After the PostgreSQL update reached the host, `pg_settings` reported
+`huge_pages=off` and `shared_memory_size_in_huge_pages=72`. A standalone run of
+the new preflight against the host's real `/proc/meminfo` passed for 46,909
+pages. No Strata container was running during that check. These checks verify
+the database setting and admission condition, not a Q5 model restart.
+
 Build and GPU regression checks from the inference host with this checkout:
 
 ```sh

@@ -11,9 +11,9 @@
 # gate/up (Q6_K in layer 2) + Q8_0 down: 91.6 GiB, between the Q4 lane's 71.7
 # GiB and Q6's 101.7 GiB.
 #
-# ENGINE: ed4773e.1 = images/strata @ ed4773e + a one-line check_shards patch,
-# built by CI as ghcr.io/mspiegel31/strata:ed4773e.1. Upstream 0.1.44 (still
-# on main) rejects this pack's shard 1: check_shards derives a shard's needed
+# ENGINE: ed4773e.2 adds a fail-fast hugepage preflight to the ed4773e.1
+# shard-alignment fix. The pinned upstream 0.1.44 rejects this pack's shard 1:
+# check_shards derives a shard's needed
 # length from its GGUF header, which counts 6 bytes of final-tensor alignment
 # padding HuggingFace never wrote, so a SHA-perfect download (10,946,618 bytes)
 # fails setup as "short" of 10,946,624. The patch allows 64 bytes of slack,
@@ -24,27 +24,29 @@
 # Unsloth env block itself (STRATA_MMQ_KQ=1, STRATA_HC_Q8=1; route tail skip
 # stays on in budget mode).
 #
-# RAM plan — the streaming regime, like the Q8 lane. unsloth_budget(): the
-# 91.6 GiB of experts do not fit 107 GB with UNSLOTH_RESIDENT_BESIDE_GB (16)
-# to spare (91.6 + 16 > 107), so setup writes the RAM-budget mode:
-# --resident-budget-gib = 107 - 24 - ceil(3.59 KV) = 79 (uncapped: 79 < 91.6),
-# pinning ~79 GiB of experts in locked RAM and streaming the remaining ~13 GiB
-# from sdc per token through the expert cache. The 50.7 GiB Q8_0 PLE table
-# cannot also be mlocked (79 + 50.7 > 107), so STRATA_PLE_IO=direct streams it
-# from disk — the same call the Q4 lane makes for its IQ4_NL table.
+# The installed config uses full residency: no --resident-budget-gib or
+# --mmap-experts. Its 91.6 GiB expert arena needs explicit hugepages beside
+# the OS and other services. STRATA_PLE_IO=direct keeps the 50.7 GiB Q8_0
+# PLE table on disk rather than competing for the remaining host RAM.
 #
 # The expert arena needs 46,909 2-MiB hugepages. Without them the 4K-page
 # fallback exceeded server.py's 900 s READY budget (2026-10-13); with them,
 # READY took ~45 s. Hugepages are a host prerequisite, never changed by this
 # container. Reserve them only while Strata runs; release them before switching
 # to a RAM-offloaded engine. A permanent 91.6-GiB reservation can OOM the VM.
+# STRATA_REQUIRED_HUGEPAGES checks free minus outstanding reservations before
+# setup or the encoder starts. A pool sized exactly for Q5 has no room for
+# PostgreSQL's default huge_pages=try; the LiteLLM stack disables that use.
+# This check does not reserve pages: host allocation and other consumers must
+# remain stable during startup. On Talos, provision the pool in machine config
+# and expose the matching hugepage resources to the pod.
 #
 # VRAM plan: 72 GB of VRAM caches ~66 GiB of the 91.6 GiB of experts (~72%);
-# the rest is served from the RAM budget and the disk stream. Expect decode
+# the rest is served from the host expert arena. Expect decode
 # under the Q4 lane's ~100-117 tok/s solo — this lane trades speed for
 # near-Q8_0 quality.
 #
-# parallel 4: a conservative floor for a lane that has never run. A batch slot
+# parallel 4 limits the batch-slot share of VRAM. A batch slot
 # costs ~0.95 GiB of VRAM plus its share of the verify-path CUDA-graph working
 # set (merge_args.py's docstring), and this lane's expert cache is tighter than
 # the Q4 lane's, so every slot is VRAM taken from experts. The multi-session
@@ -53,7 +55,6 @@
 # STRATA_BATCH_MTP=1: batch slots keep MTP drafts (+31-39% aggregate with 2-4
 # clients, measured upstream on the RTX PRO 5000).
 # STRATA_PREFILL_CPU_SHARE=auto + MAX=1024: same reasoning as the Q4 lane.
-# [inference: not started — first boot packs the staged shards, then serves]
 #
 # Model files: staged on the box by /mnt/more-models/strata/download-ud-q5_k_xl.sh
 # (box-only, mirrors the Q4/Q6 downloaders: curl per shard, sizes + SHA-256
@@ -78,7 +79,7 @@
 models:
   "qwen3.8-flash-next-unsloth-q5kxl-strata":
     name: Qwen3.8 Flash Next UD-Q5_K_XL (Strata, Unsloth)
-    description: Unsloth UD-Q5_K_XL GGUF of Qwen3.8 Flash Next on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, 79 GiB expert RAM budget with ~13 GiB streaming from disk, Q8_0 PLE table streamed from disk, images via the shared BF16 mmproj
+    description: Unsloth UD-Q5_K_XL GGUF of Qwen3.8 Flash Next on the Strata tiered-expert engine, 262,144-token context, int8 KV, MTP drafts, 91.6 GiB host expert arena requiring uncommitted 2 MiB hugepages, Q8_0 PLE table streamed from disk, images via the shared BF16 mmproj
     concurrencyLimit: 8
     capabilities:
       in: ["text", "image"]
@@ -91,7 +92,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:ed4773e.1"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:ed4773e.2"
     proxy: http://strata-qwen3-8-flash-next-unsloth-q5kxl:8080
     cmd: >-
       docker run --init --rm --gpus all --ipc host
@@ -100,6 +101,7 @@ models:
       --env FAMILY=unsloth --env MODEL=UD-Q5_K_XL --env CONTEXT=262144
       --env VISION=yes --env GPU=0 --env LOW_RAM=auto --env PARALLEL=4
       --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=direct
+      --env STRATA_REQUIRED_HUGEPAGES=46909
       --env HOST=0.0.0.0 --env PORT=8080
       --env STRATA_ALLOWED_HOSTS=strata-qwen3-8-flash-next-unsloth-q5kxl
       --env STRATA_BATCH_MTP=1 --env STRATA_PREFILL_CPU_SHARE=auto
