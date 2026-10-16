@@ -56,8 +56,8 @@ discovery.relabel "vllm" {
 }
 
 prometheus.scrape "litellm" {
-  targets         = [{ "__address__" = "192.168.1.98:4000", "job" = "litellm" }]
-  scheme          = "http"
+  targets         = [{ "__address__" = "llm.electricgarage.net:443", "job" = "litellm" }]
+  scheme          = "https"
   scrape_interval = "15s"
   // Dedicated scrape key: /key/generate with allowed_routes=["/metrics"],
   // models=[] -> can read counters, nothing else. Rotatable independently

@@ -127,7 +127,7 @@ services:
       NANO_LLM_MODEL: qwen3.8-27b-quasar-nvfp4
       DRAFT_LLM_PROVIDER: openai-compatible
       DRAFT_LLM_MODEL: qwen3.8-27b-quasar-nvfp4
-      OPENAI_COMPATIBLE_BASE_URL: http://192.168.1.98:4000/v1
+      OPENAI_COMPATIBLE_BASE_URL: https://llm.electricgarage.net/v1
       OPENAI_COMPATIBLE_MODEL: qwen3.8-27b-quasar-nvfp4
       LLM_API_KEY: ${LLM_API_KEY:?Set a dedicated LiteLLM virtual key in Portainer}
       SENSITIVE_DATA_POLICY_DEFAULT: ALLOW
