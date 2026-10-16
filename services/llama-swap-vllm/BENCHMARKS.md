@@ -138,9 +138,11 @@ capacity check (4.83 GiB required). Whole-tensor offloading can exceed the
 configured budget by one packed projection, matching vLLM's UVA semantics.
 
 The model-card W4A16 decode and A4 prefill controls are explicit. Safetensors
-loading avoids InstantTensor's GPU staging OOM on this card. The lane releases
-the host's unused 46,909 hugepages before loading and restores Strata's
-reservation on stop; the model container itself is not privileged.
+loading avoids InstantTensor's GPU staging OOM on this card. Hugepage allocation
+is a host prerequisite, not a model-container lifecycle action. Disable the old
+`/etc/sysctl.d/99-strata.conf` boot reservation and release unused hugepages
+before running vLLM. Strata Q5 requires its reservation only while it runs.
+Neither model commands nor helper containers receive `--privileged`.
 
 Direct backend measurements, thinking disabled, one run per scenario:
 
@@ -164,7 +166,11 @@ do not fit. The 12 GiB budget placed 12.50 GiB of packed experts in host RAM.
 Managed activation remains unverified: LiteLLM discovery exposed the model,
 context, effort ladder and native-tool capabilities, but the generation request
 timed out. SSH, HTTP and the Portainer edge tunnel then became unavailable on
-the inference VM. The host-level cause has not been established.
+the inference VM. Its console confirmed host OOM kills and blocked Docker
+tasks. The privileged hugepage helpers, including an unsafe stop hook that
+restored 91.6 GiB of hugepages, were removed. The exact transition that triggered
+the OOM remains unconfirmed. Host recovery and managed generation still require
+live verification.
 
 Build and GPU regression checks from the inference host with this checkout:
 

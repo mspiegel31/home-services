@@ -33,15 +33,11 @@
 # cannot also be mlocked (79 + 50.7 > 107), so STRATA_PLE_IO=direct streams it
 # from disk — the same call the Q4 lane makes for its IQ4_NL table.
 #
-# !!! HOST HUGE PAGES REQUIRED (first boot + every start): the engine's
-# 91 GiB expert arena wants 2 MiB hugepages — 46,909 of them, i.e.
-# sysctl vm.nr_hugepages=46909. Without them the load falls back to 4K
-# pages and server.py's 900 s READY budget is blown (observed 2026-10-13;
-# with them, READY in ~45 s). The box carries it in /etc/sysctl.d/
-# 99-strata.conf. THIS BOX IS NOT A LONG-TERM HOME: when a Talos node
-# takes it over there is no /etc/sysctl.d — reserve the pages in the
-# machine config (machine.sysctls) / node-level hugepage resource, and
-# leave ~16 GiB of normal RAM for the OS + co-resident containers.
+# The expert arena needs 46,909 2-MiB hugepages. Without them the 4K-page
+# fallback exceeded server.py's 900 s READY budget (2026-10-13); with them,
+# READY took ~45 s. Hugepages are a host prerequisite, never changed by this
+# container. Reserve them only while Strata runs; release them before switching
+# to a RAM-offloaded engine. A permanent 91.6-GiB reservation can OOM the VM.
 #
 # VRAM plan: 72 GB of VRAM caches ~66 GiB of the 91.6 GiB of experts (~72%);
 # the rest is served from the RAM budget and the disk stream. Expect decode

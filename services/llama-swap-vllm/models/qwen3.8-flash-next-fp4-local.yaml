@@ -28,13 +28,10 @@ models:
     # dense/attention residency. Four slots bound recurrent state and graph memory.
     # The derivative fixes deferred CSF allocations bypassing cpu-offload-gb;
     # its base is exactly the model-card release, with unchanged native kernels.
-    # /etc/sysctl.d/99-strata.conf reserves 46,909 idle 2-MiB hugepages.
-    # vLLM needs normal pinned RAM instead; restore that reservation on stop
-    # so switching back to Strata keeps its existing host-memory contract.
+    # Host prerequisite: disable Strata's 46,909-page boot reservation and
+    # release unused hugepages before loading. Model commands never change it.
     cmd: >-
-      sh -c 'docker run --rm --privileged --pid=host alpine:3
-      nsenter -t 1 -m -- sysctl -w vm.nr_hugepages=0 &&
-      exec docker run --init --rm --gpus all --ipc host
+      docker run --init --rm --gpus all --ipc host
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
       ${COMPILER_CACHE}
@@ -56,8 +53,5 @@ models:
       --quantization modelopt_mixed --load-format safetensors
       --mode mtp --draft-tokens 3
       --cpu-offload-gb 12 --cpu-offload-params experts
-      --max-cudagraph-capture-size 16'
-    cmdStop: >-
-      sh -c 'docker stop --time 90 vllm-qwen3-8-flash-next-fp4-local &&
-      docker run --rm --privileged --pid=host alpine:3
-      nsenter -t 1 -m -- sysctl -w vm.nr_hugepages=46909'
+      --max-cudagraph-capture-size 16
+    cmdStop: docker stop --time 90 vllm-qwen3-8-flash-next-fp4-local
