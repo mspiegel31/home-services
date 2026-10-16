@@ -14,7 +14,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fp4-local:release-10152026-ram1"
+      VLLM_IMAGE: "ghcr.io/mspiegel31/vllm-fp4-local:release-10152026-ram1@sha256:019444e0fd42c891521efe5ebda090869becedcb49fa3164f4d821f29fb7b38b"
       checkpoint: "/models/huggingface/hub/models--nvidia--Qwen3.8-Flash-Next-FP4-Local/snapshots/b9ce18a6887e18c089fdea8509a33e63429a3300"
     proxy: http://vllm-qwen3-8-flash-next-fp4-local:8000
     # This checkpoint's compressed scales require the model-card fork:

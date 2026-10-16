@@ -152,9 +152,19 @@ Direct backend measurements, thinking disabled, one run per scenario:
 | Same lookup, reused prefix | Same correct code; 0.31 s; 9,734 cached tokens |
 | Native tool call and tool-result continuation | `get_temperature(city="Oslo")`; final answer used the supplied 7°C |
 | Image input | Correctly identified a generated red image |
+| 261,888-token prompt, three planted secrets | All three values correct; 59.68 s; 18 generated tokens |
 
 These are smoke measurements, not a workload-wide throughput guarantee or a
 statistical prefix-cache corruption test. Gateway response caching was bypassed.
+
+The KV pool holds 372,363 tokens in total (engine estimate: 1.42 full-length
+requests). Four slots share this capacity; four simultaneous 262K contexts
+do not fit. The 12 GiB budget placed 12.50 GiB of packed experts in host RAM.
+
+Managed activation remains unverified: LiteLLM discovery exposed the model,
+context, effort ladder and native-tool capabilities, but the generation request
+timed out. SSH, HTTP and the Portainer edge tunnel then became unavailable on
+the inference VM. The host-level cause has not been established.
 
 Build and GPU regression checks from the inference host with this checkout:
 
