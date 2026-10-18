@@ -25,13 +25,9 @@ models:
     macros:
       STRATA_IMAGE: "ghcr.io/mspiegel31/strata:ed4773e"
     proxy: http://strata-swift-1-5-flash:8080
-    # LOW_RAM=on because the host's MemTotal (107 GB) lies to setup.py, which
-    # sizes RAM from /proc/meminfo: with all experts pinned it needs ~75 GB,
-    # which is this box's whole allocatable ceiling. In this mode the engine
-    # keeps in RAM only the experts the card does not hold, which on a 72 GB
-    # card is none of them, so it runs at the RAM-resident speed with the
-    # arena read from experts.bin. No --memory cap for the same reason: a cap
-    # would not shrink the plan, only break it.
+    # The forced low-RAM mode belonged to the former 64 GiB host. On the
+    # 112 GiB worker the ~40 GiB expert arena fits beside RAM-backed PLE,
+    # slot KV and host services; do not force file-mapped experts.
     # STRATA_ALLOWED_HOSTS is the engine's DNS-rebinding check: without an API
     # key it 403s any Host that is not an IP, and llama-swap connects by
     # container name. /data holds the GGUF, MTP layer, mmproj, the pack
@@ -113,7 +109,7 @@ models:
       --ulimit memlock=-1 --ulimit stack=67108864
       --network llama-swap-vllm-backend
       --env FAMILY=swift --env MODEL=IQ3_XXS --env CONTEXT=262144
-      --env VISION=yes --env GPU=0 --env LOW_RAM=on --env PARALLEL=6
+      --env VISION=yes --env GPU=0 --env LOW_RAM=off --env PARALLEL=6
       --env STRATA_VRAM_RESERVE_MIB=2048 --env STRATA_PLE_IO=ram
       --env STRATA_BATCH_MTP=1 --env STRATA_PREFILL_CPU_SHARE=auto
       --env STRATA_PREFILL_CPU_SHARE_MAX=1024
