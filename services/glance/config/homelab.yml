@@ -102,10 +102,6 @@
                   icon: auto-invert sh:proxmox
                   url: https://192.168.1.42:8006/
 
-                - title: AI System
-                  icon: auto-invert sh:proxmox
-                  url: https://192.168.1.45:8006/
-
                 - title: PDM System
                   icon: auto-invert sh:proxmox
                   url: https://192.168.1.41:8006/
@@ -140,8 +136,4 @@
               - title: NAS KVM
                 icon: auto-invert mdi:monitor-eye
                 url: http://192.168.1.57
-
-              - title: AI Box Alt KVM
-                icon: auto-invert mdi:monitor-eye
-                url: http://192.168.1.60
                 
