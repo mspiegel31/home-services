@@ -24,5 +24,7 @@ RUN python3 -m venv /opt/ft \
     && /opt/ft/bin/uv pip install --python /opt/ft/bin/python "freetoken[accel]==0.2.0" \
     && /opt/ft/bin/ft --version
 
+RUN /opt/ft/bin/ft serve --help
+
 ENTRYPOINT ["ft"]
 CMD ["--help"]
