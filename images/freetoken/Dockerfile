@@ -26,5 +26,20 @@ RUN python3 -m venv /opt/ft \
 
 RUN /opt/ft/bin/ft serve --help
 
+# Triton compiles its Python CUDA driver on the serving node, not at --help.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3.12-dev patch \
+    && rm -rf /var/lib/apt/lists/*
+
+# kubeswap probes only HTTP status; upstream's loading-health 200 races requests.
+COPY health-readiness.patch /tmp/freetoken-health-readiness.patch
+RUN patch --fuzz=0 --strip=1 --directory=/opt/ft/lib/python3.12/site-packages \
+    --input=/tmp/freetoken-health-readiness.patch \
+    && rm /tmp/freetoken-health-readiness.patch
+
+COPY image-smoke.py /tmp/freetoken-image-smoke.py
+RUN /opt/ft/bin/python /tmp/freetoken-image-smoke.py \
+    && rm /tmp/freetoken-image-smoke.py
+
 ENTRYPOINT ["ft"]
 CMD ["--help"]
