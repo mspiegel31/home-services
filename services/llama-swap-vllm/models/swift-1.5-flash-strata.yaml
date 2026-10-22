@@ -23,7 +23,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:ed4773e"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:011c9e6.1"
     proxy: http://strata-swift-1-5-flash:8080
     # The forced low-RAM mode belonged to the former 64 GiB host. On the
     # 112 GiB worker the ~40 GiB expert arena fits beside RAM-backed PLE,

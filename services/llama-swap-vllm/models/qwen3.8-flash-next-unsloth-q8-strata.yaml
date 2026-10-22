@@ -20,9 +20,10 @@
 # onto the writable /data volume first (commit 5bb2fd4 added that copy to the
 # plain image too), then serves the copy. Do not mount /config writable.
 #
-# ENGINE: ${STRATA_IMAGE} is the plain ghcr.io/mspiegel31/strata:ed4773e build.
-# The strata-q6k variant is retired: 0.1.44 builds the Q6_K expert kernels and
-# the K-quant MMQ prompt library (strata_kq) by default, one image per engine.
+# ENGINE: ${STRATA_IMAGE} is the plain ghcr.io/mspiegel31/strata:011c9e6.1
+# build. The strata-q6k variant stays retired: 0.2.2 builds the Q6_K expert
+# kernels and the K-quant MMQ prompt library (strata_kq) by default, one
+# image per engine.
 #
 # RAM plan — the same streaming regime as the Q5 lane. The 54.4 GB Q8_0 PLE
 # table streams from disk (--ple-io direct in the config), which is what frees
@@ -54,7 +55,7 @@
 #      HF tree API, setup-compatible .done marks):
 #        docker run -d --name strata-q8-download \
 #          -v /mnt/more-models:/mnt/more-models --entrypoint bash \
-#          ghcr.io/mspiegel31/strata:ed4773e -c \
+#          ghcr.io/mspiegel31/strata:011c9e6.1 -c \
 #          "bash /mnt/more-models/strata/download-q8_0.sh >> /mnt/more-models/strata/download-q8_0.log 2>&1"
 #      The script writes to the HOST paths above, so the volume must map
 #      /mnt/more-models onto the same path inside the container; mounting it at
@@ -93,7 +94,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:ed4773e"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:011c9e6.1"
     proxy: http://strata-qwen3-8-flash-next-unsloth-q8:8080
     cmd: >-
       docker run --init --rm --gpus all --ipc host

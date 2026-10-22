@@ -1,9 +1,10 @@
 # Strata: Qwen3.8-Flash-Next on NVIDIA GPUs (https://github.com/Niko1221/Strata).
 #
-# Upstream's Dockerfile, fetched at a pinned commit instead of COPY'd: the
-# engine build below is byte-for-byte upstream's, so a revision bump means
-# re-copying it from the same file at the new SHA. The image-encoder build is
-# not: upstream builds both engines in one step, which couples the encoder's
+# Recipe: setup.py's cmake_build at the pinned STRATA_REF, reproduced below.
+# Upstream's Dockerfile stopped compiling the engine in 0.2.x, so setup.py is
+# the canonical recipe; a revision bump means re-checking the setup.py hooks
+# below. The image encoder builds in its own stage:
+# one upstream step ties the encoder's
 # ~16 min llama.cpp compile to every Strata bump; the vision stage decouples
 # them.
 #
@@ -46,7 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
-ARG STRATA_REF=ed4773eb7c8f1f1531ba2bc70e0e1987de2661af
+ARG STRATA_REF=011c9e600a93bbc9fd451c563501b5831c32bbca
 
 WORKDIR /opt/strata
 RUN git init -q . \
@@ -54,13 +55,6 @@ RUN git init -q . \
     && git fetch -q --depth 1 origin "${STRATA_REF}" \
     && git checkout -q FETCH_HEAD \
     && rm -rf .git
-# 0.1.44 check_shards bug (still on upstream main): check_shards derives a
-# shard's needed length from its GGUF header, which counts final-tensor
-# alignment padding HuggingFace never writes. UD-Q5_K_XL shard 1 is 6 bytes
-# short of that derived length, so a SHA-perfect download fails setup with
-# "is short". Allow the same 64-byte slack the sibling branch below allows.
-RUN sed -i 's/if have < need:/if have < need - 64:/' setup.py
-
 # The image encoder, configured and built the way setup.py builds it:
 # setup.cmake_build's command line with the vision call's definitions, and
 # tools/vision/CMakeLists.txt doing the rest (it FORCEs the llama build's cache
@@ -136,7 +130,7 @@ ARG LLAMA_CPP_COMMIT=3cf03257f219afbe7334045ff7c6a06ac68c627d
 RUN python3 -m venv .venv \
     && .venv/bin/pip install --no-cache-dir --upgrade pip \
     && .venv/bin/pip install --no-cache-dir -r requirements.txt \
-    && chmod +x setup.sh docker-entrypoint.sh
+    && chmod +x setup.sh
 
 # llama.cpp at the pinned commit, then the engine, built exactly the way
 # setup.py builds it. BUILD.json is what setup.py reads to decide whether an

@@ -1,12 +1,14 @@
 #!/bin/sh
-# Vendored from upstream docker-entrypoint.sh at STRATA_REF, with two local
-# changes: the merge_args.py call before the final exec (every lane's config
-# carries the standard multi-session cache flags), and the CONFIG copy onto the
-# writable data volume (setup.py's serve path touches the config it starts, so a
-# read-only CONFIG — a lane's repo-committed config off the llama-swap git-sync
-# volume — must be copied before it can be served). On a STRATA_REF bump,
-# re-copy upstream and re-insert both changes (upstream's copy was unchanged
-# between 0.1.43.1 and 0.1.44).
+# Fork of upstream's 0.1.44 docker-entrypoint.sh (the setup.py serve flow).
+# Upstream replaced that file with docker/entrypoint.sh in 0.2.x, a front for
+# the Terminal CLI; this image has no Terminal, and setup.py's serve path
+# still works at 0.2.2, so the fork is maintained here instead of re-vendored.
+# Two local changes over the 0.1.44 original: the merge_args.py call before
+# the final exec (every lane's config carries the standard multi-session
+# cache flags), and the CONFIG copy onto the writable data volume (setup.py's
+# serve path touches the config it starts, so a read-only CONFIG — a lane's
+# repo-committed config off the llama-swap git-sync volume — must be copied
+# before it can be served).
 #
 # Entry point for the Strata container. The engine is compiled during docker
 # build and lives in the image, so the first start only downloads the model.
