@@ -147,7 +147,9 @@ services:
 
   litellm:
     container_name: litellm
-    image: docker.litellm.ai/berriai/litellm:main-stable
+    # Explicit tag: upstream's 2026-10-21 compromise shipped malware on the
+    # floating main-stable tag; digest cosign-verified (BerriAI/litellm 0112e53).
+    image: docker.litellm.ai/berriai/litellm:v1.106.2@sha256:7294b90f868c5c38c99b83021c7ba46f9b439e95f8e32964c925c7d2563a03f7
     init: true
     pull_policy: always
     restart: unless-stopped
