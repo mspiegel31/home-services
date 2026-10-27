@@ -2,7 +2,7 @@
 # Fork of upstream's 0.1.44 docker-entrypoint.sh (the setup.py serve flow).
 # Upstream replaced that file with docker/entrypoint.sh in 0.2.x, a front for
 # the Terminal CLI; this image has no Terminal, and setup.py's serve path
-# still works at 0.2.2, so the fork is maintained here instead of re-vendored.
+# still works at 0.2.7, so the fork is maintained here instead of re-vendored.
 # Two local changes over the 0.1.44 original: the merge_args.py call before
 # the final exec (every lane's config carries the standard multi-session
 # cache flags), and the CONFIG copy onto the writable data volume (setup.py's
