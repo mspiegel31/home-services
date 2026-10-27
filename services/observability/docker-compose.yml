@@ -1,7 +1,7 @@
 # Observability backend for the inference stack (Grafana + VictoriaMetrics + Loki + Tempo).
 #
 # Metrics/traces/logs are pushed here from the inference box by the Grafana
-# Alloy collector (services/inference-telemetry/): remote_write to
+# Alloy collector (archived/inference-telemetry/): remote_write to
 # VictoriaMetrics, Loki push, OTLP to Tempo.
 #
 # Config comes from git via a git-sync sidecar (this stack's directory,

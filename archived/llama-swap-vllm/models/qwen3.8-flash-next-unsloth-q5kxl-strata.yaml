@@ -11,7 +11,7 @@
 # gate/up (Q6_K in layer 2) + Q8_0 down: 91.6 GiB, between the Q4 lane's 71.7
 # GiB and Q6's 101.7 GiB.
 #
-# ENGINE: 011c9e6.1 = upstream v0.2.2 + the fail-fast hugepage preflight.
+# ENGINE: 5e8a4cc.1 = upstream v0.2.7 + the fail-fast hugepage preflight.
 # v0.1.45 fixed upstream the check_shards rejection the ed4773e.1 patch
 # worked around: the GGUF-header-derived shard length counted 6 bytes of
 # final-tensor alignment padding HuggingFace never wrote, so a SHA-perfect
@@ -89,7 +89,7 @@ models:
       vision: true
       reasoning_effort: [low, medium, xhigh]
     macros:
-      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:011c9e6.1"
+      STRATA_IMAGE: "ghcr.io/mspiegel31/strata:5e8a4cc.1"
     proxy: http://strata-qwen3-8-flash-next-unsloth-q5kxl:8080
     cmd: >-
       docker run --init --rm --gpus all --ipc host

@@ -208,7 +208,7 @@ fallback were not captured; PostgreSQL was a candidate.
 The LiteLLM PostgreSQL service now starts with `huge_pages=off`; PostgreSQL's
 default is `try`, which can compete for this pool. Applying that change requires
 a PostgreSQL restart and briefly interrupts database-backed gateway operations.
-Strata image `011c9e6.1` supports `STRATA_REQUIRED_HUGEPAGES`; the Q5 lane sets
+Strata image `5e8a4cc.1` supports `STRATA_REQUIRED_HUGEPAGES`; the Q5 lane sets
 it to 46,909. The container exits before setup, vision, or engine startup unless
 `HugePages_Free - HugePages_Rsvd >= 46909` with 2 MiB pages. Missing or invalid
 memory information also blocks startup. Other lanes do not opt in.

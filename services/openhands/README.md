@@ -109,7 +109,7 @@ against the gateway. The count updates as profiles link to the connection.
 For `litellm_proxy/` models the backend also fetches per-model capability
 metadata from `{base_url}/v1/model/info` (context window, token limits).
 This repo's gateway requires client keys to carry the discovery routes in
-`allowed_routes` (see `services/litellm/AGENTS.md`); without them the
+`allowed_routes` (see `archived/litellm/AGENTS.md`); without them the
 model still runs but its metadata lookup silently returns nothing. Grant
 them (master key required):
 

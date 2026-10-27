@@ -122,6 +122,20 @@ bind-mount paths, so the proxy config cannot ride in the stack definition
   operator-protected files (Omni config + keys, provider config, Pocket ID
   encryption key, CA bundle) stay on the host.
 
+## Native etcd backups (runtime state, not compose)
+
+Omni's managed-cluster etcd backup backend is S3 by default in v1.12.2
+(neither `etcdBackup.s3Enabled` nor `localPath` set => S3), so no
+`omni-config.yaml` change or Omni restart is involved. The endpoint, bucket
+and keys are an `EtcdBackupS3Configs` resource in Omni's etcd, entered in
+Settings → Backup Storage — never this stack, `omni-config.yaml` or Git. The
+read/write Garage key comes from `mise run garage:omni-etcd:host`
+(home-prod); the per-cluster interval is
+`features.backupConfiguration.interval` in
+`home-prod/omni/cluster-template.yaml`. Omni never deletes backups; Garage
+lifecycle expiration is the retention mechanism. Procedure:
+`home-prod/docs/management-stack.md` → Backups and recovery.
+
 ## Pocket ID (v2.x)
 
 v2 renamed the v0.53.x env names — do not copy environment from the older

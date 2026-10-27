@@ -2,7 +2,7 @@
 a collection of primarily docker-compose stacks for use with various portainer hosts
 
 ## Hardware
-- GPU: RTX PRO 5000 Blackwell 72GB | RAM: 96GB | CPU: Ryzen 5700X
+- GPU: RTX PRO 5000 Blackwell 72GB | RAM: 128GB (~125GB usable; llama-swap MOE pod limits 115Gi, up to ~117Gi) | CPU: Ryzen 5700X
 
 ## General Context
 1. I am using the Portainer Community Edition
