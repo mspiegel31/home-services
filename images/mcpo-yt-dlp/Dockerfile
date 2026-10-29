@@ -13,17 +13,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # image's venv at /app/.venv (VIRTUAL_ENV is already set in the base).
 # curl-cffi enables yt-dlp's TLS impersonation ("impersonate target");
 # without it YouTube 429s subtitle downloads from this network (2026-10-12).
-RUN uv pip install yt-dlp curl-cffi
+# yt-dlp is pinned so YouTube extractor fixes arrive as reviewable bumps,
+# not as whatever PyPI served on the day of an unrelated rebuild.
+RUN uv pip install yt-dlp==2026.10.26 curl-cffi
 
-# yt-dlp-mcp pinned + patched. Upstream's subtitle module requests manual
-# subs (--write-subs) before auto-subs; YouTube 429s the manual-subtitle
-# endpoint from this network and yt-dlp aborts the whole call even when
-# auto-captions are available (verified 2026-10-12). Dropping the manual
-# flag keeps transcripts working via auto-captions for every video.
-# Pinned so the sed cannot silently miss on an @latest upgrade.
+# yt-dlp-mcp pinned + patched (subtitle-orig-captions.patch):
+# - drops --write-subs from transcripts: YouTube 429s the manual-subtitle
+#   endpoint from this network and yt-dlp aborts the whole call (2026-10-12);
+# - requests `<lang>-orig` before `<lang>`: on videos with several ASR tracks
+#   yt-dlp maps a bare 'en' to a machine translation (timedtext tlang=), which
+#   YouTube 429s far harder than the original track (2026-10-29).
+# Pinned so `git apply` fails the build instead of drifting on an upgrade.
+COPY subtitle-orig-captions.patch /tmp/
 RUN npm install -g @kevinwatt/yt-dlp-mcp@0.10.0 \
-    && sed -i "s/'--write-subs',//" "$(npm root -g)/@kevinwatt/yt-dlp-mcp/lib/modules/subtitle.js" \
-    && ! grep -q -- "'--write-subs'" "$(npm root -g)/@kevinwatt/yt-dlp-mcp/lib/modules/subtitle.js"
+    && cd "$(npm root -g)/@kevinwatt/yt-dlp-mcp" \
+    && git apply /tmp/subtitle-orig-captions.patch \
+    && rm /tmp/subtitle-orig-captions.patch
 
 # yt-dlp-mcp validates that its downloads directory exists at startup
 RUN mkdir -p /root/Downloads
