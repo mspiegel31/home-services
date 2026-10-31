@@ -11,12 +11,12 @@
 # image byte-identical until the pin is bumped deliberately. Upstream
 # publishes since 0.2.1 as ghcr.io/niko1221/strata:<ver>-<flavor>.
 #
-# 0.2.7-cuda13's BUILD.json (read from the image): archs 75/86/89/120 +
+# 0.2.9-cuda13's BUILD.json (read from the image): archs 75/86/89/120 +
 # compute_120 PTX, vision cuda13.0, portable=true — the STRATA_PORTABLE=ON
 # AVX2 baseline our self-compiled builds passed, so the Ryzen 5700X box
 # (AVX2, no AVX-512) is covered by the published engine, not by a local
 # compile. sm_120 covers the RTX PRO 5000 Blackwell card.
-FROM ghcr.io/niko1221/strata:0.2.7-cuda13@sha256:db96cd9b111c930f7deb77444f38f66e53db43af57644a33a9e8a2f05f038360
+FROM ghcr.io/niko1221/strata:0.2.9-cuda13@sha256:83e37db8625c67b61c579fd7c0f9068f2d831037a937f139c569502b54290998
 
 # The lane run configs (hand-authored, and the setup.py-era configs already on
 # the model-more PVC) name paths from the 0.1.x layout that this image does
@@ -32,13 +32,11 @@ RUN set -e; \
     [ -f /opt/strata/terminal/data/expert-profile.bin ]; \
     ln -sfn /opt/strata/terminal/data /opt/strata/data
 
-COPY metrics_exporter.py /opt/strata-exporter/metrics_exporter.py
 COPY merge_args.py /opt/strata-exporter/merge_args.py
-COPY hugepage_preflight.py /opt/strata-exporter/hugepage_preflight.py
 COPY entrypoint.sh /opt/strata-exporter/entrypoint.sh
 RUN chmod 0755 /opt/strata-exporter/entrypoint.sh
 
 VOLUME ["/data"]
-EXPOSE 8080 8000
+EXPOSE 8080
 
 ENTRYPOINT ["/opt/strata-exporter/entrypoint.sh"]

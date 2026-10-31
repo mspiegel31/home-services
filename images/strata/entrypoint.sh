@@ -33,11 +33,6 @@ if [ -r "$cpuinfo" ] && grep -q '^flags' "$cpuinfo" && ! grep -m1 '^flags' "$cpu
   say "  with 'illegal instruction' (exit 132)."
 fi
 
-# Q5-lane guard (STRATA_REQUIRED_HUGEPAGES unset: no-op)
-"$PY" "$EXPORTER/hugepage_preflight.py"
-# Prometheus exporter on :8000 wrapping the engine's /metrics on :8080
-"$PY" "$EXPORTER/metrics_exporter.py" &
-
 # Which run config this lane serves. CONFIG wins; otherwise the config the
 # setup pass recorded for FAMILY/MODEL on the volume (qwen carries no prefix,
 # the tag is the lowercased model name — /data/config/strata-<tag>.json).

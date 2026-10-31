@@ -30,8 +30,7 @@ class EntrypointTests(unittest.TestCase):
 
         (self.app / "terminal/python/bin/python3").write_text("#!/bin/sh\nprintf 'py %s\\n' \"$*\"\n")
         (self.app / "terminal/bin/strata").write_text("#!/bin/sh\nprintf 'strata %s\\n' \"$*\"\n")
-        for stub in ("hugepage_preflight.py", "metrics_exporter.py", "merge_args.py"):
-            (self.exporter / stub).write_text("# stub\n")
+        (self.exporter / "merge_args.py").write_text("# stub\n")
         for script in (self.app / "terminal/python/bin/python3", self.app / "terminal/bin/strata"):
             script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
