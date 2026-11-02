@@ -98,6 +98,12 @@ def set_arg(args, flag, value):
 def merge(path, env):
     with open(path) as f:
         cfg = json.load(f)
+    if cfg.get("arch") == "deepseek41":
+        # strata-dsv41 is its own engine: it exits on any option it does not
+        # know (--prompt-cache, --vram-reserve-mib, --ple-io), parks
+        # conversations itself (ds4-slots) and serves one request at a time.
+        print(f"[strata] {path} is a DeepSeek-V4.1 config: served as written", flush=True)
+        return
     args = cfg.setdefault("args", [])
     have = set(args)
     added = []
