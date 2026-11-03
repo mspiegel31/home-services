@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Strata: Qwen3.8-Flash-Next lanes on NVIDIA GPUs (https://github.com/Niko1221/Strata).
 #
 # A thin layer over upstream's published image: the Terminal (bundled CPython
@@ -32,28 +31,6 @@ RUN set -e; \
     ln -sfn "$pkg" /opt/strata/engine; \
     [ -f /opt/strata/terminal/data/expert-profile.bin ]; \
     ln -sfn /opt/strata/terminal/data /opt/strata/data
-
-# DeepSeek-V4.1-Flash runs on its own engine, strata-dsv41, which upstream
-# ships as a separate signed package (setup.py fetches it from the update
-# feed at install time; the published image does not carry it). The lane pods
-# have no writable /opt and must not reach out at start, so the release's
-# package is baked in here: 0.1.55 is the DeepSeek engine published with
-# v0.2.9 (c62d5e3), linux-x86_64 cuda13 with sm_86/89/120 + PTX 120 and an
-# AVX2 baseline (BUILD.json portable=true). install_package is upstream's own
-# check (signature by a trusted key, every file's SHA-256, entrypoint and
-# platform). The run configs name the stable /opt/strata/engine-dsv41/current
-# path, so a package bump needs no config rewrite.
-ADD --checksum=sha256:8eed51bf333bc3bc381bc3cc4daa7dbca51d612647732e6f2a63c63be4c66124 \
-    https://github.com/Niko1221/Strata/releases/download/v0.2.9/strata-dsv41-0.1.55-linux-x86_64-cuda-cuda13.tar.gz \
-    /tmp/strata-dsv41.tar.gz
-RUN set -e; \
-    cd /opt/strata/terminal; \
-    /opt/strata/terminal/python/bin/python3 -c "import sys; from pathlib import Path; from strata_control import dsv41_engine as d; exe = d.install_package(Path('/opt/strata/engine-dsv41'), '/tmp/strata-dsv41.tar.gz'); sys.exit(exe is None)"; \
-    rm -f /tmp/strata-dsv41.tar.gz; \
-    set -- /opt/strata/engine-dsv41/*/; \
-    [ $# -eq 1 ] || { echo "expected exactly one DeepSeek engine package, got $#"; exit 1; }; \
-    ln -sfn "$1" /opt/strata/engine-dsv41/current; \
-    [ -x /opt/strata/engine-dsv41/current/strata-dsv41 ]
 
 COPY merge_args.py /opt/strata-exporter/merge_args.py
 COPY entrypoint.sh /opt/strata-exporter/entrypoint.sh
