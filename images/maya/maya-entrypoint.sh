@@ -75,6 +75,6 @@ if parallel:
 json.dump(cfg, open(path, "w"), indent=1)
 PYEOF
 
-set -- --engine strata --config "$cfg" --host "$HOST" --port "$PORT"
+set -- --engine maya --config "$cfg" --host "$HOST" --port "$PORT"
 if [ -n "$API_KEY" ]; then set -- "$@" --api-key "$API_KEY"; fi
 exec .venv/bin/python serve/server.py "$@"

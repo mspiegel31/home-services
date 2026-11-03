@@ -28,8 +28,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
-# v1.1.0: --parallel, DFlash2 drafting, EXL3 quants — the first release the Maya-M lane ships with.
-ARG MAYA_REF=7b1b33fc93a4cc4dadf2ed3006622142fad264ca
+# v1.1.51: KV streaming, MAYA_GLM_PREFILL_CPU_GATE, the program renames strata -> maya (v1.1.16).
+ARG MAYA_REF=3a47bbe8883f61ed4724d4b43f9dd46f7703a733
 
 WORKDIR /opt/maya
 RUN git init -q . \
@@ -70,10 +70,10 @@ RUN python3 /opt/vision/glm5next_patch.py /opt/llama.cpp \
         -S /opt/vision -B /opt/build-vision -DCMAKE_BUILD_TYPE=Release \
         -DLLAMA_DIR=/opt/llama.cpp -DSTRATA_VISION_CUDA=ON -DSTRATA_PORTABLE=ON \
         -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHITECTURES}" \
-        -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
-    && (/opt/tc/bin/cmake --build /opt/build-vision --target strata-vision -j "${BUILD_JOBS}" \
+        -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc -DCUDAToolkit_ROOT=/usr/local/cuda \
+    && (/opt/tc/bin/cmake --build /opt/build-vision --target maya-vision -j "${BUILD_JOBS}" \
         || { echo "  (the build stopped - trying it once more)"; \
-             /opt/tc/bin/cmake --build /opt/build-vision --target strata-vision -j "${BUILD_JOBS}"; })
+             /opt/tc/bin/cmake --build /opt/build-vision --target maya-vision -j "${BUILD_JOBS}"; })
 
 FROM nvidia/cuda:${CUDA_TAG} AS builder
 
@@ -135,18 +135,19 @@ conf = [cmake, "-G", "Ninja", f"-DCMAKE_MAKE_PROGRAM={ninja}",
         "-S", str(S.ROOT), "-B", str(S.ROOT / "build"), "-DCMAKE_BUILD_TYPE=Release",
         "-DSTRATA_ENABLE_CUDA=ON", f"-DCMAKE_CUDA_ARCHITECTURES={arch}",
         "-DSTRATA_NATIVE_EXPERTS=ON", "-DSTRATA_BUILD_TESTS=OFF", "-DSTRATA_PORTABLE=ON",
-        f"-DCMAKE_CUDA_COMPILER={nvcc}", f"-DSTRATA_GGML_DIR={llama}"]
+        f"-DCMAKE_CUDA_COMPILER={nvcc}", *M.toolkit_root_defs(nvcc), f"-DSTRATA_GGML_DIR={llama}"]
 subprocess.run(conf, check=True)
-subprocess.run([cmake, "--build", str(S.ROOT / "build"), "--target", "strata", "-j", jobs], check=True)
+subprocess.run([cmake, "--build", str(S.ROOT / "build"), "--target", "maya", "-j", jobs], check=True)
 
 M.STAMP.write_text(json.dumps({
     "src": S.source_hash(S.ENGINE_SOURCES),
     "archs": [int(a) for a in arch.split(";") if a.split("-")[0].isdigit()],
     "gpu_ids": [0], "nvcc": nvcc, "host_compiler": None, "llama": str(llama),
-    "lib_dirs": M.cuda_lib_dirs(nvcc), "date": time.strftime("%Y-%m-%d %H:%M")}, indent=1))
+    "lib_dirs": M.cuda_lib_dirs(nvcc), "date": time.strftime("%Y-%m-%d %H:%M"),
+    "targets": ["maya"]}, indent=1))
 PYEOF
 
-COPY --from=vision /opt/build-vision/bin/strata-vision /opt/maya/build-vision/bin/strata-vision
+COPY --from=vision /opt/build-vision/bin/maya-vision /opt/maya/build-vision/bin/maya-vision
 
 RUN .venv/bin/python - <<'PYEOF'
 import json, os, time
@@ -157,7 +158,7 @@ M.VSTAMP.write_text(json.dumps({
     "src": S.source_hash(("tools/vision",)),
     "archs": [int(a) for a in os.environ.get("CUDA_ARCHITECTURES", "120").split(";")
               if a.split("-")[0].isdigit()],
-    "llama": str(S.ROOT / "third_party" / "llama.cpp"),
+    "llama": str(S.ROOT / "third_party" / "llama.cpp"), "backend": None,
     "date": time.strftime("%Y-%m-%d %H:%M")}, indent=1))
 PYEOF
 
