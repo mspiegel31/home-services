@@ -19,9 +19,10 @@
 #   /mnt/tank/container-configs/observability/{grafana,victoriametrics,loki,tempo}
 #
 # TrueNAS port sanity: 3000/8428/4317/4318/3101/3201 free at deploy time.
-# 3100 is Paperclip and 3200 is OpenHands on this host -> Loki publishes
-# 3101, Tempo's HTTP API 3201 (container ports unchanged; Grafana/Alloy
-# reach them via docker DNS on the observability network).
+# 3100 was Paperclip and 3200 was OpenHands on this host (both stacks now
+# under archived/) -> Loki publishes 3101, Tempo's HTTP API 3201 (container
+# ports unchanged; Grafana/Alloy reach them via docker DNS on the
+# observability network).
 
 name: observability
 

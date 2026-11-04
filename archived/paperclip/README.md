@@ -120,7 +120,7 @@ unchanged.
 
 ## Local install (work/home workstation)
 
-From `services/paperclip/` with a filled `.env`:
+From `archived/paperclip/` with a filled `.env`:
 
 ```sh
 docker compose --env-file .env config --quiet
@@ -179,7 +179,7 @@ specific prerequisite rather than weakening the parent dataset.
 
 Portainer stack `paperclip` on the `truenas` environment, repository
 `https://github.com/mspiegel31/home-services`, ref `refs/heads/main`, compose
-path `services/paperclip/docker-compose.yml`, with this `Env` array
+path `archived/paperclip/docker-compose.yml`, with this `Env` array
 (secrets freshly generated per the table above — never copied from a local
 qualification instance):
 

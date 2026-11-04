@@ -139,7 +139,7 @@ mkdir -p "$HOME/.local/share/openhands/state" "$HOME/.local/share/openhands/proj
 sudo chown -R 10001:10001 "$HOME/.local/share/openhands"
 ```
 
-From `services/openhands/` with a filled `.env` (`chmod 600 .env`):
+From `archived/openhands/` with a filled `.env` (`chmod 600 .env`):
 
 ```sh
 docker compose --env-file .env config --quiet
@@ -172,7 +172,7 @@ docker run --rm \
 
 Portainer stack `openhands` on the `truenas` environment, repository
 `https://github.com/mspiegel31/home-services`, ref `refs/heads/main`,
-compose path `services/openhands/docker-compose.yml`, with this `Env`
+compose path `archived/openhands/docker-compose.yml`, with this `Env`
 array:
 
 ```dotenv
