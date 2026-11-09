@@ -21,7 +21,7 @@ RUN apt-get update \
 
 RUN python3 -m venv /opt/ft \
     && /opt/ft/bin/pip install --no-cache-dir -U pip uv \
-    && /opt/ft/bin/uv pip install --python /opt/ft/bin/python "freetoken[accel]==0.2.0" \
+    && /opt/ft/bin/uv pip install --python /opt/ft/bin/python "freetoken[accel]==0.2.2" \
     && /opt/ft/bin/ft --version
 
 RUN /opt/ft/bin/ft serve --help
