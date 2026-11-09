@@ -16,8 +16,8 @@
 #
 # Env: MODEL (a maya.py MODELS key: Maya-M, Maya-S-v2-IQ2_XXS, Maya-S24, Maya-L, ...), CONTEXT,
 # GPU, HOST, PORT, PARALLEL, NO_VISION (1 = text only), API_KEY. CONTEXT and PARALLEL are
-# re-applied to an installed config on every start (env wins, the way images/strata's
-# merge_args.py treats its env), so retuning them is a Portainer env change + restart; every
+# re-applied to an installed config on every start (env wins over the installed
+# config), so retuning them is a Portainer env change + restart; every
 # other setting is fixed at first boot — delete /data/config/maya-<model>.json to re-run setup.
 # Engine knobs (STRATA_GLM_KV_INT8, STRATA_GLM_SEQ_CTX, STRATA_GLM_SLOT_KEEP, ...) need no
 # wiring: server.py's child_env hands the container's os.environ to the engine.

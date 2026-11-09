@@ -1,6 +1,6 @@
 # Project Maya: GLM-5.3-Flash (321B MoE) on NVIDIA GPUs (https://github.com/mw00/project-maya).
 #
-# Same four-stage shape as images/strata: src checks the pinned revision out, vision builds the
+# Four stages: src checks the pinned revision out, vision builds the
 # image encoder against llama.cpp, builder compiles the engine, runtime ships both. The engine
 # compile is maya.py's compile_engine command line and the encoder is compile_vision's, kept in
 # separate stages because the encoder links all of llama.cpp (~16 of the ~20 min cold compile) and
@@ -10,8 +10,7 @@
 # STRATA_PORTABLE=ON on both compiles, a deviation from upstream's command lines (compile_engine
 # omits it: it assumes it builds on the machine it will run on). Upstream's CMakeLists FORCEs
 # GGML_NATIVE ON without it, the GHA pool mixes AVX-512 and AVX2 hosts, and a native-built binary
-# SIGILLs in ggml_cpu_init on AVX2-only CPUs — images/strata's 6f32ec0.1 incident, same trap here
-# (this fleet's Ryzen 5700X).
+# SIGILLs in ggml_cpu_init on AVX2-only CPUs (this fleet's Ryzen 5700X).
 #
 # The runtime flavor carries cuda-nvcc + g++ although nothing compiles at run time: the first
 # boot's `maya.py --setup` pass runs check_pc, which hard-fails without them. The steady-state
@@ -87,7 +86,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /opt/maya
 COPY --from=src /opt/maya/ /opt/maya/
 
-# RTX 50 (120) only, as images/strata: one arch is the fastest build and the runtime picks the
+# RTX 50 (120) only: one arch is the fastest build and the runtime picks the
 # matching cubin. BUILD_JOBS=4 keeps the 4-vCPU runner inside its 16 GB (nvcc ~2-4 GB per job);
 # keep identical to the :buildcache values so local builds reuse CI's layers.
 ARG CUDA_ARCHITECTURES=120
