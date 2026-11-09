@@ -62,12 +62,10 @@ jobs:
               'llama-swap-vllm': { platforms: 'linux/amd64' },
               // PyPI wheels are manylinux x86_64 only.
               'freetoken': { platforms: 'linux/amd64' },
-              // CUDA devel base is tens of GB and the engine compile step is 25
-              // of a 27 min build; the engine targets x86-64 AVX2.
-              'strata': { platforms: 'linux/amd64', ...registryCache('strata') },
-              // Same multi-GB CUDA compile as strata (engine + patched-mtmd
-              // encoder), x86-64 AVX2 target; needs the registry cache for
-              // the same reason.
+              // Multi-GB CUDA compile (engine + patched-mtmd encoder) on a tens
+              // of GB CUDA devel base, x86-64 AVX2 target; the compile layers
+              // are too big for the repo's 10 GB GHA cache, so they go to a
+              // :buildcache tag in ghcr.
               'maya': { platforms: 'linux/amd64', ...registryCache('maya') },
               // The official signal-cli native release asset is x86_64 only.
               'signal-cli': { platforms: 'linux/amd64' },
