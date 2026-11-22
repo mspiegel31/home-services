@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# yt-dlp + curl-cffi: the binary that @kevinwatt/yt-dlp-mcp invokes for
+# yt-dlp + curl-cffi: the binary that yt-dlp-mcp invokes for
 # downloads, transcripts, and metadata extraction. Installed into the base
 # image's venv at /app/.venv (VIRTUAL_ENV is already set in the base).
 # curl-cffi enables yt-dlp's TLS impersonation ("impersonate target");
@@ -17,18 +17,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # not as whatever PyPI served on the day of an unrelated rebuild.
 RUN uv pip install yt-dlp==2026.10.26 curl-cffi
 
-# yt-dlp-mcp pinned + patched (subtitle-orig-captions.patch):
-# - drops --write-subs from transcripts: YouTube 429s the manual-subtitle
-#   endpoint from this network and yt-dlp aborts the whole call (2026-10-12);
-# - requests `<lang>-orig` before `<lang>`: on videos with several ASR tracks
-#   yt-dlp maps a bare 'en' to a machine translation (timedtext tlang=), which
-#   YouTube 429s far harder than the original track (2026-10-29).
-# Pinned so `git apply` fails the build instead of drifting on an upgrade.
-COPY subtitle-orig-captions.patch /tmp/
-RUN npm install -g @kevinwatt/yt-dlp-mcp@0.10.0 \
-    && cd "$(npm root -g)/@kevinwatt/yt-dlp-mcp" \
-    && git apply /tmp/subtitle-orig-captions.patch \
-    && rm /tmp/subtitle-orig-captions.patch
+# yt-dlp-mcp built from the `home` branch of homebernetes/yt-dlp-mcp, a fork
+# of @kevinwatt/yt-dlp-mcp 0.10.2 carrying:
+# - timestamped transcripts (`timestamps: true`) and `offset` pagination for
+#   the caption tools, plus YTDLP_MAX_TRANSCRIPT_LENGTH / YTDLP_CHARACTER_LIMIT
+#   (upstream PR kevinwatt/yt-dlp-mcp#34); upstream truncates subtitles at
+#   25,000 characters with no way to fetch the rest (~3 min of auto VTT);
+# - fork-only: `<lang>-orig` before `<lang>` (yt-dlp maps a bare 'en' to a
+#   machine translation that YouTube 429s, 2026-10-29) and no --write-subs in
+#   transcripts (YouTube 429s the manual-subtitle endpoint, 2026-10-12).
+# Pinned to a commit; once #34 ships, return to the npm release and keep only
+# the fork-only commit.
+ARG YT_DLP_MCP_REPO=https://github.com/homebernetes/yt-dlp-mcp.git
+ARG YT_DLP_MCP_COMMIT=a98fdc8dcb87e50510bbf82d8f528ede89b69ac1
+RUN git init -q /tmp/yt-dlp-mcp \
+    && cd /tmp/yt-dlp-mcp \
+    && git fetch -q --depth 1 "$YT_DLP_MCP_REPO" "$YT_DLP_MCP_COMMIT" \
+    && git checkout -q FETCH_HEAD \
+    && npm ci --no-audit --no-fund \
+    && npm pack --silent \
+    && npm install -g --no-audit --no-fund ./kevinwatt-yt-dlp-mcp-*.tgz \
+    && cd / && rm -rf /tmp/yt-dlp-mcp
 
 # yt-dlp-mcp validates that its downloads directory exists at startup
 RUN mkdir -p /root/Downloads
