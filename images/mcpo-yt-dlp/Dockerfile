@@ -25,11 +25,13 @@ RUN uv pip install yt-dlp==2026.10.26 curl-cffi
 #   25,000 characters with no way to fetch the rest (~3 min of auto VTT);
 # - fork-only: `<lang>-orig` before `<lang>` (yt-dlp maps a bare 'en' to a
 #   machine translation that YouTube 429s, 2026-10-29) and no --write-subs in
-#   transcripts (YouTube 429s the manual-subtitle endpoint, 2026-10-12).
+#   transcripts (YouTube 429s the manual-subtitle endpoint, 2026-10-12);
+# - fork-only: hidden like counts no longer 500 the metadata summary (yt-dlp
+#   reports like_count: null, not a missing key; 2026-11-25).
 # Pinned to a commit; once #34 ships, return to the npm release and keep only
-# the fork-only commit.
+# the fork-only commits.
 ARG YT_DLP_MCP_REPO=https://github.com/homebernetes/yt-dlp-mcp.git
-ARG YT_DLP_MCP_COMMIT=a98fdc8dcb87e50510bbf82d8f528ede89b69ac1
+ARG YT_DLP_MCP_COMMIT=f00f3a3fe268338f0a7cd97bb3858b614c548cf2
 RUN git init -q /tmp/yt-dlp-mcp \
     && cd /tmp/yt-dlp-mcp \
     && git fetch -q --depth 1 "$YT_DLP_MCP_REPO" "$YT_DLP_MCP_COMMIT" \
