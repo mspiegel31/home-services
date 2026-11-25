@@ -3,6 +3,11 @@
 # This layer adds the system dependencies that yt-dlp-mcp shells out to.
 FROM ghcr.io/open-webui/mcpo:main
 
+# The base switched to USER mcpo (uid 1000) by 2026-11-25; apt, the venv
+# under /app and global npm installs are root-owned, so build as root and
+# drop back to mcpo at the end.
+USER root
+
 # ffmpeg: required by yt-dlp for merging separate audio/video streams
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
@@ -41,8 +46,11 @@ RUN git init -q /tmp/yt-dlp-mcp \
     && npm install -g --no-audit --no-fund ./kevinwatt-yt-dlp-mcp-*.tgz \
     && cd / && rm -rf /tmp/yt-dlp-mcp
 
-# yt-dlp-mcp validates that its downloads directory exists at startup
-RUN mkdir -p /root/Downloads
+# yt-dlp-mcp validates that its downloads directory (~/Downloads) exists at
+# startup; it must belong to the runtime user.
+RUN install -d -o mcpo -g mcpo /home/mcpo/Downloads
 
 # Verify all dependencies are reachable
 RUN yt-dlp --version && ffmpeg -version | head -1
+
+USER mcpo
