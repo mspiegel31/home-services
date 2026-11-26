@@ -70,25 +70,12 @@ http:
       entryPoints:
         - websecure
       service: garage-webui-svc
-      middlewares:
-        - garage-webui-auth
+      # No basicAuth: the UI's admin-token login is the gate, and a Basic
+      # challenge would collide with its Authorization header.
       tls:
         certResolver: mgmt
         domains:
           - main: '*.{{ env "MGMT_DOMAIN" }}'
-
-  middlewares:
-    # The webui container runs open: this is the only gate. bcrypt hash of
-    # a 24-char random password (committed hash is a verifier, not a
-    # credential; the password lives in BWS `GARAGE_WEBUI_PASSWORD`).
-    # Portainer stack env CANNOT carry bcrypt hashes — its interpolation
-    # mangles `$` segments — so the hash lives here, templated verbatim
-    # (no template braces in this string: `$` is literal to Go templates).
-    garage-webui-auth:
-      basicAuth:
-        removeHeader: true
-        users:
-          - 'garage:$2y$10$tblMSfD5wg9g792NXVALC.nCHefEcCg.LWVwbBQex/SxvDaB4CEkO'
 
   services:
     omni-svc:
@@ -115,7 +102,7 @@ http:
     garage-webui-svc:
       loadBalancer:
         servers:
-          - url: http://127.0.0.1:3909
+          - url: http://127.0.0.1:3903
 
   # The k8s-proxy listener is always TLS with a self-signed certificate, so
   # verification is skipped. Accepted because the hop is loopback-only
